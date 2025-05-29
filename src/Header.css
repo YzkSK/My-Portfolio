@@ -11,6 +11,10 @@
     align-items: center;
     box-sizing: border-box;
     font-size: 24px;
+    z-index: 1000;
+    font-family: honoka-maru-gothic, sans-serif;
+    font-style: normal;
+    font-weight: 400;
 }
 
 a {
