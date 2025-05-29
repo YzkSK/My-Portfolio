@@ -5,7 +5,8 @@ export const Btn = ({h, img, c, name}: any) => {
         return (
         <div className={c}>
             <div className='btn-container'>
-                <a href={h} className='btn'>{name}</a>
+                <a href={h} className='btn'></a>
+                <p className='btn-text'>{name}</p>
             </div>
         </div>
         );
@@ -14,7 +15,8 @@ export const Btn = ({h, img, c, name}: any) => {
         <div className={c}>
             <div className='btn-container'>
                 <img src={img} className='btn-img' />
-                <a href={h} className='btn'>{name}</a>
+                <a href={h} className='btn'></a>
+                <p className='btn-text'>{name}</p>
             </div>
         </div>
         );
