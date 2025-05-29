@@ -1,5 +1,8 @@
 import { Header } from './Header'
 import { Btn } from './Components/btn'
+import Profile from './img/Profile.jpg'
+import githubIcon from './img/mark-github-24.svg'
+import xIcon from './img/logo-black.png'
 
 import './App.css'
 
@@ -13,7 +16,7 @@ export const App = () => {
       <div className="container">
         <h1 id="Profile" className="Profile-title">Profile</h1>
         <div className='Profile'>
-          <img src="./src/img/Profile.jpg" alt="Profile" className='Profile-image' />
+          <img src={Profile} alt="Profile" className='Profile-image' />
           <div className="Profile-Text">
             <h1 className='Profile-Name'>{title}</h1>
             <p>主にKotlin/Swiftなどのモバイルアプリケーション開発を行ってる端くれです。
@@ -21,8 +24,8 @@ export const App = () => {
               最近はFlutterやReactにも手を出しはじめました。
             </p>
             <div className="test">
-              <Btn h="" c='btn-child' img="./src/img/mark-github-24.svg" name="GitHub" />
-              <Btn h="" c='btn-child' img="./src/img/logo-black.png" name="X" />
+              <Btn h="" c='btn-child' img={githubIcon} name="GitHub" />
+              <Btn h="" c='btn-child' img={xIcon} name="X" />
               <Btn h="" c='btn-child' name="LINE" />
             </div>
           </div>
