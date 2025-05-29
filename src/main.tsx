@@ -5,7 +5,9 @@ import { App } from './App'
 import { Test } from './Test'
 import { BrowserRouter, Route, Routes } from 'react-router-dom';
 
-createRoot(document.getElementById('root')!).render(
+const root = document.getElementById('root');
+
+createRoot(root!).render(
   <StrictMode>
     <BrowserRouter>
       <Routes>
