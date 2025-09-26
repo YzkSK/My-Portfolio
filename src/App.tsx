@@ -1,66 +1,35 @@
-import { Header } from './Header'
-import { Btn } from './Components/btn'
-import Profile from './img/Profile.jpg'
-import githubIcon from './img/mark-github-24.svg'
-import xIcon from './img/logo-black.png'
-
+import { useState } from 'react'
+import reactLogo from './assets/react.svg'
+import viteLogo from '/vite.svg'
 import './App.css'
 
-
-export const App = () => {
-  const title : String = '佐藤 康樹';
+function App() {
+  const [count, setCount] = useState(0)
 
   return (
-    <div className="App">
-      <Header />
-      <div className="container">
-        <h1 id="Profile" className="Profile-title">Profile</h1>
-        <div className='Profile'>
-          <img src={Profile} alt="Profile" className='Profile-image' />
-          <div className="Profile-Text">
-            <h1 className='Profile-Name'>{title}</h1>
-            <p>主にKotlin/Swiftなどのモバイルアプリケーション開発を行ってる端くれです。
-              <br />
-              最近はFlutterやReactにも手を出しはじめました。
-            </p>
-            <div className="test">
-              <Btn h="" c='btn-child' img={githubIcon} name="GitHub" />
-              <Btn h="" c='btn-child' img={xIcon} name="X" />
-              <Btn h="" c='btn-child' name="LINE" />
-            </div>
-          </div>
-        </div>
-
-        <div className='Academic-Career'>
-          <div id='Academic' className='Academic'>
-            <h1 className='Academic-title'>学歴</h1>
-            <ul className='Academic-list'>
-              <li className='Academic-item'>
-                <p className='Academic-time'>2024年3月</p>
-                <p className='Academic-text'>角川ドワンゴ学園N高等学校 卒業</p>
-              </li>
-              <li className='Academic-item'>
-                <p className='Academic-time'>2024年4月 〜 現在</p>
-                <p className='Academic-text'>武蔵野大学 在学中</p>
-              </li>
-            </ul>
-          </div>
-          <div id='Career' className='Career'>
-            <h1 className='Career-title'>職歴</h1>
-            <ul className='Career-list'>
-              <li className='Career-item'>
-                <p className='Career-time'>2024年6月 〜 現在</p>
-                <p className='Career-text'>プログラミング教室 HALLO</p>
-              </li>
-            </ul>
-          </div>
-        </div>
-        <div className='Skill'>
-          <h1 className='Skill-title'>Skill</h1>
-          <div className='Skill-list'>
-          </div>
-        </div>
+    <>
+      <div>
+        <a href="https://vite.dev" target="_blank">
+          <img src={viteLogo} className="logo" alt="Vite logo" />
+        </a>
+        <a href="https://react.dev" target="_blank">
+          <img src={reactLogo} className="logo react" alt="React logo" />
+        </a>
       </div>
-    </div>
+      <h1>Vite + React</h1>
+      <div className="card">
+        <button onClick={() => setCount((count) => count + 1)}>
+          count is {count}
+        </button>
+        <p>
+          Edit <code>src/App.tsx</code> and save to test HMR
+        </p>
+      </div>
+      <p className="read-the-docs">
+        Click on the Vite and React logos to learn more
+      </p>
+    </>
   )
 }
+
+export default App
