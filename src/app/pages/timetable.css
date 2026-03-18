@@ -1,0 +1,110 @@
+.tt-page {
+  min-height: 100vh;
+  background: #f8f9fa;
+  color: #1a1a1a;
+  font-family: 'Hiragino Kaku Gothic ProN', 'Noto Sans JP', sans-serif;
+  padding: 20px 14px 48px;
+}
+
+.tt-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.tt-controls {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.tt-notify {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 10px;
+  padding: 7px 11px;
+}
+
+.tt-notify-options {
+  display: flex;
+  gap: 3px;
+}
+
+.tt-nav {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.tt-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+.tt-modal {
+  background: #fff;
+  border-radius: 16px;
+  padding: 24px 20px;
+  width: 100%;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
+}
+
+.tt-modal-event {
+  max-width: 320px;
+}
+
+.tt-modal-settings {
+  max-width: 420px;
+  max-height: 85vh;
+  overflow-y: auto;
+}
+
+@media (max-width: 600px) {
+  .tt-page {
+    padding: 14px 10px 48px;
+  }
+
+  .tt-header {
+    gap: 8px;
+  }
+
+  .tt-controls {
+    width: 100%;
+    justify-content: flex-end;
+  }
+
+  .tt-notify {
+    flex: 1;
+    min-width: 0;
+    flex-wrap: wrap;
+    gap: 5px;
+    padding: 6px 8px;
+  }
+
+  .tt-notify-options {
+    display: none;
+  }
+
+  .tt-nav {
+    gap: 6px;
+  }
+
+  .tt-modal {
+    padding: 18px 14px;
+    border-radius: 12px;
+  }
+}

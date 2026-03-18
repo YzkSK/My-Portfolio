@@ -6,7 +6,7 @@ export const App = () => {
   const title : String = '佐藤 康樹';
 
   return (
-    <div className="App">
+    <div className="App portfolio-content">
       <Header />
       <h1>{title}</h1>
       <ul>
