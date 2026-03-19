@@ -11,7 +11,7 @@ function getDevice(): string {
 }
 
 export const AppFooter = () => (
-  <footer style={{ textAlign: 'center', padding: '24px 16px 16px', fontSize: 11, color: '#555', borderTop: '1px solid #2e2e2e', marginTop: 'auto' }}>
+  <footer style={{ textAlign: 'center', padding: '24px 16px 16px', fontSize: 11, color: '#555', borderTop: '1px solid #2e2e2e', marginTop: '3rem' }}>
     {getDevice()} &nbsp;·&nbsp; v{APP_VERSION}
   </footer>
 );
