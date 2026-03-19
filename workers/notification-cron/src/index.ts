@@ -155,7 +155,6 @@ async function sendFcm(
       body: JSON.stringify({
         message: {
           token: fcmToken,
-          data: { title, body },
           apns: {
             payload: {
               aps: {
@@ -163,6 +162,9 @@ async function sendFcm(
                 badge: 1,
               },
             },
+          },
+          webpush: {
+            notification: { title, body, icon: '/vite.svg' },
           },
         },
       }),
