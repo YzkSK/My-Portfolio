@@ -208,6 +208,7 @@ export const Timetable = () => {
             vapidKey: import.meta.env.VITE_FIREBASE_VAPID_KEY,
             serviceWorkerRegistration: sw,
           });
+          console.log('FCM Token:', token);
           await savePushToken(token);
         } catch (e) {
           console.error('FCMトークン取得失敗:', e);
