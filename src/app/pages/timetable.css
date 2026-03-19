@@ -73,6 +73,11 @@
   max-width: 280px;
 }
 
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
 @media (max-width: 600px) {
   .tt-page { padding: 14px 10px 48px; }
   .tt-header { gap: 8px; }

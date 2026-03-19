@@ -8,7 +8,7 @@ import './App.css'
 
 
 export const App = () => {
-  const title : String = '佐藤 康樹';
+  const title: string = '佐藤 康樹';
 
   return (
     <div className="App">

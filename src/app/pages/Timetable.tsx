@@ -1,11 +1,10 @@
-import { useState, useEffect, useRef, useCallback, Fragment } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo, Fragment } from 'react';
 import { doc, getDoc, setDoc, deleteDoc } from 'firebase/firestore';
 import { getToken, deleteToken, onMessage } from 'firebase/messaging';
-import { db, messaging } from '../firebase';
+import { signOut } from 'firebase/auth';
+import { db, messaging, auth } from '../firebase';
 import { useAuth } from '../AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { signOut } from 'firebase/auth';
-import { auth } from '../firebase';
 import './timetable.css';
 import { AppFooter } from '../AppFooter';
 
@@ -86,13 +85,28 @@ const timeToMin = (hhmm: string) => {
   return h * 60 + m;
 };
 
+const isSameDay = (a: Date, b: Date) => toKey(a) === toKey(b);
+
+// ── スタイル定数 ────────────────────────────────────────
+const underlineInput: React.CSSProperties = {
+  width: '100%', boxSizing: 'border-box',
+  background: 'transparent', border: 'none',
+  borderBottom: '2px solid #1a1a1a',
+  padding: '8px 2px', color: '#1a1a1a', fontSize: 14, outline: 'none',
+};
+
+const getToday = () => {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  return d;
+};
+
 // ── コンポーネント ──────────────────────────────────────────
 export const Timetable = () => {
   const { currentUser } = useAuth();
   const navigate = useNavigate();
 
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  const today = useMemo(getToday, []);
 
   const [view, setView] = useState<'month' | 'week' | 'day'>('week');
   const [cursor, setCursor] = useState(new Date(today));
@@ -168,11 +182,11 @@ export const Timetable = () => {
   }, [currentUser]);
 
   // ── Toast ───────────────────────────────────────────────
-  const addToast = (msg: string) => {
+  const addToast = useCallback((msg: string) => {
     const id = Date.now() + Math.random();
     setToasts(t => [...t, { id, msg }]);
     setTimeout(() => setToasts(t => t.filter(x => x.id !== id)), 3500);
-  };
+  }, []);
 
   // ── 通知 ────────────────────────────────────────────────
   const requestPermission = async () => {
@@ -325,7 +339,7 @@ export const Timetable = () => {
   };
 
   // ── ナビゲーション ───────────────────────────────────────
-  const navigate2 = (dir: number) => {
+  const navigateView = (dir: number) => {
     const d = new Date(cursor);
     if (view === 'month') d.setMonth(d.getMonth() + dir);
     else if (view === 'week') d.setDate(d.getDate() + dir * 7);
@@ -343,16 +357,6 @@ export const Timetable = () => {
       return `${ws.getMonth() + 1}/${ws.getDate()} 〜 ${we.getMonth() + 1}/${we.getDate()}`;
     }
     return `${cursor.getMonth() + 1}月${cursor.getDate()}日（${DAY_LABELS[cursor.getDay()]}）`;
-  };
-
-  const isToday = (date: Date) => toKey(date) === toKey(today);
-
-  // ── スタイル定数 ────────────────────────────────────────
-  const underlineInput: React.CSSProperties = {
-    width: '100%', boxSizing: 'border-box',
-    background: 'transparent', border: 'none',
-    borderBottom: '2px solid #1a1a1a',
-    padding: '8px 2px', color: '#1a1a1a', fontSize: 14, outline: 'none',
   };
 
   // ── 月ビュー ─────────────────────────────────────────────
@@ -377,7 +381,7 @@ export const Timetable = () => {
             if (!date) return <div key={`empty-${i}`} />;
             const key = toKey(date);
             const dayEvents = events[key] || [];
-            const isTod = isToday(date);
+            const isTod = isSameDay(date, today);
             const isSun = date.getDay() === 0;
             const isSat = date.getDay() === 6;
             return (
@@ -417,7 +421,7 @@ export const Timetable = () => {
         <div style={{ display: 'grid', gridTemplateColumns: '60px repeat(7, 1fr)', gap: 3, minWidth: 480 }}>
           <div />
           {weekDays.map((date, i) => {
-            const isTod = isToday(date);
+            const isTod = isSameDay(date, today);
             return (
               <div key={i} onClick={() => { setCursor(new Date(date)); setView('day'); }}
                 style={{ textAlign: 'center', padding: '6px 2px', borderRadius: 8, cursor: 'pointer', background: isTod ? '#1a1a1a' : '#f0f0f0' }}>
@@ -436,7 +440,7 @@ export const Timetable = () => {
               {weekDays.map((date, di) => {
                 const key = toKey(date);
                 const ev = (events[key] || []).find(e => e.pi === pi);
-                const isTod = isToday(date);
+                const isTod = isSameDay(date, today);
                 const c = ev ? COLORS[ev.colorIdx ?? 0] : null;
                 return (
                   <div key={`${key}-${pi}-${di}`}
@@ -465,7 +469,7 @@ export const Timetable = () => {
   const renderDay = () => {
     const key = toKey(cursor);
     const dayEvs = events[key] || [];
-    const isTod = isToday(cursor);
+    const isTod = isSameDay(cursor, today);
 
     return (
       <div style={{ maxWidth: 480, margin: '0 auto' }}>
@@ -550,9 +554,9 @@ export const Timetable = () => {
 
         {/* ナビゲーション */}
         <div className="tt-nav">
-          <button onClick={() => navigate2(-1)} style={{ background: '#fff', border: '1px solid #e0e0e0', borderRadius: 8, width: 30, height: 30, cursor: 'pointer', fontSize: 14, color: '#1a1a1a', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>&lt;</button>
+          <button onClick={() => navigateView(-1)} style={{ background: '#fff', border: '1px solid #e0e0e0', borderRadius: 8, width: 30, height: 30, cursor: 'pointer', fontSize: 14, color: '#1a1a1a', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>&lt;</button>
           <span style={{ fontSize: 15, fontWeight: 800, minWidth: 140, color: '#1a1a1a' }}>{getTitle()}</span>
-          <button onClick={() => navigate2(1)} style={{ background: '#fff', border: '1px solid #e0e0e0', borderRadius: 8, width: 30, height: 30, cursor: 'pointer', fontSize: 14, color: '#1a1a1a', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>&gt;</button>
+          <button onClick={() => navigateView(1)} style={{ background: '#fff', border: '1px solid #e0e0e0', borderRadius: 8, width: 30, height: 30, cursor: 'pointer', fontSize: 14, color: '#1a1a1a', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>&gt;</button>
           <button onClick={goToday} style={{ marginLeft: 4, background: '#fff', border: '1px solid #e0e0e0', borderRadius: 8, padding: '5px 12px', fontSize: 12, fontWeight: 700, color: '#555', cursor: 'pointer' }}>今日</button>
         </div>
 
@@ -662,7 +666,6 @@ export const Timetable = () => {
         </div>
       )}
 
-      <style>{`@keyframes fadeUp { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }`}</style>
       <AppFooter />
     </div>
   );

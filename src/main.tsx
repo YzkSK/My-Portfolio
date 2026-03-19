@@ -2,7 +2,7 @@ import { StrictMode, lazy, Suspense, useEffect } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
 import { App } from './App'
-import { Test } from './Test.tsx'
+import { Test } from './Test'
 import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import { AuthProvider } from './app/AuthContext';
 import { ProtectedRoute } from './app/ProtectedRoute';
