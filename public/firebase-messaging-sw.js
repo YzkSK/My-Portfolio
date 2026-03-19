@@ -14,9 +14,10 @@ firebase.initializeApp({
 const messaging = firebase.messaging();
 
 messaging.onBackgroundMessage((payload) => {
-  const { title, body } = payload.notification ?? {};
-  self.registration.showNotification(title ?? '時間割', {
-    body: body ?? '',
+  const title = payload.data?.title ?? '時間割';
+  const body = payload.data?.body ?? '';
+  self.registration.showNotification(title, {
+    body,
     icon: '/vite.svg',
   });
 });
