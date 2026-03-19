@@ -1,0 +1,190 @@
+/* App-specific styles — isolated from portfolio */
+
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+/* Login */
+
+.app-login {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #111;
+}
+
+.app-login-card {
+  background: #1a1a1a;
+  padding: 2.5rem;
+  border-radius: 8px;
+  border: 1px solid #2e2e2e;
+  width: 100%;
+  max-width: 360px;
+}
+
+.app-login-card h2 {
+  margin: 0 0 2rem;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #fff;
+  letter-spacing: 0.05em;
+  text-align: center;
+}
+
+.app-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.app-form input {
+  padding: 0.7rem 1rem;
+  background: #111;
+  border: 1px solid #333;
+  border-radius: 4px;
+  font-size: 0.95rem;
+  color: #e0e0e0;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.app-form input::placeholder {
+  color: #555;
+}
+
+.app-form input:focus {
+  border-color: #888;
+}
+
+.app-form button {
+  margin-top: 0.25rem;
+  padding: 0.7rem;
+  background: #fff;
+  color: #111;
+  border: none;
+  border-radius: 4px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.app-form button:hover {
+  background: #ddd;
+}
+
+.app-error {
+  color: #f87171;
+  font-size: 0.82rem;
+  margin: 0 0 0.75rem;
+  text-align: center;
+}
+
+.app-toggle {
+  text-align: center;
+  font-size: 0.82rem;
+  color: #666;
+  margin-top: 1.25rem;
+}
+
+.app-toggle button {
+  background: none;
+  border: none;
+  color: #aaa;
+  cursor: pointer;
+  margin-left: 0.3rem;
+  font-size: 0.82rem;
+  text-decoration: underline;
+  transition: color 0.15s;
+}
+
+.app-toggle button:hover {
+  color: #fff;
+}
+
+/* Dashboard */
+
+.app-dashboard {
+  min-height: 100vh;
+  background: #111;
+  color: #e0e0e0;
+}
+
+.app-header {
+  background: #1a1a1a;
+  padding: 1rem 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid #2e2e2e;
+}
+
+.app-header h1 {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #fff;
+  letter-spacing: 0.05em;
+}
+
+.app-user-info {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  font-size: 0.85rem;
+  color: #666;
+}
+
+.app-logout-btn {
+  padding: 0.35rem 0.9rem;
+  background: transparent;
+  color: #aaa;
+  border: 1px solid #333;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.82rem;
+  transition: all 0.15s;
+}
+
+.app-logout-btn:hover {
+  background: #fff;
+  color: #111;
+  border-color: #fff;
+}
+
+.app-main {
+  padding: 2rem;
+}
+
+.app-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 1rem;
+}
+
+.app-card {
+  display: block;
+  background: #1a1a1a;
+  border: 1px solid #2e2e2e;
+  border-radius: 8px;
+  padding: 1.5rem;
+  text-decoration: none;
+  transition: border-color 0.15s;
+}
+
+.app-card:hover {
+  border-color: #555;
+}
+
+.app-card-label {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #fff;
+  margin-bottom: 0.4rem;
+}
+
+.app-card-desc {
+  font-size: 0.8rem;
+  color: #666;
+}
