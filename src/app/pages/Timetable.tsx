@@ -100,7 +100,11 @@ export const Timetable = () => {
   const [form, setForm] = useState<Form>({ name: '', room: '', colorIdx: 0 });
   const [isEditing, setIsEditing] = useState(false);
   const [notifyBefore, setNotifyBefore] = useState(10);
-  const [notifyEnabled, setNotifyEnabled] = useState(false);
+  const [notifyEnabled, setNotifyEnabled] = useState(() => {
+    const saved = localStorage.getItem('notifyEnabled') === 'true';
+    const perm = typeof Notification !== 'undefined' ? Notification.permission : 'default';
+    return saved && perm === 'granted';
+  });
   const [permission, setPermission] = useState<NotificationPermission>(
     typeof Notification !== 'undefined' ? Notification.permission : 'default'
   );
@@ -167,10 +171,16 @@ export const Timetable = () => {
   const toggleNotify = async () => {
     if (!notifyEnabled) {
       const granted = permission === 'granted' || await requestPermission();
-      if (granted) { setNotifyEnabled(true); addToast('通知をオンにしました'); }
-      else addToast('通知が許可されませんでした');
+      if (granted) {
+        setNotifyEnabled(true);
+        localStorage.setItem('notifyEnabled', 'true');
+        addToast('通知をオンにしました');
+      } else {
+        addToast('通知が許可されませんでした');
+      }
     } else {
       setNotifyEnabled(false);
+      localStorage.setItem('notifyEnabled', 'false');
       Object.values(scheduledRef.current).forEach(clearTimeout);
       scheduledRef.current = {};
       addToast('通知をオフにしました');
