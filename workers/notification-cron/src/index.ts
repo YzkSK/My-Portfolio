@@ -1,3 +1,5 @@
+/// <reference types="@cloudflare/workers-types" />
+
 export interface Env {
   GOOGLE_SERVICE_ACCOUNT: string; // Service account JSON (Cloudflare Secret)
   FIREBASE_PROJECT_ID: string;
@@ -155,7 +157,6 @@ async function sendFcm(
       body: JSON.stringify({
         message: {
           token: fcmToken,
-          data: { title, body },
           apns: {
             payload: {
               aps: {
@@ -163,6 +164,9 @@ async function sendFcm(
                 badge: 1,
               },
             },
+          },
+          webpush: {
+            notification: { title, body, icon: '/vite.svg' },
           },
         },
       }),
