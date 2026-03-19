@@ -179,10 +179,12 @@ function timeToMin(hhmm: string): number {
   return h * 60 + m;
 }
 
+function jstNow(): Date {
+  return new Date(Date.now() + 9 * 60 * 60 * 1000);
+}
+
 function todayKey(): string {
-  const now = new Date();
-  // JST (UTC+9)
-  const jst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
+  const jst = jstNow();
   const y = jst.getUTCFullYear();
   const m = String(jst.getUTCMonth() + 1).padStart(2, '0');
   const d = String(jst.getUTCDate()).padStart(2, '0');
@@ -190,8 +192,7 @@ function todayKey(): string {
 }
 
 function nowMinJst(): number {
-  const now = new Date();
-  const jst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
+  const jst = jstNow();
   return jst.getUTCHours() * 60 + jst.getUTCMinutes();
 }
 

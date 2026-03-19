@@ -131,6 +131,11 @@ export const Timetable = () => {
   const scheduledRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  const clearScheduled = useCallback(() => {
+    Object.values(scheduledRef.current).forEach(clearTimeout);
+    scheduledRef.current = {};
+  }, []);
+
   // ── Service Worker 登録 ─────────────────────────────────
   useEffect(() => {
     if ('serviceWorker' in navigator) {
@@ -234,8 +239,7 @@ export const Timetable = () => {
     } else {
       setNotifyEnabled(false);
       localStorage.setItem('notifyEnabled', 'false');
-      Object.values(scheduledRef.current).forEach(clearTimeout);
-      scheduledRef.current = {};
+      clearScheduled();
       await deleteToken(messaging);
       await removePushToken();
       addToast('通知をオフにしました');
@@ -255,8 +259,7 @@ export const Timetable = () => {
   }, [permission]);
 
   useEffect(() => {
-    Object.values(scheduledRef.current).forEach(clearTimeout);
-    scheduledRef.current = {};
+    clearScheduled();
     if (!notifyEnabled || permission !== 'granted') return;
     const todayKey = toKey(today);
     const todayEvents = events[todayKey] || [];
@@ -271,11 +274,8 @@ export const Timetable = () => {
         addToast(`🔔 ${p.label}「${ev.name}」まであと${notifyBefore}分`);
       }, diffMs);
     });
-    return () => {
-      Object.values(scheduledRef.current).forEach(clearTimeout);
-      scheduledRef.current = {};
-    };
-  }, [notifyEnabled, notifyBefore, events, periods, permission]);
+    return clearScheduled;
+  }, [notifyEnabled, notifyBefore, events, periods, permission, clearScheduled]);
 
   // ── イベント操作 ─────────────────────────────────────────
   const openAdd = (dateKey: string, pi: number) => {
