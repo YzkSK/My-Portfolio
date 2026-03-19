@@ -156,6 +156,14 @@ async function sendFcm(
         message: {
           token: fcmToken,
           data: { title, body },
+          apns: {
+            payload: {
+              aps: {
+                alert: { title, body },
+                badge: 1,
+              },
+            },
+          },
         },
       }),
     },

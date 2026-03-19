@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, Fragment } from 'react';
 import { doc, getDoc, setDoc, deleteDoc } from 'firebase/firestore';
-import { getToken, deleteToken } from 'firebase/messaging';
+import { getToken, deleteToken, onMessage } from 'firebase/messaging';
 import { db, messaging } from '../firebase';
 import { useAuth } from '../AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -231,6 +231,18 @@ export const Timetable = () => {
       addToast('通知をオフにしました');
     }
   };
+
+  // フォアグラウンド時の FCM メッセージ受信
+  useEffect(() => {
+    const unsub = onMessage(messaging, (payload) => {
+      const title = payload.data?.title ?? '時間割';
+      const body = payload.data?.body ?? '';
+      if (permission === 'granted') {
+        new Notification(title, { body, icon: '/vite.svg' });
+      }
+    });
+    return unsub;
+  }, [permission]);
 
   useEffect(() => {
     Object.values(scheduledRef.current).forEach(clearTimeout);
