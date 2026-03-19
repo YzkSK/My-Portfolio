@@ -93,18 +93,24 @@ async function firestoreGet(
   return await resp.json() as Record<string, unknown>;
 }
 
-async function firestoreList(
+// push サブコレクション内の全トークンドキュメントを collectionGroup で取得
+async function firestoreQueryPushTokens(
   projectId: string,
   token: string,
-  collection: string,
 ): Promise<Record<string, unknown>[]> {
-  const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/${collection}`;
+  const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents:runQuery`;
   const resp = await fetch(url, {
-    headers: { Authorization: `Bearer ${token}` },
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      structuredQuery: {
+        from: [{ collectionId: 'push', allDescendants: true }],
+      },
+    }),
   });
   if (!resp.ok) return [];
-  const data = await resp.json() as { documents?: Record<string, unknown>[] };
-  return data.documents ?? [];
+  const results = await resp.json() as { document?: Record<string, unknown> }[];
+  return results.flatMap(r => r.document ? [r.document] : []);
 }
 
 // Firestore の値フィールドを JS の値に変換
@@ -190,17 +196,16 @@ export default {
     const dateKey = todayKey();
     const nowMin = nowMinJst();
 
-    // 全ユーザーを取得
-    const userDocs = await firestoreList(projectId, accessToken, 'users');
+    // push サブコレクションを collectionGroup で直接取得
+    const pushDocs = await firestoreQueryPushTokens(projectId, accessToken);
 
-    for (const userDoc of userDocs) {
-      // user ID をパスから取得
-      const name = userDoc.name as string;
-      const uid = name.split('/').pop()!;
+    for (const pushDoc of pushDocs) {
+      // users/{uid}/push/token のパスから uid を取得
+      const name = pushDoc.name as string;
+      const segments = name.split('/');
+      const uid = segments[segments.indexOf('users') + 1];
+      if (!uid) continue;
 
-      // push token を取得
-      const pushDoc = await firestoreGet(projectId, accessToken, `users/${uid}/push/token`);
-      if (!pushDoc) continue;
       const push = parseDoc(pushDoc);
       const fcmToken = push.token as string;
       const notifyBefore = (push.notifyBefore as number) ?? 10;
@@ -218,8 +223,7 @@ export default {
         if (!period) continue;
 
         const notifyAt = timeToMin(period.start) - notifyBefore;
-        // 現在時刻が notifyAt と一致（±1分以内）
-        if (Math.abs(nowMin - notifyAt) <= 1) {
+        if (nowMin === notifyAt) {
           const body = `${period.label} ${ev.name}${ev.room ? `（${ev.room}）` : ''} ${period.start}〜`;
           await sendFcm(projectId, accessToken, fcmToken, `${notifyBefore}分後に授業があります`, body);
         }

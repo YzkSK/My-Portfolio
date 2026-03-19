@@ -246,11 +246,6 @@ export const Timetable = () => {
       const diffMs = (timeToMin(p.start) - notifyBefore - nowMin) * 60000 - now.getSeconds() * 1000;
       if (diffMs <= 0) return;
       scheduledRef.current[`today-${idx}`] = setTimeout(() => {
-        try {
-          new Notification(`${notifyBefore}分後に授業があります`, {
-            body: `${p.label} ${ev.name}${ev.room ? '（' + ev.room + '）' : ''} ${p.start}〜`,
-          });
-        } catch (_) {}
         addToast(`🔔 ${p.label}「${ev.name}」まであと${notifyBefore}分`);
       }, diffMs);
     });
