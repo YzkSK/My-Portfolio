@@ -7,6 +7,7 @@ import { useNavigate } from 'react-router-dom';
 import { signOut } from 'firebase/auth';
 import { auth } from '../firebase';
 import './timetable.css';
+import { AppFooter } from '../AppFooter';
 
 // ── 型定義 ──────────────────────────────────────────────────
 type TimetableEvent = {
@@ -659,6 +660,7 @@ export const Timetable = () => {
       )}
 
       <style>{`@keyframes fadeUp { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }`}</style>
+      <AppFooter />
     </div>
   );
 };
