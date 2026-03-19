@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { auth } from '../firebase';
 import { useAuth } from '../AuthContext';
 import '../app.css';
+import { AppFooter } from '../AppFooter';
 
 const APPS = [
   { to: '/app/timetable', label: '時間割', description: '授業・時間割の管理' },
@@ -36,6 +37,7 @@ export const Dashboard = () => {
           ))}
         </div>
       </main>
+      <AppFooter />
     </div>
   );
 };
