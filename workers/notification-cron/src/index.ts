@@ -155,7 +155,7 @@ async function sendFcm(
       body: JSON.stringify({
         message: {
           token: fcmToken,
-          notification: { title, body },
+          data: { title, body },
         },
       }),
     },
