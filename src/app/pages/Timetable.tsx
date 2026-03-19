@@ -105,6 +105,7 @@ export const Timetable = () => {
     typeof Notification !== 'undefined' ? Notification.permission : 'default'
   );
   const [toasts, setToasts] = useState<{ id: number; msg: string }[]>([]);
+  const [showNotifyPicker, setShowNotifyPicker] = useState(false);
   const [settingsPeriods, setSettingsPeriods] = useState<Period[]>(DEFAULT_PERIODS);
   const [loading, setLoading] = useState(true);
   const scheduledRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
@@ -470,10 +471,8 @@ export const Timetable = () => {
               <div onClick={toggleNotify} style={{ width: 38, height: 20, borderRadius: 10, cursor: 'pointer', background: notifyEnabled ? '#1a1a1a' : '#ccc', position: 'relative', transition: 'background 0.2s', flexShrink: 0 }}>
                 <div style={{ position: 'absolute', top: 2, left: notifyEnabled ? 20 : 2, width: 16, height: 16, borderRadius: '50%', background: '#fff', transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)' }} />
               </div>
-              <div className="tt-notify-options">
-                {NOTIFY_OPTIONS.map(o => (
-                  <div key={o.value} onClick={() => setNotifyBefore(o.value)} style={{ padding: '2px 6px', borderRadius: 5, cursor: 'pointer', fontSize: 10, fontWeight: 600, background: notifyBefore === o.value ? '#1a1a1a' : '#f0f0f0', color: notifyBefore === o.value ? '#fff' : '#666', transition: 'all 0.15s' }}>{o.label}</div>
-                ))}
+              <div onClick={() => setShowNotifyPicker(true)} style={{ padding: '3px 9px', borderRadius: 6, cursor: 'pointer', fontSize: 11, fontWeight: 700, background: '#f0f0f0', color: '#444', userSelect: 'none' }}>
+                {notifyBefore}分前
               </div>
             </div>
             <button onClick={openSettings} style={{ background: '#fff', border: '1px solid #e0e0e0', borderRadius: 10, padding: '8px 12px', fontSize: 12, fontWeight: 700, color: '#555', cursor: 'pointer' }}>⚙️ 時間設定</button>
@@ -579,6 +578,20 @@ export const Timetable = () => {
               <button onClick={() => setModal(null)} style={{ flex: 1, padding: 10, background: '#f0f0f0', border: 'none', borderRadius: 8, color: '#666', fontWeight: 700, fontSize: 13, cursor: 'pointer', whiteSpace: 'nowrap' }}>キャンセル</button>
               <button onClick={saveEvent} style={{ flex: 2, padding: 10, background: '#1a1a1a', border: 'none', borderRadius: 8, color: '#fff', fontWeight: 800, fontSize: 14, cursor: 'pointer', whiteSpace: 'nowrap' }}>保存</button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {showNotifyPicker && (
+        <div className="tt-modal-overlay" onClick={() => setShowNotifyPicker(false)}>
+          <div className="tt-modal tt-modal-notify" onClick={e => e.stopPropagation()}>
+            <div style={{ fontSize: 15, fontWeight: 800, marginBottom: 16, color: '#1a1a1a' }}>通知タイミング</div>
+            {NOTIFY_OPTIONS.map(o => (
+              <div key={o.value} onClick={() => { setNotifyBefore(o.value); setShowNotifyPicker(false); }}
+                style={{ padding: '13px 16px', borderRadius: 10, cursor: 'pointer', fontSize: 14, fontWeight: 600, background: notifyBefore === o.value ? '#1a1a1a' : '#f5f5f5', color: notifyBefore === o.value ? '#fff' : '#333', marginBottom: 6, transition: 'all 0.15s' }}>
+                {o.label}
+              </div>
+            ))}
           </div>
         </div>
       )}
