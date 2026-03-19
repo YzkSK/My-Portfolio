@@ -222,12 +222,8 @@ export const Timetable = () => {
       localStorage.setItem('notifyEnabled', 'false');
       Object.values(scheduledRef.current).forEach(clearTimeout);
       scheduledRef.current = {};
-      try {
-        await deleteToken(messaging);
-        await removePushToken();
-      } catch (e) {
-        console.error('FCMトークン削除失敗:', e);
-      }
+      await deleteToken(messaging);
+      await removePushToken();
       addToast('通知をオフにしました');
     }
   };
