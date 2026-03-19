@@ -231,8 +231,8 @@ export const Timetable = () => {
   // フォアグラウンド時の FCM メッセージ受信
   useEffect(() => {
     const unsub = onMessage(messaging, (payload) => {
-      const title = payload.notification?.title ?? '時間割';
-      const body = payload.notification?.body ?? '';
+      const title = payload.data?.title ?? payload.notification?.title ?? '時間割';
+      const body = payload.data?.body ?? payload.notification?.body ?? '';
       if (permission === 'granted') {
         new Notification(title, { body, icon: '/vite.svg' });
       }
