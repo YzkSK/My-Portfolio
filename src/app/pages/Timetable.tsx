@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback, Fragment } from 'react';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
-import { db } from '../firebase';
+import { doc, getDoc, setDoc, deleteDoc } from 'firebase/firestore';
+import { getToken, deleteToken } from 'firebase/messaging';
+import { db, messaging } from '../firebase';
 import { useAuth } from '../AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { signOut } from 'firebase/auth';
@@ -115,6 +116,21 @@ export const Timetable = () => {
   const scheduledRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // ── Service Worker 登録 ─────────────────────────────────
+  useEffect(() => {
+    if ('serviceWorker' in navigator) {
+      const params = new URLSearchParams({
+        apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+        authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+        projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+        storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+        messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+        appId: import.meta.env.VITE_FIREBASE_APP_ID,
+      });
+      navigator.serviceWorker.register(`/firebase-messaging-sw.js?${params}`).catch(console.error);
+    }
+  }, []);
+
   // ── Firestore 読み込み ──────────────────────────────────
   useEffect(() => {
     if (!currentUser) return;
@@ -168,12 +184,35 @@ export const Timetable = () => {
     return r === 'granted';
   };
 
+  const savePushToken = async (token: string) => {
+    if (!currentUser) return;
+    const ref = doc(db, 'users', currentUser.uid, 'push', 'token');
+    await setDoc(ref, { token, notifyBefore });
+  };
+
+  const removePushToken = async () => {
+    if (!currentUser) return;
+    const ref = doc(db, 'users', currentUser.uid, 'push', 'token');
+    await deleteDoc(ref);
+  };
+
   const toggleNotify = async () => {
     if (!notifyEnabled) {
       const granted = permission === 'granted' || await requestPermission();
       if (granted) {
         setNotifyEnabled(true);
         localStorage.setItem('notifyEnabled', 'true');
+        try {
+          const sw = await navigator.serviceWorker.ready;
+          const token = await getToken(messaging, {
+            vapidKey: import.meta.env.VITE_FIREBASE_VAPID_KEY,
+            serviceWorkerRegistration: sw,
+          });
+          console.log('FCM Token:', token);
+          await savePushToken(token);
+        } catch (e) {
+          console.error('FCMトークン取得失敗:', e);
+        }
         addToast('通知をオンにしました');
       } else {
         addToast('通知が許可されませんでした');
@@ -183,6 +222,12 @@ export const Timetable = () => {
       localStorage.setItem('notifyEnabled', 'false');
       Object.values(scheduledRef.current).forEach(clearTimeout);
       scheduledRef.current = {};
+      try {
+        await deleteToken(messaging);
+        await removePushToken();
+      } catch (e) {
+        console.error('FCMトークン削除失敗:', e);
+      }
       addToast('通知をオフにしました');
     }
   };
