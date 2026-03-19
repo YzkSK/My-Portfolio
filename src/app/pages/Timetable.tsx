@@ -641,7 +641,15 @@ export const Timetable = () => {
           <div className="tt-modal tt-modal-notify" onClick={e => e.stopPropagation()}>
             <div style={{ fontSize: 15, fontWeight: 800, marginBottom: 16, color: '#1a1a1a' }}>通知タイミング</div>
             {NOTIFY_OPTIONS.map(o => (
-              <div key={o.value} onClick={() => { setNotifyBefore(o.value); setShowNotifyPicker(false); }}
+              <div key={o.value} onClick={async () => {
+                setNotifyBefore(o.value);
+                setShowNotifyPicker(false);
+                saveToFirestore(events, periods, o.value);
+                if (notifyEnabled && currentUser) {
+                  const ref = doc(db, 'users', currentUser.uid, 'push', 'token');
+                  await setDoc(ref, { notifyBefore: o.value }, { merge: true });
+                }
+              }}
                 style={{ padding: '13px 16px', borderRadius: 10, cursor: 'pointer', fontSize: 14, fontWeight: 600, background: notifyBefore === o.value ? '#1a1a1a' : '#f5f5f5', color: notifyBefore === o.value ? '#fff' : '#333', marginBottom: 6, transition: 'all 0.15s' }}>
                 {o.label}
               </div>
