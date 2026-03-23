@@ -101,6 +101,8 @@ export const Timetable = () => {
   const [periods, setPeriods] = useState<Period[]>(DEFAULT_PERIODS);
   const [modal, setModal] = useState<Modal>(null);
   const [form, setForm] = useState<Form>({ name: '', room: '', note: '', colorIdx: 0 });
+  const [formError, setFormError] = useState('');
+  const [settingsError, setSettingsError] = useState('');
   const [isEditing, setIsEditing] = useState(false);
   const [notifyBefore, setNotifyBefore] = useState(10);
   const [notifyEnabled, setNotifyEnabled] = useState(() => {
@@ -267,6 +269,7 @@ export const Timetable = () => {
   // ── イベント操作 ─────────────────────────────────────────
   const openAdd = (dateKey: string, pi: number) => {
     setIsEditing(false);
+    setFormError('');
     setForm({ name: '', room: '', note: '', colorIdx: 0 });
     setModal({ type: 'event', dateKey, pi });
   };
@@ -275,12 +278,14 @@ export const Timetable = () => {
     const ev = (events[dateKey] || []).find(e => e.pi === pi && e._idx === idx);
     if (!ev) return;
     setIsEditing(true);
+    setFormError('');
     setForm({ name: ev.name, room: ev.room || '', note: ev.note || '', colorIdx: ev.colorIdx ?? 0 });
     setModal({ type: 'event', dateKey, pi, idx });
   };
 
   const saveEvent = () => {
-    if (!form.name.trim()) { setModal(null); return; }
+    if (!form.name.trim()) { setFormError('科目名を入力してください'); return; }
+    setFormError('');
     const m = modal as EventModal;
     const { dateKey, pi, idx } = m;
     setEvents(prev => {
@@ -314,11 +319,27 @@ export const Timetable = () => {
   const openSettings = () => {
     const base = periods.length > 0 ? periods : DEFAULT_PERIODS;
     setSettingsPeriods(base.map(p => ({ ...p })));
+    setSettingsError('');
     setModal({ type: 'settings' });
   };
 
   const saveSettings = () => {
-    if (settingsPeriods.length === 0) return;
+    if (settingsPeriods.length === 0) { setSettingsError('時限を1つ以上追加してください'); return; }
+    for (const p of settingsPeriods) {
+      if (!p.label.trim()) { setSettingsError('時限名を入力してください'); return; }
+      if (!p.start || !p.end) { setSettingsError('開始・終了時刻を入力してください'); return; }
+      if (p.start >= p.end) { setSettingsError('開始時刻は終了時刻より前にしてください'); return; }
+    }
+    for (let i = 0; i < settingsPeriods.length; i++) {
+      for (let j = i + 1; j < settingsPeriods.length; j++) {
+        const a = settingsPeriods[i], b = settingsPeriods[j];
+        if (a.start < b.end && a.end > b.start) {
+          setSettingsError(`「${a.label}」と「${b.label}」の時間が重複しています`);
+          return;
+        }
+      }
+    }
+    setSettingsError('');
     setPeriods(settingsPeriods);
     saveToFirestore(events, settingsPeriods, notifyBefore);
     setModal(null);
@@ -569,6 +590,7 @@ export const Timetable = () => {
           <div className="tt-modal tt-modal-settings">
             <div style={{ fontSize: 17, fontWeight: 800, marginBottom: 4, color: '#1a1a1a' }}>時限・時間の設定</div>
             <div style={{ fontSize: 12, color: '#888', marginBottom: 18 }}>時限名と開始・終了時刻を自由に編集できます</div>
+            {settingsError && <div style={{ color: '#ef4444', fontSize: 12, marginBottom: 10, fontWeight: 600 }}>{settingsError}</div>}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12 }}>
               {settingsPeriods.map((p, i) => (
                 <div key={i} style={{ background: '#f8f9fa', border: '1px solid #e8e8e8', borderRadius: 10, padding: '12px 14px' }}>
@@ -591,7 +613,17 @@ export const Timetable = () => {
                 </div>
               ))}
             </div>
-            <button onClick={() => setSettingsPeriods(prev => [...prev, { label: `${prev.length + 1}限`, start: '09:00', end: '10:30' }])}
+            <button onClick={() => setSettingsPeriods(prev => {
+                const addMin = (t: string, m: number) => {
+                  const [h, mi] = t.split(':').map(Number);
+                  const total = h * 60 + mi + m;
+                  return `${String(Math.floor(total / 60) % 24).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
+                };
+                const last = prev[prev.length - 1];
+                const start = last ? addMin(last.end, 0) : '09:00';
+                const end = last ? addMin(last.end, 60) : '10:30';
+                return [...prev, { label: `${prev.length + 1}限`, start, end }];
+              })}
               style={{ width: '100%', padding: 10, background: '#f8f9fa', border: '1.5px dashed #ccc', borderRadius: 8, color: '#555', fontWeight: 700, fontSize: 13, cursor: 'pointer', marginBottom: 16 }}>
               ＋ 時限を追加
             </button>
@@ -614,9 +646,10 @@ export const Timetable = () => {
               {periods[(modal as EventModal).pi]?.start} 〜 {periods[(modal as EventModal).pi]?.end}
             </div>
 
+            {formError && <div style={{ color: '#ef4444', fontSize: 12, marginBottom: 10, fontWeight: 600 }}>{formError}</div>}
             <div style={{ fontSize: 11, color: '#888', fontWeight: 600, marginBottom: 6 }}>科目名 / 授業名</div>
-            <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-              placeholder="例：微分積分、第一段階" autoFocus style={{ ...underlineInput, marginBottom: 18 }} />
+            <input value={form.name} onChange={e => { setForm(f => ({ ...f, name: e.target.value })); setFormError(''); }}
+              placeholder="例：微分積分、第一段階" autoFocus style={{ ...underlineInput, marginBottom: 18, borderBottomColor: formError && !form.name.trim() ? '#ef4444' : undefined }} />
 
             <div style={{ fontSize: 11, color: '#888', fontWeight: 600, marginBottom: 6 }}>教室 / 場所（任意）</div>
             <input value={form.room} onChange={e => setForm(f => ({ ...f, room: e.target.value }))}
