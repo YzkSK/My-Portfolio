@@ -14,6 +14,7 @@ type TimetableEvent = {
   pi: number;
   name: string;
   room: string;
+  note: string;
   colorIdx: number;
   _idx: number;
 };
@@ -30,7 +31,7 @@ type EventModal = { type: 'event'; dateKey: string; pi: number; idx?: number };
 type SettingsModal = { type: 'settings' };
 type Modal = EventModal | SettingsModal | null;
 
-type Form = { name: string; room: string; colorIdx: number };
+type Form = { name: string; room: string; note: string; colorIdx: number };
 
 // ── 定数 ────────────────────────────────────────────────────
 const DAY_LABELS = ['日', '月', '火', '水', '木', '金', '土'];
@@ -99,7 +100,7 @@ export const Timetable = () => {
   const [events, setEvents] = useState<Events>({});
   const [periods, setPeriods] = useState<Period[]>(DEFAULT_PERIODS);
   const [modal, setModal] = useState<Modal>(null);
-  const [form, setForm] = useState<Form>({ name: '', room: '', colorIdx: 0 });
+  const [form, setForm] = useState<Form>({ name: '', room: '', note: '', colorIdx: 0 });
   const [isEditing, setIsEditing] = useState(false);
   const [notifyBefore, setNotifyBefore] = useState(10);
   const [notifyEnabled, setNotifyEnabled] = useState(() => {
@@ -266,7 +267,7 @@ export const Timetable = () => {
   // ── イベント操作 ─────────────────────────────────────────
   const openAdd = (dateKey: string, pi: number) => {
     setIsEditing(false);
-    setForm({ name: '', room: '', colorIdx: 0 });
+    setForm({ name: '', room: '', note: '', colorIdx: 0 });
     setModal({ type: 'event', dateKey, pi });
   };
 
@@ -274,7 +275,7 @@ export const Timetable = () => {
     const ev = (events[dateKey] || []).find(e => e.pi === pi && e._idx === idx);
     if (!ev) return;
     setIsEditing(true);
-    setForm({ name: ev.name, room: ev.room || '', colorIdx: ev.colorIdx ?? 0 });
+    setForm({ name: ev.name, room: ev.room || '', note: ev.note || '', colorIdx: ev.colorIdx ?? 0 });
     setModal({ type: 'event', dateKey, pi, idx });
   };
 
@@ -289,7 +290,7 @@ export const Timetable = () => {
         : base.filter(e => e.pi !== pi);
       const newEv: TimetableEvent = {
         pi, name: form.name.trim(), room: form.room.trim(),
-        colorIdx: form.colorIdx, _idx: Date.now(),
+        note: form.note.trim(), colorIdx: form.colorIdx, _idx: Date.now(),
       };
       const next = { ...prev, [dateKey]: [...filtered, newEv].sort((a, b) => a.pi - b.pi) };
       saveToFirestore(next, periods, notifyBefore);
@@ -383,13 +384,13 @@ export const Timetable = () => {
             return (
               <div key={key}
                 onClick={() => { setCursor(new Date(date)); setView('day'); }}
-                style={{ height: 80, overflow: 'hidden', background: isTod ? '#1a1a1a' : '#fff', border: '1px solid #eee', borderRadius: 8, padding: '4px 5px', cursor: 'pointer', transition: 'background 0.1s' }}
+                style={{ minHeight: 64, background: isTod ? '#1a1a1a' : '#fff', border: '1px solid #eee', borderRadius: 8, padding: '4px 5px', cursor: 'pointer', transition: 'background 0.1s' }}
                 onMouseEnter={e => { if (!isTod) (e.currentTarget as HTMLDivElement).style.background = '#f5f5f5'; }}
                 onMouseLeave={e => { if (!isTod) (e.currentTarget as HTMLDivElement).style.background = '#fff'; }}
               >
                 <div style={{ fontSize: 12, fontWeight: 700, color: isTod ? '#fff' : isSun ? '#ef4444' : isSat ? '#3b82f6' : '#1a1a1a', marginBottom: 3 }}>{date.getDate()}</div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                  {dayEvents.slice(0, 2).map((ev, idx) => {
+                  {dayEvents.slice(0, 3).map((ev, idx) => {
                     const c = COLORS[ev.colorIdx ?? 0];
                     return (
                       <div key={idx} style={{ background: c.bg, color: c.text, borderRadius: 3, fontSize: 9, fontWeight: 700, padding: '1px 4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -397,7 +398,7 @@ export const Timetable = () => {
                       </div>
                     );
                   })}
-                  {dayEvents.length > 2 && <div style={{ fontSize: 9, color: isTod ? '#aaa' : '#999' }}>+{dayEvents.length - 2}</div>}
+                  {dayEvents.length > 3 && <div style={{ fontSize: 9, color: isTod ? '#aaa' : '#999' }}>+{dayEvents.length - 3}</div>}
                 </div>
               </div>
             );
@@ -620,6 +621,10 @@ export const Timetable = () => {
             <div style={{ fontSize: 11, color: '#888', fontWeight: 600, marginBottom: 6 }}>教室 / 場所（任意）</div>
             <input value={form.room} onChange={e => setForm(f => ({ ...f, room: e.target.value }))}
               placeholder="例：201講義室" style={{ ...underlineInput, marginBottom: 20 }} />
+
+            <div style={{ fontSize: 11, color: '#888', fontWeight: 600, marginBottom: 6 }}>備考（任意）</div>
+            <input value={form.note} onChange={e => setForm(f => ({ ...f, note: e.target.value }))}
+              placeholder="例：教科書持参" style={{ ...underlineInput, marginBottom: 20 }} />
 
             <div style={{ fontSize: 11, color: '#888', fontWeight: 600, marginBottom: 8 }}>色</div>
             <div style={{ display: 'flex', gap: 7, marginBottom: 24 }}>
