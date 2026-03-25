@@ -7,6 +7,7 @@ import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import { AuthProvider } from './app/auth/AuthContext';
 import { ProtectedRoute } from './app/auth/ProtectedRoute';
 import { AppIndex } from './app/shared/AppIndex';
+import { AppLoadingProvider } from './app/shared/AppLoadingContext';
 
 const Login = lazy(() => import('./app/auth/Login').then(m => ({ default: m.Login })));
 const Dashboard = lazy(() => import('./app/dashboard/Dashboard').then(m => ({ default: m.Dashboard })));
@@ -37,20 +38,22 @@ createRoot(root!).render(
         {/* App — Firebase only loads when /app/* is accessed */}
         <Route path="/app/*" element={
           <AppWrapper>
-            <AuthProvider>
-              <Suspense fallback={<div>Loading...</div>}>
-                <Routes>
-                  <Route path="" element={<AppIndex />} />
-                  <Route path="login" element={<Login />} />
-                  <Route path="dashboard" element={
-                    <ProtectedRoute><Dashboard /></ProtectedRoute>
-                  } />
-                  <Route path="timetable" element={
-                    <ProtectedRoute><Timetable /></ProtectedRoute>
-                  } />
-                </Routes>
-              </Suspense>
-            </AuthProvider>
+            <AppLoadingProvider initialKeys={['auth']}>
+              <AuthProvider>
+                <Suspense fallback={null}>
+                  <Routes>
+                    <Route path="" element={<AppIndex />} />
+                    <Route path="login" element={<Login />} />
+                    <Route path="dashboard" element={
+                      <ProtectedRoute><Dashboard /></ProtectedRoute>
+                    } />
+                    <Route path="timetable" element={
+                      <ProtectedRoute><Timetable /></ProtectedRoute>
+                    } />
+                  </Routes>
+                </Suspense>
+              </AuthProvider>
+            </AppLoadingProvider>
           </AppWrapper>
         } />
       </Routes>
