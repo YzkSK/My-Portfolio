@@ -1,5 +1,5 @@
 import { Header } from './Header'
-import { Btn } from './Components/btn'
+import { Btn } from './components/Btn'
 import Profile from './img/Profile.jpg'
 import githubIcon from './img/mark-github-24.svg'
 import xIcon from './img/logo-black.png'
@@ -8,8 +8,6 @@ import './App.css'
 
 
 export const App = () => {
-  const title : String = '佐藤 康樹';
-
   return (
     <div className="App">
       <Header />
@@ -18,7 +16,7 @@ export const App = () => {
         <div className='Profile'>
           <img src={Profile} alt="Profile" className='Profile-image' />
           <div className="Profile-Text">
-            <h1 className='Profile-Name'>{title}</h1>
+            <h1 className='Profile-Name'>佐藤 康樹</h1>
             <p>主にKotlin/Swiftなどのモバイルアプリケーション開発を行ってる端くれです。
               <br />
               最近はFlutterやReactにも手を出しはじめました。
@@ -57,8 +55,6 @@ export const App = () => {
         </div>
         <div className='Skill'>
           <h1 className='Skill-title'>Skill</h1>
-          <div className='Skill-list'>
-          </div>
         </div>
       </div>
     </div>

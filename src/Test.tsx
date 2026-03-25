@@ -1,12 +1,10 @@
-import { Header } from './Header'
+import { Header } from './portfolio/Header'
 
 export const Test = () => {
-    const title: string = 'Test Page';
-
     return (
         <div className="Test">
             <Header />
-            <h1>{title}</h1>
+            <h1>Test Page</h1>
         </div>
     );
 }

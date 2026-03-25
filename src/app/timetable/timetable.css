@@ -1,0 +1,242 @@
+.tt-page {
+  min-height: 100vh;
+  background: #f8f9fa;
+  color: #1a1a1a;
+  font-family: 'Hiragino Kaku Gothic ProN', 'Noto Sans JP', sans-serif;
+  padding: 20px 14px 48px;
+}
+
+.tt-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.tt-controls {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.tt-notify {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 10px;
+  padding: 7px 11px;
+}
+
+
+.tt-nav {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.tt-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+.tt-modal {
+  background: #fff;
+  border-radius: 16px;
+  padding: 24px 20px;
+  width: 100%;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
+}
+
+.tt-modal-event {
+  max-width: 320px;
+}
+
+.tt-modal-settings {
+  max-width: 420px;
+  max-height: 85vh;
+  overflow-y: auto;
+}
+
+.tt-modal-notify {
+  max-width: 280px;
+}
+
+.tt-loading {
+  min-height: 100vh;
+  background: #f8f9fa;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #aaa;
+  font-size: 14px;
+}
+
+.tt-inner {
+  max-width: 860px;
+  margin: 0 auto;
+}
+
+.tt-title {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 800;
+}
+
+.tt-toggle {
+  width: 38px;
+  height: 20px;
+  border-radius: 10px;
+  cursor: pointer;
+  position: relative;
+  transition: background 0.2s;
+  flex-shrink: 0;
+}
+
+.tt-toggle-thumb {
+  position: absolute;
+  top: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  transition: left 0.2s;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.tt-notify-icon {
+  font-size: 12px;
+  color: #555;
+  font-weight: 600;
+}
+
+.tt-notify-picker-btn {
+  padding: 3px 9px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 700;
+  background: #f0f0f0;
+  color: #444;
+  user-select: none;
+}
+
+.tt-btn {
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #555;
+  cursor: pointer;
+}
+
+.tt-nav-btn {
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  width: 30px;
+  height: 30px;
+  cursor: pointer;
+  font-size: 14px;
+  color: #1a1a1a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tt-nav-title {
+  font-size: 15px;
+  font-weight: 800;
+  min-width: 140px;
+  color: #1a1a1a;
+}
+
+.tt-view-tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 16px;
+  background: #f0f0f0;
+  border-radius: 10px;
+  padding: 3px;
+  width: fit-content;
+}
+
+.tt-view-tab {
+  padding: 6px 18px;
+  border-radius: 8px;
+  border: none;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  background: transparent;
+  color: #888;
+  transition: all 0.15s;
+}
+
+.tt-view-tab--active {
+  background: #1a1a1a;
+  color: #fff;
+}
+
+.tt-toast-container {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 999;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: center;
+  pointer-events: none;
+}
+
+.tt-toast {
+  background: #1a1a1a;
+  color: #fff;
+  border-radius: 20px;
+  padding: 9px 18px;
+  font-size: 13px;
+  font-weight: 600;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  animation: fadeUp 0.25s ease;
+  white-space: nowrap;
+}
+
+.tt-notify-option {
+  padding: 13px 16px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  background: #f5f5f5;
+  color: #333;
+  margin-bottom: 6px;
+  transition: all 0.15s;
+}
+
+.tt-notify-option--active {
+  background: #1a1a1a;
+  color: #fff;
+}
+
+@media (max-width: 600px) {
+  .tt-page { padding: 14px 10px 48px; }
+  .tt-header { gap: 8px; }
+  .tt-controls { width: 100%; justify-content: flex-start; }
+  .tt-nav { gap: 6px; }
+  .tt-modal { padding: 18px 14px; border-radius: 12px; }
+}

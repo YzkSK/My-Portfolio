@@ -1,16 +1,16 @@
 import { StrictMode, lazy, Suspense, useEffect } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
-import { App } from './App'
+import { App } from './portfolio/App'
 import { Test } from './Test.tsx'
 import { BrowserRouter, Route, Routes } from 'react-router-dom';
-import { AuthProvider } from './app/AuthContext';
-import { ProtectedRoute } from './app/ProtectedRoute';
-import { AppIndex } from './app/AppIndex';
+import { AuthProvider } from './app/auth/AuthContext';
+import { ProtectedRoute } from './app/auth/ProtectedRoute';
+import { AppIndex } from './app/shared/AppIndex';
 
-const Login = lazy(() => import('./app/pages/Login').then(m => ({ default: m.Login })));
-const Dashboard = lazy(() => import('./app/pages/Dashboard').then(m => ({ default: m.Dashboard })));
-const Timetable = lazy(() => import('./app/pages/Timetable').then(m => ({ default: m.Timetable })));
+const Login = lazy(() => import('./app/auth/Login').then(m => ({ default: m.Login })));
+const Dashboard = lazy(() => import('./app/dashboard/Dashboard').then(m => ({ default: m.Dashboard })));
+const Timetable = lazy(() => import('./app/timetable/Timetable').then(m => ({ default: m.Timetable })));
 
 // アプリページ表示中は #root の margin-top をリセット
 const AppWrapper = ({ children }: { children: React.ReactNode }) => {
