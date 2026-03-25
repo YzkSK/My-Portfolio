@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
 import { useNavigate } from 'react-router-dom';
-import { auth } from '../firebase';
-import '../app.css';
+import { auth } from '../shared/firebase';
+import '../shared/app.css';
+import { PASSWORD_RULES } from './passwordRules';
 
 const FIREBASE_ERRORS: Record<string, string> = {
   'auth/user-not-found': 'メールアドレスまたはパスワードが違います',
@@ -16,13 +17,7 @@ const FIREBASE_ERRORS: Record<string, string> = {
 type Strength = { score: number; label: string; color: string };
 
 const getStrength = (pw: string): Strength => {
-  const checks = [
-    pw.length >= 8,
-    /[A-Z]/.test(pw),
-    /[a-z]/.test(pw),
-    /[0-9]/.test(pw),
-  ];
-  const score = checks.filter(Boolean).length;
+  const score = PASSWORD_RULES.filter(r => r.test(pw)).length;
   if (score <= 1) return { score, label: '弱い', color: '#ef4444' };
   if (score <= 2) return { score, label: '普通', color: '#f59e0b' };
   if (score === 3) return { score, label: '強い', color: '#22c55e' };
@@ -48,14 +43,9 @@ export const Login = () => {
     }
     if (!password) {
       e.password = 'パスワードを入力してください';
-    } else if (password.length < 8) {
-      e.password = 'パスワードは8文字以上で入力してください';
-    } else if (!/[A-Z]/.test(password)) {
-      e.password = '大文字を1文字以上含めてください';
-    } else if (!/[a-z]/.test(password)) {
-      e.password = '小文字を1文字以上含めてください';
-    } else if (!/[0-9]/.test(password)) {
-      e.password = '数字を1文字以上含めてください';
+    } else {
+      const failedRule = PASSWORD_RULES.find(r => !r.test(password));
+      if (failedRule) e.password = failedRule.errorMsg;
     }
     if (isSignUp) {
       if (!confirmPassword) {

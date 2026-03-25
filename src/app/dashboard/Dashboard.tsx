@@ -1,9 +1,9 @@
 import { signOut } from 'firebase/auth';
 import { useNavigate, Link } from 'react-router-dom';
-import { auth } from '../firebase';
-import { useAuth } from '../AuthContext';
-import '../app.css';
-import { AppFooter } from '../AppFooter';
+import { auth } from '../shared/firebase';
+import { useAuth } from '../auth/AuthContext';
+import '../shared/app.css';
+import { AppFooter } from '../shared/AppFooter';
 
 const APPS = [
   { to: '/app/timetable', label: '時間割', description: '授業・時間割の管理' },
