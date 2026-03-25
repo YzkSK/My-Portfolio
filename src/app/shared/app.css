@@ -236,3 +236,35 @@
   font-size: 0.8rem;
   color: #666;
 }
+
+/* Loading Overlay */
+
+.app-loading-overlay {
+  position: fixed;
+  inset: 0;
+  background: #111;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  opacity: 1;
+  transition: opacity 0.25s;
+}
+
+.app-loading-overlay--done {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.app-loading-spinner {
+  width: 44px;
+  height: 44px;
+  border: 3px solid #2e2e2e;
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: app-spin 0.75s linear infinite;
+}
+
+@keyframes app-spin {
+  to { transform: rotate(360deg); }
+}

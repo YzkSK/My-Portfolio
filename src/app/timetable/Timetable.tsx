@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react';
 import { doc, getDoc, setDoc, deleteDoc } from 'firebase/firestore';
 import { getToken, deleteToken, onMessage } from 'firebase/messaging';
 import { auth, db, messaging } from '../shared/firebase';
@@ -7,6 +7,7 @@ import { useNavigate } from 'react-router-dom';
 import { signOut } from 'firebase/auth';
 import './timetable.css';
 import { AppFooter } from '../shared/AppFooter';
+import { useSetLoading } from '../shared/AppLoadingContext';
 import {
   DEFAULT_PERIODS, DAY_LABELS, NOTIFY_OPTIONS,
   SAVE_DEBOUNCE_MS, MS_PER_MINUTE, TOAST_DURATION_MS,
@@ -49,8 +50,15 @@ export const Timetable = () => {
   const [showNotifyPicker, setShowNotifyPicker] = useState(false);
   const [settingsPeriods, setSettingsPeriods] = useState<Period[]>(DEFAULT_PERIODS);
   const [loading, setLoading] = useState(true);
+  const setGlobalLoading = useSetLoading();
   const scheduledRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // ── Firestoreローディングをグローバルに通知 ──────────────
+  useLayoutEffect(() => {
+    setGlobalLoading('timetable', true);
+    return () => setGlobalLoading('timetable', false);
+  }, [setGlobalLoading]);
 
   // ── Service Worker 登録 ─────────────────────────────────
   useEffect(() => {
@@ -97,6 +105,7 @@ export const Timetable = () => {
         console.error('Firestore読み込みエラー:', e);
       } finally {
         setLoading(false);
+        setGlobalLoading('timetable', false);
       }
     })();
   }, [currentUser]);
@@ -308,11 +317,7 @@ export const Timetable = () => {
     return `${cursor.getMonth() + 1}月${cursor.getDate()}日（${DAY_LABELS[cursor.getDay()]}）`;
   };
 
-  if (loading) {
-    return (
-      <div className="tt-loading">読み込み中...</div>
-    );
-  }
+  if (loading) return null;
 
   return (
     <div className="tt-page">
