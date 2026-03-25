@@ -75,7 +75,21 @@ export const Timetable = () => {
         const snap = await getDoc(ref);
         if (snap.exists()) {
           const data = snap.data();
-          if (data.events) setEvents(data.events);
+          if (data.events) {
+            // pi/_idx → periodIndex/eventId への移行処理
+            const migrated: Events = {};
+            for (const [key, evs] of Object.entries(data.events)) {
+              migrated[key] = (evs as Record<string, unknown>[]).map(ev => ({
+                periodIndex: (ev.periodIndex ?? ev.pi) as number,
+                eventId: (ev.eventId ?? ev._idx) as number,
+                name: ev.name as string,
+                room: (ev.room ?? '') as string,
+                note: (ev.note ?? '') as string,
+                colorIdx: (ev.colorIdx ?? 0) as number,
+              }));
+            }
+            setEvents(migrated);
+          }
           if (data.periods?.length > 0) setPeriods(data.periods);
           if (data.notifyBefore) setNotifyBefore(data.notifyBefore);
         }
