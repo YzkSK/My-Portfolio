@@ -10,7 +10,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 
 type ResultFilter = 'all' | 'correct' | 'incorrect' | 'bookmarked';
 
-const CHOICE_LABELS = ['A', 'B', 'C', 'D'];
 
 type Props = {
   session: ActiveSession;
@@ -393,7 +392,7 @@ export const QuizSession = ({
 
         {isChoice && (
           <div className={`qz-choices${method === 'choice2' ? ' qz-choices--row' : ''}`}>
-            {choiceOptions.map((opt, i) => (
+            {choiceOptions.map((opt) => (
               <button
                 key={opt}
                 className={`qz-choice-btn${selectedChoice === opt ? ' qz-choice-btn--selected' : ''}`}
@@ -576,7 +575,7 @@ export const QuizSession = ({
             </div>
           </div>
           <div className={`qz-choices${method === 'choice2' ? ' qz-choices--row' : ''}`}>
-            {choiceOptions.map((opt, i) => {
+            {choiceOptions.map((opt) => {
               let cls = 'qz-choice-btn';
               if (isRevealed) {
                 if (opt === currentQ.answer)                       cls += ' qz-choice-btn--correct';
