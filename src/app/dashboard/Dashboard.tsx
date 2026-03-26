@@ -7,6 +7,7 @@ import { AppFooter } from '../shared/AppFooter';
 
 const APPS = [
   { to: '/app/timetable', label: '時間割', description: '授業・時間割の管理' },
+  { to: '/app/quiz',      label: '問題集', description: '問題登録・ランダム出題' },
 ];
 
 export const Dashboard = () => {

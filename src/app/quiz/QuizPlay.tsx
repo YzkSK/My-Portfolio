@@ -1,0 +1,463 @@
+import { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { db } from '../shared/firebase';
+import { useAuth } from '../auth/AuthContext';
+import { useSetLoading } from '../shared/AppLoadingContext';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { AppFooter } from '../shared/AppFooter';
+import './quiz.css';
+import {
+  SAVE_DEBOUNCE_MS, TOAST_DURATION_MS, EXAM_TIME_LIMIT_MS, EXAM_MAX_PROBLEMS, MASTER_THRESHOLD,
+  shuffle, filterProblems, buildProblemChoices, isAnswerCorrect, isWeak, isExamSession,
+  getCategories, parseProblem, parseProblemSet, parseRecentConfig, firestorePaths,
+  QUIZ_MODE_LABELS, formatRelativeTime, getInvalidCount,
+  type Problem, type ProblemSet, type RecentConfig, type ActiveSession, type QuizSessionConfig,
+  type OneByOneSession, type ExamSession, type QuizMode,
+} from './constants';
+import { QuizSession } from './views/QuizSession';
+
+const MAX_RECENT = 5;
+
+export const QuizPlay = () => {
+  const { currentUser } = useAuth();
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const setGlobalLoading = useSetLoading();
+
+  const [sets, setSets]                     = useState<ProblemSet[]>([]);
+  const [recentConfigs, setRecentConfigs]   = useState<RecentConfig[]>([]);
+  const initSetId = searchParams.get('set');
+  const [selectedSetIds, setSelectedSetIds] = useState<string[]>(initSetId ? [initSetId] : []);
+  const [configConfirmed, setConfigConfirmed] = useState(false);
+  const [session, setSession]               = useState<ActiveSession | null>(null);
+  const [toasts, setToasts]                 = useState<{ id: number; msg: string }[]>([]);
+  const [loading, setLoading]               = useState(true);
+  const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const setsRef = useRef<ProblemSet[]>([]);
+  setsRef.current = sets;
+
+  const [categoryFilter, setCategoryFilter] = useState('');
+  const [quizMode, setQuizMode]             = useState<QuizMode>('oneByOne');
+
+  useLayoutEffect(() => {
+    setGlobalLoading('quizplay', true);
+    return () => setGlobalLoading('quizplay', false);
+  }, [setGlobalLoading]);
+
+  useEffect(() => {
+    if (!currentUser) return;
+    (async () => {
+      try {
+        const ref = doc(db, firestorePaths.quizData(currentUser.uid));
+        const snap = await getDoc(ref);
+        if (snap.exists()) {
+          const data = snap.data();
+          if (Array.isArray(data.sets)) {
+            setSets((data.sets as Record<string, unknown>[]).map(parseProblemSet));
+          } else if (Array.isArray(data.problems)) {
+            const { newProblemSet } = await import('./constants');
+            const migrated = newProblemSet('問題集');
+            migrated.problems = (data.problems as Record<string, unknown>[]).map(parseProblem);
+            setSets([migrated]);
+          }
+          if (Array.isArray(data.recentConfigs)) {
+            setRecentConfigs((data.recentConfigs as Record<string, unknown>[]).map(parseRecentConfig));
+          }
+        }
+      } catch (e) {
+        console.error('QuizPlay Firestore読み込みエラー:', e);
+      } finally {
+        setLoading(false);
+        setGlobalLoading('quizplay', false);
+      }
+    })();
+  }, [currentUser]);
+
+  const saveToFirestore = useCallback((setsData: ProblemSet[], recentsData?: RecentConfig[]) => {
+    if (!currentUser) return;
+    if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+    saveTimeoutRef.current = setTimeout(async () => {
+      const ref = doc(db, firestorePaths.quizData(currentUser.uid));
+      const payload: Record<string, unknown> = { sets: setsData };
+      if (recentsData !== undefined) payload.recentConfigs = recentsData;
+      await setDoc(ref, payload, { merge: true });
+    }, SAVE_DEBOUNCE_MS);
+  }, [currentUser]);
+
+  const addToast = (msg: string) => {
+    const id = Date.now() + Math.random();
+    setToasts(t => [...t, { id, msg }]);
+    setTimeout(() => setToasts(t => t.filter(x => x.id !== id)), TOAST_DURATION_MS);
+  };
+
+  // ── 選択中のセット・問題 ──────────────────────────────────
+  const selectedSets = sets.filter(s => selectedSetIds.includes(s.id));
+  const problems     = selectedSets.flatMap(s => s.problems);
+
+  const toggleSetSelection = (id: string) => {
+    setSelectedSetIds(prev =>
+      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+    );
+  };
+
+  const applyRecentConfig = (config: RecentConfig) => {
+    const validIds = config.setIds.filter(id => sets.some(s => s.id === id));
+    if (validIds.length === 0) { addToast('選択された問題集が見つかりません'); return; }
+    setSelectedSetIds(validIds);
+    setQuizMode(config.mode);
+    setCategoryFilter(config.categoryFilter);
+    setConfigConfirmed(true);
+  };
+
+  // ── 問題更新（複数セット横断）─────────────────────────────
+  const updateProblemInSets = useCallback((id: string, updater: (p: Problem) => Problem) => {
+    setSets(prev => {
+      const next = prev.map(s => ({ ...s, problems: s.problems.map(p => p.id === id ? updater(p) : p) }));
+      saveToFirestore(next);
+      return next;
+    });
+  }, [saveToFirestore]);
+
+  const recordResult = useCallback((entries: { id: string; correct: boolean }[]) => {
+    const mastered: string[] = [];
+    const next = setsRef.current.map(s => ({
+      ...s,
+      problems: s.problems.map(p => {
+        const entry = entries.find(e => e.id === p.id);
+        if (!entry) return p;
+        const consecutive = entry.correct ? p.consecutiveCorrect + 1 : 0;
+        // 不正解経験あり (attemptCount > consecutiveCorrect) の問題がちょうど5連続正解に達したときのみトースト
+        if (consecutive === MASTER_THRESHOLD && p.attemptCount > p.consecutiveCorrect) {
+          mastered.push(p.question);
+        }
+        return { ...p, consecutiveCorrect: consecutive, attemptCount: p.attemptCount + 1 };
+      }),
+    }));
+    setSets(next);
+    setsRef.current = next;
+    mastered.forEach(q => addToast(`「${q.length > 15 ? q.slice(0, 15) + '…' : q}」をマスターしました！`));
+    saveToFirestore(next);
+  }, [saveToFirestore]);
+
+  const toggleBookmark  = (id: string) => updateProblemInSets(id, p => ({ ...p, bookmarked: !p.bookmarked }));
+  const handleUpdateMemo = (id: string, memo: string) => updateProblemInSets(id, p => ({ ...p, memo }));
+
+  // ── セッション設定 ──────────────────────────────────────
+  const categories  = getCategories(problems);
+  const weakCount   = problems.filter(isWeak).length;
+  const targetCount = filterProblems(problems, categoryFilter).length;
+
+  const startSession = (config: QuizSessionConfig) => {
+    const filtered = filterProblems(problems, config.categoryFilter);
+    if (filtered.length === 0) { addToast('対象の問題がありません'); return; }
+
+    // 直近の記録を保存
+    const newRecent: RecentConfig = {
+      id: crypto.randomUUID(),
+      setIds: selectedSetIds,
+      setNames: selectedSets.map(s => s.name),
+      mode: config.mode,
+      categoryFilter: config.categoryFilter,
+      usedAt: Date.now(),
+    };
+    const deduped = recentConfigs.filter(c =>
+      !(c.setIds.length === selectedSetIds.length &&
+        c.setIds.every(id => selectedSetIds.includes(id)) &&
+        c.mode === config.mode &&
+        c.categoryFilter === config.categoryFilter)
+    );
+    const updatedRecents = [newRecent, ...deduped].slice(0, MAX_RECENT);
+    setRecentConfigs(updatedRecents);
+    saveToFirestore(sets, updatedRecents);
+
+    if (config.mode === 'oneByOne') {
+      setSession({
+        mode: 'oneByOne', config,
+        queue: shuffle(filtered), currentIndex: 0, results: [], answers: [],
+        phase: 'answering', writtenInput: '', pendingResult: null,
+      } as OneByOneSession);
+    } else {
+      const queue = shuffle(filtered).slice(0, EXAM_MAX_PROBLEMS);
+      const choiceOptionsMap: Record<number, string[]> = {};
+      queue.forEach((p, i) => {
+        if (p.answerFormat === 'choice2' || p.answerFormat === 'choice4') {
+          choiceOptionsMap[i] = buildProblemChoices(p);
+        }
+      });
+      setSession({
+        mode: 'exam', config,
+        queue, currentIndex: 0,
+        answers: new Array(queue.length).fill(''),
+        phase: 'answering', choiceOptionsMap,
+        startedAt: Date.now(), timeLimit: EXAM_TIME_LIMIT_MS, elapsedMs: null,
+      } as ExamSession);
+    }
+  };
+
+  // ── 一問一答ハンドラー ────────────────────────────────
+  const handleFlashcardReveal = () =>
+    setSession(s => s && !isExamSession(s) ? { ...s, phase: 'revealed' } : s);
+
+  const advanceOneByOne = (correct: boolean, answer: string) => {
+    if (!session || isExamSession(session)) return;
+    const problemId = session.queue[session.currentIndex].id;
+    recordResult([{ id: problemId, correct }]);
+    setSession(prev => {
+      if (!prev || isExamSession(prev)) return prev;
+      const results = [...prev.results, correct];
+      const answers = [...prev.answers, answer];
+      const next = prev.currentIndex + 1;
+      if (next >= prev.queue.length)
+        return { ...prev, results, answers, phase: 'finished' as OneByOneSession['phase'] };
+      return { ...prev, results, answers, currentIndex: next, phase: 'answering', writtenInput: '', pendingResult: null };
+    });
+  };
+
+  const handleFlashcardJudge     = (correct: boolean) => advanceOneByOne(correct, '');
+  const handleWrittenInputChange = (value: string) =>
+    setSession(s => s && !isExamSession(s) ? { ...s, writtenInput: value } : s);
+  const handleWrittenSubmit = () =>
+    setSession(prev => {
+      if (!prev || isExamSession(prev)) return prev;
+      const correct = isAnswerCorrect(prev.writtenInput, prev.queue[prev.currentIndex].answer);
+      return { ...prev, phase: 'revealed', pendingResult: correct };
+    });
+  const handleWrittenNext  = (correct: boolean, answer: string) => advanceOneByOne(correct, answer);
+  const handleChoiceSelect = (option: string) =>
+    setSession(prev => {
+      if (!prev || !isExamSession(prev)) return prev;
+      const answers = [...prev.answers];
+      answers[prev.currentIndex] = option;
+      return { ...prev, answers };
+    });
+  const handleChoiceNext = (correct: boolean, choice: string) => advanceOneByOne(correct, choice);
+
+  // ── 試験ハンドラー ─────────────────────────────────────
+  const moveToReviewing = (s: ExamSession): ExamSession => {
+    const elapsedMs = Date.now() - s.startedAt;
+    recordResult(s.queue.map((p, i) => ({ id: p.id, correct: isAnswerCorrect(s.answers[i] ?? '', p.answer) })));
+    return { ...s, phase: 'reviewing', elapsedMs };
+  };
+
+  const handleExamNext = () =>
+    setSession(prev => {
+      if (!prev || !isExamSession(prev)) return prev;
+      const next = prev.currentIndex + 1;
+      return next >= prev.queue.length ? moveToReviewing(prev) : { ...prev, currentIndex: next };
+    });
+  const handleExamPrev = () =>
+    setSession(prev =>
+      prev && isExamSession(prev) ? { ...prev, currentIndex: Math.max(0, prev.currentIndex - 1) } : prev
+    );
+  const handleExamWrittenInputChange = (value: string) =>
+    setSession(prev => {
+      if (!prev || !isExamSession(prev)) return prev;
+      const answers = [...prev.answers];
+      answers[prev.currentIndex] = value;
+      return { ...prev, answers };
+    });
+  const handleSubmitExam = () =>
+    setSession(prev => prev && isExamSession(prev) ? moveToReviewing(prev) : prev);
+  const handleTimeUp = () => {
+    addToast('時間終了！');
+    setSession(prev => prev && isExamSession(prev) ? moveToReviewing(prev) : prev);
+  };
+  const handleJumpTo = (index: number) =>
+    setSession(prev => prev && isExamSession(prev) ? { ...prev, currentIndex: index } : prev);
+
+  const endSession = () => setSession(null);
+  const handleInterrupt = () =>
+    setSession(prev => prev && !isExamSession(prev) ? { ...prev, phase: 'finished' as OneByOneSession['phase'] } : prev);
+
+  if (loading) return null;
+
+  return (
+    <div className="qz-page">
+      <div className="qz-toast-container">
+        {toasts.map(t => <div key={t.id} className="qz-toast">{t.msg}</div>)}
+      </div>
+
+      <div className="qz-inner">
+        {session !== null ? (
+          // ── 回答中 ─────────────────────────────────────
+          <>
+            <div className="qz-header">
+              <h1 className="qz-title">{session.mode === 'oneByOne' ? '一問一答' : '試験'}</h1>
+            </div>
+            <QuizSession
+              session={session}
+              problems={problems}
+              onFlashcardReveal={handleFlashcardReveal}
+              onFlashcardJudge={handleFlashcardJudge}
+              onWrittenInputChange={handleWrittenInputChange}
+              onWrittenSubmit={handleWrittenSubmit}
+              onWrittenNext={handleWrittenNext}
+              onChoiceSelect={handleChoiceSelect}
+              onChoiceNext={handleChoiceNext}
+              onExamNext={handleExamNext}
+              onExamPrev={handleExamPrev}
+              onExamWrittenInputChange={handleExamWrittenInputChange}
+              onSubmitExam={handleSubmitExam}
+              onTimeUp={handleTimeUp}
+              onEnd={endSession}
+              onInterrupt={handleInterrupt}
+              onJumpTo={handleJumpTo}
+              onToggleBookmark={toggleBookmark}
+              onUpdateMemo={handleUpdateMemo}
+            />
+          </>
+        ) : configConfirmed ? (
+          // ── 出題設定 ──────────────────────────────────
+          <>
+            <div className="qz-header">
+              <h1 className="qz-title" style={{ fontSize: 15 }}>
+                {selectedSets.map(s => s.name).join(' + ')}
+              </h1>
+              <button className="qz-btn" onClick={() => setConfigConfirmed(false)}>← 戻る</button>
+            </div>
+
+            <div className="qz-setup">
+              <div className="qz-setup-title">出題設定</div>
+
+              <div className="qz-setup-row">
+                <div className="qz-setup-label">問題フィルター</div>
+                <select
+                  className="qz-filter-select"
+                  value={categoryFilter}
+                  onChange={e => setCategoryFilter(e.target.value)}
+                >
+                  <option value="">すべて ({problems.length}件)</option>
+                  <option value="BOOKMARKED">★ ブックマーク</option>
+                  {weakCount > 0 && <option value="WEAK">⚡ 苦手問題 ({weakCount}件)</option>}
+                  {categories.map(c => (
+                    <option key={c} value={c}>{c} ({problems.filter(p => p.category === c).length}件)</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="qz-setup-row">
+                <div className="qz-setup-label">モード</div>
+                <div className="qz-mode-btns">
+                  {(['oneByOne', 'exam'] as QuizMode[]).map(m => (
+                    <button
+                      key={m}
+                      className={`qz-mode-btn${quizMode === m ? ' qz-mode-btn--active' : ''}`}
+                      onClick={() => setQuizMode(m)}
+                    >
+                      {QUIZ_MODE_LABELS[m]}
+                      {m === 'exam' && <span style={{ fontSize: 10, opacity: 0.7, display: 'block' }}>最大50問・50分</span>}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="qz-setup-footer">
+                <div className="qz-target-count">対象: {targetCount}件</div>
+                <button
+                  className="qz-btn qz-btn--primary"
+                  onClick={() => startSession({ mode: quizMode, categoryFilter })}
+                  disabled={targetCount === 0}
+                >
+                  出題開始
+                </button>
+              </div>
+            </div>
+          </>
+        ) : (
+          // ── 問題集選択 ────────────────────────────────
+          <>
+            <div className="qz-header">
+              <h1 className="qz-title">出題する</h1>
+              <button className="qz-btn" onClick={() => navigate('/app/quiz')}>← 問題集一覧</button>
+            </div>
+
+            {/* 直近の記録 */}
+            {recentConfigs.length > 0 && (
+              <div className="qz-recent-section">
+                <div className="qz-section-label">直近の記録</div>
+                {recentConfigs.map(config => {
+                  const validCount = config.setIds.filter(id => sets.some(s => s.id === id)).length;
+                  return (
+                    <div key={config.id} className="qz-recent-item" onClick={() => applyRecentConfig(config)}>
+                      <div className="qz-recent-main">
+                        <div className="qz-recent-names">{config.setNames.join(' + ')}</div>
+                        <div className="qz-recent-meta">
+                          {QUIZ_MODE_LABELS[config.mode]}
+                          {config.categoryFilter && ` · ${config.categoryFilter}`}
+                          {validCount < config.setIds.length && <span className="qz-recent-warn"> · 一部削除済み</span>}
+                        </div>
+                      </div>
+                      <div className="qz-recent-time">{formatRelativeTime(config.usedAt)}</div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* 問題集チェックリスト */}
+            <div className="qz-list-header">
+              <div className="qz-list-title">
+                問題集を選択
+                {selectedSetIds.length > 0 && <span className="qz-selected-count"> ({selectedSetIds.length}件)</span>}
+              </div>
+            </div>
+
+            {sets.length === 0 ? (
+              <div className="qz-empty">
+                <div style={{ fontSize: 32, marginBottom: 12 }}>📚</div>
+                <div>問題集がまだありません</div>
+                <div style={{ marginTop: 10 }}>
+                  <button className="qz-btn qz-btn--primary" onClick={() => navigate('/app/quiz')}>
+                    問題集を作成する →
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <>
+                {sets.map(s => {
+                  const selected      = selectedSetIds.includes(s.id);
+                  const invalidCount  = getInvalidCount(s.problems);
+                  const disabled      = s.problems.length === 0 || invalidCount > 0;
+                  return (
+                    <div
+                      key={s.id}
+                      className={`qz-set-item qz-set-item--check${selected ? ' qz-set-item--selected' : ''}${disabled ? ' qz-set-item--disabled' : ''}`}
+                      onClick={() => !disabled && toggleSetSelection(s.id)}
+                    >
+                      <div className={`qz-set-checkbox${selected ? ' qz-set-checkbox--checked' : ''}`}>
+                        {selected ? '✓' : ''}
+                      </div>
+                      <div className="qz-set-info">
+                        <div className="qz-set-name">{s.name}</div>
+                        <div className="qz-set-count">
+                          {s.problems.length === 0
+                            ? '問題なし'
+                            : invalidCount > 0
+                              ? <span className="qz-set-invalid">⚠ {invalidCount}件の選択肢が不足</span>
+                              : `${s.problems.length}問`}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+
+                <div style={{ marginTop: 16 }}>
+                  <button
+                    className="qz-btn qz-btn--primary"
+                    style={{ width: '100%' }}
+                    disabled={selectedSetIds.length === 0}
+                    onClick={() => setConfigConfirmed(true)}
+                  >
+                    次へ →
+                  </button>
+                </div>
+              </>
+            )}
+          </>
+        )}
+      </div>
+
+      <AppFooter />
+    </div>
+  );
+};
