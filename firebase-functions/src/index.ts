@@ -1,6 +1,6 @@
 import { setGlobalOptions } from "firebase-functions";
 import { onCall, HttpsError } from "firebase-functions/v2/https";
-import { defineSecret } from "firebase-functions/params";
+import { defineSecret, defineString } from "firebase-functions/params";
 import * as admin from "firebase-admin";
 import { Resend } from "resend";
 
@@ -9,6 +9,7 @@ setGlobalOptions({ maxInstances: 10, region: "asia-northeast1" });
 admin.initializeApp();
 
 const resendApiKey = defineSecret("RESEND_API_KEY");
+const appBaseUrl = defineString("APP_BASE_URL", { default: "https://yzkdev.com" });
 
 export const sendPasswordResetEmail = onCall(
   { secrets: [resendApiKey] },
@@ -18,13 +19,17 @@ export const sendPasswordResetEmail = onCall(
       throw new HttpsError("invalid-argument", "メールアドレスが指定されていません");
     }
 
-    let resetLink: string;
+    let oobCode: string;
     try {
-      resetLink = await admin.auth().generatePasswordResetLink(email);
+      const firebaseLink = await admin.auth().generatePasswordResetLink(email);
+      const parsed = new URL(firebaseLink);
+      oobCode = parsed.searchParams.get("oobCode")!;
     } catch {
       // ユーザーが存在しない場合も成功を返す（メールアドレス列挙対策）
       return { success: true };
     }
+
+    const resetLink = `${appBaseUrl.value()}/app/reset-password?oobCode=${oobCode}`;
 
     const resend = new Resend(resendApiKey.value());
     await resend.emails.send({

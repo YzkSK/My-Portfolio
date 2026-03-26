@@ -11,6 +11,7 @@ import { AppLoadingProvider } from './app/shared/AppLoadingContext';
 import { ThemeProvider } from './app/shared/ThemeContext';
 
 const Login = lazy(() => import('./app/auth/Login').then(m => ({ default: m.Login })));
+const ResetPassword = lazy(() => import('./app/auth/ResetPassword').then(m => ({ default: m.ResetPassword })));
 const Dashboard = lazy(() => import('./app/dashboard/Dashboard').then(m => ({ default: m.Dashboard })));
 const Settings = lazy(() => import('./app/settings/Settings').then(m => ({ default: m.Settings })));
 const EditProfile = lazy(() => import('./app/settings/EditProfile').then(m => ({ default: m.EditProfile })));
@@ -50,6 +51,7 @@ createRoot(root!).render(
                     <Routes>
                       <Route path="" element={<AppIndex />} />
                       <Route path="login" element={<Login />} />
+                      <Route path="reset-password" element={<ResetPassword />} />
                       <Route path="dashboard" element={
                         <ProtectedRoute><Dashboard /></ProtectedRoute>
                       } />
