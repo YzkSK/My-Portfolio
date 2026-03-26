@@ -11,7 +11,7 @@ const APPS = [
 ];
 
 export const Dashboard = () => {
-  const { currentUser } = useAuth();
+  const { username } = useAuth();
   const navigate = useNavigate();
 
   const handleLogout = async () => {
@@ -24,7 +24,7 @@ export const Dashboard = () => {
       <header className="app-header">
         <h1>Dashboard</h1>
         <div className="app-user-info">
-          <span>{currentUser?.email}</span>
+          <span>{username}</span>
           <button onClick={handleLogout} className="app-logout-btn">Logout</button>
         </div>
       </header>
