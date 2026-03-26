@@ -22,7 +22,7 @@ export const DayView = ({ cursor, events, periods, todayKey, onAdd, onEdit }: Pr
         return (
           <div key={periodIndex}
             onClick={() => ev ? onEdit(key, periodIndex, ev.eventId) : onAdd(key, periodIndex)}
-            style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', marginBottom: 6, borderRadius: 10, cursor: 'pointer', background: ev ? c!.bg : isTod ? 'var(--tt-bg-subtle)' : 'var(--tt-bg-card)', border: ev ? 'none' : '1.5px dashed var(--tt-border)', transition: 'opacity 0.1s' }}
+            style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', marginBottom: 6, borderRadius: 10, cursor: 'pointer', background: ev ? c!.bg : isTod ? 'var(--tt-today-bg)' : 'var(--tt-bg-card)', border: ev ? 'none' : `1.5px dashed ${isTod ? 'var(--tt-text-muted)' : 'var(--tt-border)'}`, transition: 'opacity 0.1s' }}
             onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.opacity = '0.8'; }}
             onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.opacity = '1'; }}
           >
