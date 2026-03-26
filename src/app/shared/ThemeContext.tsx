@@ -9,13 +9,13 @@ type ThemeContextType = {
   toggleDarkMode: () => void;
 };
 
-const ThemeContext = createContext<ThemeContextType>({ darkMode: true, toggleDarkMode: () => {} });
+const ThemeContext = createContext<ThemeContextType>({ darkMode: false, toggleDarkMode: () => {} });
 
 export const useTheme = () => useContext(ThemeContext);
 
 export const ThemeProvider = ({ children }: { children: ReactNode }) => {
   const { currentUser } = useAuth();
-  const [darkMode, setDarkMode] = useState(true);
+  const [darkMode, setDarkMode] = useState(false);
 
   useEffect(() => {
     if (!currentUser) return;
