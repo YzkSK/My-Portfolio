@@ -19,10 +19,13 @@ import { WeekView } from './views/WeekView';
 import { DayView } from './views/DayView';
 import { EventModal } from './modals/EventModal';
 import { SettingsModal } from './modals/SettingsModal';
+import { AppMenu } from '../shared/AppMenu';
+import { usePageTitle } from '../shared/usePageTitle';
 
 export const Timetable = () => {
   const { currentUser } = useAuth();
   const navigate = useNavigate();
+  usePageTitle('時間割');
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -333,7 +336,10 @@ export const Timetable = () => {
 
         {/* ヘッダー */}
         <div className="tt-header">
-          <h1 className="tt-title">時間割</h1>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <AppMenu />
+            <h1 className="tt-title">時間割</h1>
+          </div>
           <div className="tt-controls">
             <div className="tt-notify">
               <span className="tt-notify-icon">{notifyEnabled ? '🔔' : '🔕'}</span>

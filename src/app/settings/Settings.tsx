@@ -2,11 +2,13 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import { useTheme } from '../shared/ThemeContext';
 import '../shared/app.css';
+import { usePageTitle } from '../shared/usePageTitle';
 
 export const Settings = () => {
   const { currentUser, username } = useAuth();
   const { darkMode, toggleDarkMode } = useTheme();
   const navigate = useNavigate();
+  usePageTitle('設定');
 
   return (
     <div className="app-settings">
