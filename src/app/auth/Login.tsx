@@ -3,8 +3,8 @@ import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'fire
 import { doc, setDoc } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
 import { useNavigate } from 'react-router-dom';
-import { auth, db, functions } from '../shared/firebase';
 import '../shared/app.css';
+import { auth, db, functions } from '../shared/firebase';
 import { PASSWORD_RULES } from './passwordRules';
 
 const FIREBASE_ERRORS: Record<string, string> = {

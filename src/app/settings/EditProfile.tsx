@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import '../shared/app.css';
 import {
   updateEmail,
   updatePassword,
@@ -9,7 +10,6 @@ import {
 import { doc, setDoc } from 'firebase/firestore';
 import { db } from '../shared/firebase';
 import { useAuth } from '../auth/AuthContext';
-import '../shared/app.css';
 
 const Section = ({
   title,

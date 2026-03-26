@@ -1,8 +1,8 @@
 import { signOut } from 'firebase/auth';
 import { useNavigate, Link } from 'react-router-dom';
+import '../shared/app.css';
 import { auth } from '../shared/firebase';
 import { useAuth } from '../auth/AuthContext';
-import '../shared/app.css';
 import { AppFooter } from '../shared/AppFooter';
 import { usePageTitle } from '../shared/usePageTitle';
 
