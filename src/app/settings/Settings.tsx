@@ -7,7 +7,7 @@ import {
   EmailAuthProvider,
 } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
-import { auth, db } from '../shared/firebase';
+import { db } from '../shared/firebase';
 import { useAuth } from '../auth/AuthContext';
 import '../shared/app.css';
 
