@@ -3,8 +3,8 @@ import { COLORS, type EventModal as EventModalType, type Form, type Period } fro
 const underlineInput: React.CSSProperties = {
   width: '100%', boxSizing: 'border-box',
   background: 'transparent', border: 'none',
-  borderBottom: '2px solid #1a1a1a',
-  padding: '8px 2px', color: '#1a1a1a', fontSize: 14, outline: 'none',
+  borderBottom: '2px solid var(--tt-text)',
+  padding: '8px 2px', color: 'var(--tt-text)', fontSize: 14, outline: 'none',
 };
 
 type Props = {
@@ -29,16 +29,16 @@ export const EventModal = ({
   return (
     <div className="tt-modal-overlay" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="tt-modal tt-modal-event">
-        <div style={{ fontSize: 16, fontWeight: 800, marginBottom: 2, color: '#1a1a1a' }}>
+        <div style={{ fontSize: 16, fontWeight: 800, marginBottom: 2, color: 'var(--tt-text)' }}>
           {modal.dateKey} {period?.label}
         </div>
-        <div style={{ fontSize: 12, color: '#888', marginBottom: 18 }}>
+        <div style={{ fontSize: 12, color: 'var(--tt-text-muted)', marginBottom: 18 }}>
           {period?.start} 〜 {period?.end}
         </div>
 
         {formError && <div style={{ color: '#ef4444', fontSize: 12, marginBottom: 10, fontWeight: 600 }}>{formError}</div>}
 
-        <div style={{ fontSize: 11, color: '#888', fontWeight: 600, marginBottom: 6 }}>科目名 / 授業名</div>
+        <div style={{ fontSize: 11, color: 'var(--tt-text-muted)', fontWeight: 600, marginBottom: 6 }}>科目名 / 授業名</div>
         <input
           value={form.name}
           onChange={e => { onFormChange({ ...form, name: e.target.value }); onFormErrorChange(''); }}
@@ -47,7 +47,7 @@ export const EventModal = ({
           style={{ ...underlineInput, marginBottom: 18, borderBottomColor: formError && !form.name.trim() ? '#ef4444' : undefined }}
         />
 
-        <div style={{ fontSize: 11, color: '#888', fontWeight: 600, marginBottom: 6 }}>教室 / 場所（任意）</div>
+        <div style={{ fontSize: 11, color: 'var(--tt-text-muted)', fontWeight: 600, marginBottom: 6 }}>教室 / 場所（任意）</div>
         <input
           value={form.room}
           onChange={e => onFormChange({ ...form, room: e.target.value })}
@@ -55,7 +55,7 @@ export const EventModal = ({
           style={{ ...underlineInput, marginBottom: 20 }}
         />
 
-        <div style={{ fontSize: 11, color: '#888', fontWeight: 600, marginBottom: 6 }}>備考（任意）</div>
+        <div style={{ fontSize: 11, color: 'var(--tt-text-muted)', fontWeight: 600, marginBottom: 6 }}>備考（任意）</div>
         <input
           value={form.note}
           onChange={e => onFormChange({ ...form, note: e.target.value })}
@@ -63,7 +63,7 @@ export const EventModal = ({
           style={{ ...underlineInput, marginBottom: 20 }}
         />
 
-        <div style={{ fontSize: 11, color: '#888', fontWeight: 600, marginBottom: 8 }}>色</div>
+        <div style={{ fontSize: 11, color: 'var(--tt-text-muted)', fontWeight: 600, marginBottom: 8 }}>色</div>
         <div style={{ display: 'flex', gap: 7, marginBottom: 24 }}>
           {COLORS.map((c, i) => (
             <div key={i} onClick={() => onFormChange({ ...form, colorIdx: i })}
@@ -73,10 +73,10 @@ export const EventModal = ({
 
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           {isEditing && (
-            <button onClick={onDelete} style={{ padding: '10px 12px', background: '#fff', border: '1px solid #ffcccc', borderRadius: 8, color: '#ef4444', fontWeight: 700, fontSize: 13, cursor: 'pointer', whiteSpace: 'nowrap' }}>削除</button>
+            <button onClick={onDelete} style={{ padding: '10px 12px', background: 'var(--tt-bg-card)', border: '1px solid #ffcccc', borderRadius: 8, color: '#ef4444', fontWeight: 700, fontSize: 13, cursor: 'pointer', whiteSpace: 'nowrap' }}>削除</button>
           )}
-          <button onClick={onClose} style={{ flex: 1, padding: 10, background: '#f0f0f0', border: 'none', borderRadius: 8, color: '#666', fontWeight: 700, fontSize: 13, cursor: 'pointer', whiteSpace: 'nowrap' }}>キャンセル</button>
-          <button onClick={onSave} style={{ flex: 2, padding: 10, background: '#1a1a1a', border: 'none', borderRadius: 8, color: '#fff', fontWeight: 800, fontSize: 14, cursor: 'pointer', whiteSpace: 'nowrap' }}>保存</button>
+          <button onClick={onClose} style={{ flex: 1, padding: 10, background: 'var(--tt-bg-subtle)', border: 'none', borderRadius: 8, color: 'var(--tt-text-secondary)', fontWeight: 700, fontSize: 13, cursor: 'pointer', whiteSpace: 'nowrap' }}>キャンセル</button>
+          <button onClick={onSave} style={{ flex: 2, padding: 10, background: 'var(--tt-tab-active-bg)', border: 'none', borderRadius: 8, color: 'var(--tt-tab-active-text)', fontWeight: 800, fontSize: 14, cursor: 'pointer', whiteSpace: 'nowrap' }}>保存</button>
         </div>
       </div>
     </div>

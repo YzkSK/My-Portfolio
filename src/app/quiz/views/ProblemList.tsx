@@ -22,7 +22,7 @@ export const ProblemList = ({ problems, onAdd, onEdit, onShare, onToggleBookmark
   return (
     <>
       <div className="flex items-center justify-between mb-3">
-        <div className="text-sm font-black text-[#1a1a1a]">問題一覧 ({problems.length}件)</div>
+        <div className="text-sm font-black text-[#1a1a1a] dark:text-[#e0e0e0]">問題一覧 ({problems.length}件)</div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={onShare} disabled={problems.length === 0}>シェア</Button>
           <Button variant="default" onClick={onAdd}>＋ 追加</Button>
@@ -96,7 +96,7 @@ export const ProblemList = ({ problems, onAdd, onEdit, onShare, onToggleBookmark
               <DialogTitle>答え</DialogTitle>
             </DialogHeader>
             <p className="text-sm text-gray-500 mb-3">{answerDialog.question}</p>
-            <p className="text-base font-semibold text-[#1a1a1a] whitespace-pre-wrap">{answerDialog.answer}</p>
+            <p className="text-base font-semibold text-[#1a1a1a] dark:text-[#e0e0e0] whitespace-pre-wrap">{answerDialog.answer}</p>
           </DialogContent>
         </Dialog>
       )}

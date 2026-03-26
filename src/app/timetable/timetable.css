@@ -1,7 +1,7 @@
 .tt-page {
   min-height: 100vh;
-  background: #f8f9fa;
-  color: #1a1a1a;
+  background: var(--tt-bg);
+  color: var(--tt-text);
   font-family: 'Hiragino Kaku Gothic ProN', 'Noto Sans JP', sans-serif;
   padding: 20px 14px 48px;
 }
@@ -26,8 +26,8 @@
   display: flex;
   align-items: center;
   gap: 7px;
-  background: #fff;
-  border: 1px solid #e0e0e0;
+  background: var(--tt-bg-card);
+  border: 1px solid var(--tt-border);
   border-radius: 10px;
   padding: 7px 11px;
 }
@@ -52,7 +52,7 @@
 }
 
 .tt-modal {
-  background: #fff;
+  background: var(--tt-bg-card);
   border-radius: 16px;
   padding: 24px 20px;
   width: 100%;
@@ -75,11 +75,11 @@
 
 .tt-loading {
   min-height: 100vh;
-  background: #f8f9fa;
+  background: var(--tt-bg);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #aaa;
+  color: var(--tt-text-muted);
   font-size: 14px;
 }
 
@@ -117,7 +117,7 @@
 
 .tt-notify-icon {
   font-size: 12px;
-  color: #555;
+  color: var(--tt-text-secondary);
   font-weight: 600;
 }
 
@@ -127,31 +127,31 @@
   cursor: pointer;
   font-size: 11px;
   font-weight: 700;
-  background: #f0f0f0;
-  color: #444;
+  background: var(--tt-picker-bg);
+  color: var(--tt-picker-text);
   user-select: none;
 }
 
 .tt-btn {
-  background: #fff;
-  border: 1px solid #e0e0e0;
+  background: var(--tt-bg-card);
+  border: 1px solid var(--tt-border);
   border-radius: 10px;
   padding: 8px 12px;
   font-size: 12px;
   font-weight: 700;
-  color: #555;
+  color: var(--tt-text-secondary);
   cursor: pointer;
 }
 
 .tt-nav-btn {
-  background: #fff;
-  border: 1px solid #e0e0e0;
+  background: var(--tt-bg-card);
+  border: 1px solid var(--tt-border);
   border-radius: 8px;
   width: 30px;
   height: 30px;
   cursor: pointer;
   font-size: 14px;
-  color: #1a1a1a;
+  color: var(--tt-text);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -161,14 +161,14 @@
   font-size: 15px;
   font-weight: 800;
   min-width: 140px;
-  color: #1a1a1a;
+  color: var(--tt-text);
 }
 
 .tt-view-tabs {
   display: flex;
   gap: 4px;
   margin-bottom: 16px;
-  background: #f0f0f0;
+  background: var(--tt-bg-subtle);
   border-radius: 10px;
   padding: 3px;
   width: fit-content;
@@ -182,13 +182,13 @@
   font-weight: 700;
   cursor: pointer;
   background: transparent;
-  color: #888;
+  color: var(--tt-text-muted);
   transition: all 0.15s;
 }
 
 .tt-view-tab--active {
-  background: #1a1a1a;
-  color: #fff;
+  background: var(--tt-tab-active-bg);
+  color: var(--tt-tab-active-text);
 }
 
 .tt-toast-container {
@@ -222,15 +222,15 @@
   cursor: pointer;
   font-size: 14px;
   font-weight: 600;
-  background: #f5f5f5;
-  color: #333;
+  background: var(--tt-option-bg);
+  color: var(--tt-option-text);
   margin-bottom: 6px;
   transition: all 0.15s;
 }
 
 .tt-notify-option--active {
-  background: #1a1a1a;
-  color: #fff;
+  background: var(--tt-option-active-bg);
+  color: var(--tt-option-active-text);
 }
 
 @media (max-width: 600px) {

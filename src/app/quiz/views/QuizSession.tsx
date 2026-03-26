@@ -177,7 +177,7 @@ export const QuizSession = ({
     return (
       <div className="pb-6">
         <div className="text-center py-7">
-          <div className="text-[52px] font-black text-[#1a1a1a] leading-none">{correctCount}/{totalCount}</div>
+          <div className="text-[52px] font-black text-[#1a1a1a] dark:text-[#e0e0e0] leading-none">{correctCount}/{totalCount}</div>
           <div className="text-[13px] text-[#888] mt-[6px]">正解</div>
         </div>
 
@@ -267,7 +267,7 @@ export const QuizSession = ({
     return (
       <div className="pb-6">
         <div className="text-center py-7">
-          <div className="text-[52px] font-black text-[#1a1a1a] leading-none">{correctCount}/{session.queue.length}</div>
+          <div className="text-[52px] font-black text-[#1a1a1a] dark:text-[#e0e0e0] leading-none">{correctCount}/{session.queue.length}</div>
           <div className="text-[13px] text-[#888] mt-[6px]">正解</div>
         </div>
         {elapsed && <div className="text-center text-[13px] text-[#888] mb-5">所要時間: {elapsed}</div>}
@@ -444,7 +444,7 @@ export const QuizSession = ({
                   {unansweredNums.map(n => (
                     <span
                       key={n}
-                      className="text-xs font-bold px-2 py-1 rounded bg-[#f3f4f6] text-[#1a1a1a] cursor-pointer hover:bg-[#e5e7eb]"
+                      className="text-xs font-bold px-2 py-1 rounded bg-[#f3f4f6] dark:bg-[#333] text-[#1a1a1a] dark:text-[#e0e0e0] cursor-pointer hover:bg-[#e5e7eb] dark:hover:bg-[#444]"
                       onClick={() => { onJumpTo(n - 1); setShowSubmitConfirm(false); }}
                       title={`問題 ${n} へ移動`}
                     >
