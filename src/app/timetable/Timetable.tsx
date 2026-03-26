@@ -1,4 +1,5 @@
 import { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react';
+import { useToast } from '../shared/useToast';
 import { doc, getDoc, setDoc, deleteDoc } from 'firebase/firestore';
 import { getToken, deleteToken, onMessage } from 'firebase/messaging';
 import { auth, db, messaging } from '../shared/firebase';
@@ -50,7 +51,7 @@ export const Timetable = () => {
   const [permission, setPermission] = useState<NotificationPermission>(
     typeof Notification !== 'undefined' ? Notification.permission : 'default'
   );
-  const [toasts, setToasts] = useState<{ id: number; msg: string }[]>([]);
+  const { toasts, addToast } = useToast(TOAST_DURATION_MS);
   const [showNotifyPicker, setShowNotifyPicker] = useState(false);
   const [settingsPeriods, setSettingsPeriods] = useState<Period[]>(DEFAULT_PERIODS);
   const [loading, setLoading] = useState(true);
@@ -127,13 +128,6 @@ export const Timetable = () => {
       await setDoc(ref, { events: eventsData, periods: periodsData, notifyBefore: notifyBeforeData });
     }, SAVE_DEBOUNCE_MS);
   }, [currentUser]);
-
-  // ── Toast ───────────────────────────────────────────────
-  const addToast = (msg: string) => {
-    const id = Date.now() + Math.random();
-    setToasts(t => [...t, { id, msg }]);
-    setTimeout(() => setToasts(t => t.filter(x => x.id !== id)), TOAST_DURATION_MS);
-  };
 
   // ── 通知 ────────────────────────────────────────────────
   const requestPermission = async () => {

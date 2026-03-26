@@ -1,6 +1,6 @@
 {
-  "name": "時間割",
-  "short_name": "時間割",
+  "name": "YzkApps",
+  "short_name": "YzkApps",
   "start_url": "/app/dashboard",
   "display": "standalone",
   "background_color": "#f8f9fa",

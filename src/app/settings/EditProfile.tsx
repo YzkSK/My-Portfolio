@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import '../shared/app.css';
+import { EMAIL_REGEX } from '../shared/validators';
 import {
   updateEmail,
   updatePassword,
@@ -84,7 +85,7 @@ export const EditProfile = () => {
       setEmailMsg({ error: 'メールアドレスを入力してください', success: '' });
       return;
     }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newEmail)) {
+    if (!EMAIL_REGEX.test(newEmail)) {
       setEmailMsg({ error: 'メールアドレスの形式が正しくありません', success: '' });
       return;
     }

@@ -6,6 +6,7 @@ import { useNavigate } from 'react-router-dom';
 import '../shared/app.css';
 import { auth, db, functions } from '../shared/firebase';
 import { PASSWORD_RULES } from './passwordRules';
+import { EMAIL_REGEX } from '../shared/validators';
 
 const FIREBASE_ERRORS: Record<string, string> = {
   'auth/user-not-found': 'メールアドレスまたはパスワードが違います',
@@ -43,7 +44,7 @@ export const Login = () => {
     const e: Record<string, string> = {};
     if (!email.trim()) {
       e.email = 'メールアドレスを入力してください';
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    } else if (!EMAIL_REGEX.test(email)) {
       e.email = 'メールアドレスの形式が正しくありません';
     }
     if (!password) {
