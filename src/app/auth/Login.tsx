@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
+import { httpsCallable } from 'firebase/functions';
 import { useNavigate } from 'react-router-dom';
-import { auth, db } from '../shared/firebase';
+import { auth, db, functions } from '../shared/firebase';
 import '../shared/app.css';
 import { PASSWORD_RULES } from './passwordRules';
 
@@ -31,6 +32,8 @@ export const Login = () => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [username, setUsername] = useState('');
   const [isSignUp, setIsSignUp] = useState(false);
+  const [isReset, setIsReset] = useState(false);
+  const [resetSent, setResetSent] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const navigate = useNavigate();
 
@@ -89,10 +92,65 @@ export const Login = () => {
 
   const switchMode = () => {
     setIsSignUp(!isSignUp);
+    setIsReset(false);
+    setResetSent(false);
     setErrors({});
     setConfirmPassword('');
     setUsername('');
   };
+
+  const handleReset = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrors({});
+    if (!email.trim()) { setErrors({ email: 'メールアドレスを入力してください' }); return; }
+    try {
+      const fn = httpsCallable(functions, 'sendPasswordResetEmail');
+      await fn({ email: email.trim() });
+      setResetSent(true);
+    } catch {
+      setErrors({ form: 'メールの送信に失敗しました。メールアドレスを確認してください' });
+    }
+  };
+
+  if (isReset) {
+    return (
+      <div className="app-login">
+        <div className="app-login-card">
+          <h2>パスワード再設定</h2>
+          {resetSent ? (
+            <>
+              <p className="app-settings-success" style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
+                再設定メールを送信しました。<br />メールをご確認ください。
+              </p>
+              <button className="app-toggle-btn" onClick={() => { setIsReset(false); setResetSent(false); setEmail(''); }}>
+                ログインに戻る
+              </button>
+            </>
+          ) : (
+            <>
+              {errors.form && <p className="app-error">{errors.form}</p>}
+              <form onSubmit={handleReset} className="app-form" noValidate>
+                <div className="app-field">
+                  <input
+                    type="email"
+                    placeholder="Email"
+                    value={email}
+                    onChange={(e) => { setEmail(e.target.value); setErrors({}); }}
+                    className={errors.email ? 'app-input-error' : ''}
+                  />
+                  {errors.email && <span className="app-field-error">{errors.email}</span>}
+                </div>
+                <button type="submit">再設定メールを送信</button>
+              </form>
+              <p className="app-toggle">
+                <button onClick={() => { setIsReset(false); setErrors({}); }}>ログインに戻る</button>
+              </p>
+            </>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="app-login">
@@ -100,6 +158,18 @@ export const Login = () => {
         <h2>{isSignUp ? 'Sign Up' : 'Login'}</h2>
         {errors.form && <p className="app-error">{errors.form}</p>}
         <form onSubmit={handleSubmit} className="app-form" noValidate>
+          {isSignUp && (
+            <div className="app-field">
+              <input
+                type="text"
+                placeholder="Username"
+                value={username}
+                onChange={(e) => { setUsername(e.target.value); setErrors(p => ({ ...p, username: '' })); }}
+                className={errors.username ? 'app-input-error' : ''}
+              />
+              {errors.username && <span className="app-field-error">{errors.username}</span>}
+            </div>
+          )}
           <div className="app-field">
             <input
               type="email"
@@ -137,28 +207,16 @@ export const Login = () => {
             {errors.password && <span className="app-field-error">{errors.password}</span>}
           </div>
           {isSignUp && (
-            <>
-              <div className="app-field">
-                <input
-                  type="text"
-                  placeholder="Username"
-                  value={username}
-                  onChange={(e) => { setUsername(e.target.value); setErrors(p => ({ ...p, username: '' })); }}
-                  className={errors.username ? 'app-input-error' : ''}
-                />
-                {errors.username && <span className="app-field-error">{errors.username}</span>}
-              </div>
-              <div className="app-field">
-                <input
-                  type="password"
-                  placeholder="Confirm Password"
-                  value={confirmPassword}
-                  onChange={(e) => { setConfirmPassword(e.target.value); setErrors(p => ({ ...p, confirmPassword: '' })); }}
-                  className={errors.confirmPassword ? 'app-input-error' : ''}
-                />
-                {errors.confirmPassword && <span className="app-field-error">{errors.confirmPassword}</span>}
-              </div>
-            </>
+            <div className="app-field">
+              <input
+                type="password"
+                placeholder="Confirm Password"
+                value={confirmPassword}
+                onChange={(e) => { setConfirmPassword(e.target.value); setErrors(p => ({ ...p, confirmPassword: '' })); }}
+                className={errors.confirmPassword ? 'app-input-error' : ''}
+              />
+              {errors.confirmPassword && <span className="app-field-error">{errors.confirmPassword}</span>}
+            </div>
           )}
           <button type="submit">{isSignUp ? 'Sign Up' : 'Login'}</button>
         </form>
@@ -168,6 +226,13 @@ export const Login = () => {
             {isSignUp ? 'Login' : 'Sign Up'}
           </button>
         </p>
+        {!isSignUp && (
+          <p className="app-toggle">
+            <button onClick={() => { setIsReset(true); setErrors({}); }}>
+              パスワードをお忘れの方
+            </button>
+          </p>
+        )}
       </div>
     </div>
   );

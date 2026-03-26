@@ -11,6 +11,7 @@ import { AppLoadingProvider } from './app/shared/AppLoadingContext';
 
 const Login = lazy(() => import('./app/auth/Login').then(m => ({ default: m.Login })));
 const Dashboard = lazy(() => import('./app/dashboard/Dashboard').then(m => ({ default: m.Dashboard })));
+const Settings = lazy(() => import('./app/settings/Settings').then(m => ({ default: m.Settings })));
 const Timetable = lazy(() => import('./app/timetable/Timetable').then(m => ({ default: m.Timetable })));
 const Quiz     = lazy(() => import('./app/quiz/Quiz').then(m => ({ default: m.Quiz })));
 const QuizPlay = lazy(() => import('./app/quiz/QuizPlay').then(m => ({ default: m.QuizPlay })));
@@ -57,6 +58,9 @@ createRoot(root!).render(
                     } />
                     <Route path="quiz/play" element={
                       <ProtectedRoute><QuizPlay /></ProtectedRoute>
+                    } />
+                    <Route path="settings" element={
+                      <ProtectedRoute><Settings /></ProtectedRoute>
                     } />
                   </Routes>
                 </Suspense>

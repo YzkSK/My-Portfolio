@@ -5,13 +5,14 @@ import { useAuth } from '../auth/AuthContext';
 import '../shared/app.css';
 import { AppFooter } from '../shared/AppFooter';
 
+
 const APPS = [
   { to: '/app/timetable', label: '時間割', description: '授業・時間割の管理' },
   { to: '/app/quiz',      label: '問題集', description: '問題登録・ランダム出題' },
 ];
 
 export const Dashboard = () => {
-  const { username } = useAuth();
+  const { currentUser, username } = useAuth();
   const navigate = useNavigate();
 
   const handleLogout = async () => {
@@ -24,7 +25,7 @@ export const Dashboard = () => {
       <header className="app-header">
         <h1>Dashboard</h1>
         <div className="app-user-info">
-          <span>{username}</span>
+          <Link to="/app/settings" className="app-username-link">{username ?? currentUser?.email}</Link>
           <button onClick={handleLogout} className="app-logout-btn">Logout</button>
         </div>
       </header>
