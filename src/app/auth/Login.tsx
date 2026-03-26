@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
+import { doc, setDoc } from 'firebase/firestore';
 import { useNavigate } from 'react-router-dom';
-import { auth } from '../shared/firebase';
+import { auth, db } from '../shared/firebase';
 import '../shared/app.css';
 import { PASSWORD_RULES } from './passwordRules';
 
@@ -28,6 +29,7 @@ export const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [username, setUsername] = useState('');
   const [isSignUp, setIsSignUp] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const navigate = useNavigate();
@@ -43,11 +45,14 @@ export const Login = () => {
     }
     if (!password) {
       e.password = 'パスワードを入力してください';
-    } else {
+    } else if (isSignUp) {
       const failedRule = PASSWORD_RULES.find(r => !r.test(password));
       if (failedRule) e.password = failedRule.errorMsg;
     }
     if (isSignUp) {
+      if (!username.trim()) {
+        e.username = 'ユーザー名を入力してください';
+      }
       if (!confirmPassword) {
         e.confirmPassword = '確認用パスワードを入力してください';
       } else if (password !== confirmPassword) {
@@ -64,7 +69,12 @@ export const Login = () => {
     setErrors({});
     try {
       if (isSignUp) {
-        await createUserWithEmailAndPassword(auth, email, password);
+        const { user } = await createUserWithEmailAndPassword(auth, email, password);
+        await setDoc(
+          doc(db, 'users', user.uid, 'profile', 'data'),
+          { username: username.trim(), id: user.uid },
+          { merge: true },
+        );
       } else {
         await signInWithEmailAndPassword(auth, email, password);
       }
@@ -81,6 +91,7 @@ export const Login = () => {
     setIsSignUp(!isSignUp);
     setErrors({});
     setConfirmPassword('');
+    setUsername('');
   };
 
   return (
@@ -126,16 +137,28 @@ export const Login = () => {
             {errors.password && <span className="app-field-error">{errors.password}</span>}
           </div>
           {isSignUp && (
-            <div className="app-field">
-              <input
-                type="password"
-                placeholder="Confirm Password"
-                value={confirmPassword}
-                onChange={(e) => { setConfirmPassword(e.target.value); setErrors(p => ({ ...p, confirmPassword: '' })); }}
-                className={errors.confirmPassword ? 'app-input-error' : ''}
-              />
-              {errors.confirmPassword && <span className="app-field-error">{errors.confirmPassword}</span>}
-            </div>
+            <>
+              <div className="app-field">
+                <input
+                  type="text"
+                  placeholder="Username"
+                  value={username}
+                  onChange={(e) => { setUsername(e.target.value); setErrors(p => ({ ...p, username: '' })); }}
+                  className={errors.username ? 'app-input-error' : ''}
+                />
+                {errors.username && <span className="app-field-error">{errors.username}</span>}
+              </div>
+              <div className="app-field">
+                <input
+                  type="password"
+                  placeholder="Confirm Password"
+                  value={confirmPassword}
+                  onChange={(e) => { setConfirmPassword(e.target.value); setErrors(p => ({ ...p, confirmPassword: '' })); }}
+                  className={errors.confirmPassword ? 'app-input-error' : ''}
+                />
+                {errors.confirmPassword && <span className="app-field-error">{errors.confirmPassword}</span>}
+              </div>
+            </>
           )}
           <button type="submit">{isSignUp ? 'Sign Up' : 'Login'}</button>
         </form>
