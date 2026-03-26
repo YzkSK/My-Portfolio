@@ -82,7 +82,7 @@ export const ShareModal = ({ problems, uid, defaultTitle = '', existingShareCode
               <Label>シェアする問題</Label>
               <select
                 name="share-category"
-                className="w-full px-3 py-[9px] border-[1.5px] border-[#e0e0e0] rounded-[9px] bg-white text-[13px] text-[#1a1a1a] font-semibold cursor-pointer appearance-none outline-none focus:border-[#1a1a1a]"
+                className="w-full px-3 py-[9px] border-[1.5px] border-[#e0e0e0] dark:border-[#444] rounded-[9px] bg-white dark:bg-[#222] text-[13px] text-[#1a1a1a] dark:text-[#e0e0e0] font-semibold cursor-pointer appearance-none outline-none focus:border-[#1a1a1a] dark:focus:border-[#888]"
                 value={categoryFilter}
                 onChange={e => setCategoryFilter(e.target.value)}
               >
@@ -95,7 +95,7 @@ export const ShareModal = ({ problems, uid, defaultTitle = '', existingShareCode
             </div>
 
             <div className="mb-4">
-              <label className="flex items-center gap-2 text-[13px] text-[#444] cursor-pointer">
+              <label className="flex items-center gap-2 text-[13px] text-[#444] dark:text-[#aaa] cursor-pointer">
                 <input
                   name="include-memo"
                   type="checkbox"
@@ -117,8 +117,8 @@ export const ShareModal = ({ problems, uid, defaultTitle = '', existingShareCode
           <>
             <p className="text-sm text-gray-500 mb-1">シェアコードが生成されました</p>
 
-            <div className="bg-[#f8f9fa] border-2 border-dashed border-[#e0e0e0] rounded-[12px] p-5 text-center my-4">
-              <div className="text-[28px] font-black text-[#1a1a1a] tracking-[0.15em] tabular-nums">{shareCode}</div>
+            <div className="bg-[#f8f9fa] dark:bg-[#222] border-2 border-dashed border-[#e0e0e0] dark:border-[#444] rounded-[12px] p-5 text-center my-4">
+              <div className="text-[28px] font-black text-[#1a1a1a] dark:text-[#e0e0e0] tracking-[0.15em] tabular-nums">{shareCode}</div>
               <div className="text-[12px] text-[#888] mt-[6px]">{targetProblems.length}件の問題 · このコードを相手に伝えてください</div>
             </div>
 

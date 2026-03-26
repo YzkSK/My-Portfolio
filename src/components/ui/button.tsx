@@ -8,11 +8,11 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default: "bg-[#1a1a1a] text-white hover:bg-[#333]",
-        outline: "bg-white border border-[#d0d0d0] text-[#1a1a1a] hover:border-[#888]",
-        destructive: "bg-white border border-[#d0d0d0] text-red-500 hover:border-red-300",
-        ghost: "hover:bg-gray-100 text-[#1a1a1a]",
-        secondary: "bg-gray-100 text-[#1a1a1a] hover:bg-gray-200",
+        default: "bg-[#1a1a1a] text-white hover:bg-[#333] dark:bg-white dark:text-[#111] dark:hover:bg-gray-100",
+        outline: "bg-white border border-[#d0d0d0] text-[#1a1a1a] hover:border-[#888] dark:bg-[#1a1a1a] dark:border-[#444] dark:text-[#e0e0e0] dark:hover:border-[#888]",
+        destructive: "bg-white border border-[#d0d0d0] text-red-500 hover:border-red-300 dark:bg-[#1a1a1a] dark:border-[#444]",
+        ghost: "hover:bg-gray-100 text-[#1a1a1a] dark:hover:bg-[#2a2a2a] dark:text-[#e0e0e0]",
+        secondary: "bg-gray-100 text-[#1a1a1a] hover:bg-gray-200 dark:bg-[#2a2a2a] dark:text-[#e0e0e0] dark:hover:bg-[#333]",
       },
       size: {
         default: "h-9 px-4 py-2",

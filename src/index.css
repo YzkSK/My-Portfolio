@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@custom-variant dark (&:is(.dark *));
 
 *, *::before, *::after {
   box-sizing: border-box;

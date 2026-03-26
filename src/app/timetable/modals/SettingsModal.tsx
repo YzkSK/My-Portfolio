@@ -33,41 +33,41 @@ export const SettingsModal = ({ settingsPeriods, settingsError, onPeriodsChange,
   return (
     <div className="tt-modal-overlay" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="tt-modal tt-modal-settings">
-        <div style={{ fontSize: 17, fontWeight: 800, marginBottom: 4, color: '#1a1a1a' }}>時限・時間の設定</div>
-        <div style={{ fontSize: 12, color: '#888', marginBottom: 18 }}>時限名と開始・終了時刻を自由に編集できます</div>
+        <div style={{ fontSize: 17, fontWeight: 800, marginBottom: 4, color: 'var(--tt-text)' }}>時限・時間の設定</div>
+        <div style={{ fontSize: 12, color: 'var(--tt-text-muted)', marginBottom: 18 }}>時限名と開始・終了時刻を自由に編集できます</div>
         {settingsError && <div style={{ color: '#ef4444', fontSize: 12, marginBottom: 10, fontWeight: 600 }}>{settingsError}</div>}
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12 }}>
           {settingsPeriods.map((p, i) => (
-            <div key={i} style={{ background: '#f8f9fa', border: '1px solid #e8e8e8', borderRadius: 10, padding: '12px 14px' }}>
+            <div key={i} style={{ background: 'var(--tt-bg-subtle)', border: '1px solid var(--tt-border)', borderRadius: 10, padding: '12px 14px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                <span style={{ fontSize: 11, color: '#aaa', fontWeight: 700, minWidth: 20 }}>#{i + 1}</span>
+                <span style={{ fontSize: 11, color: 'var(--tt-text-muted)', fontWeight: 700, minWidth: 20 }}>#{i + 1}</span>
                 <input value={p.label} onChange={e => updatePeriod(i, { label: e.target.value })}
-                  placeholder="例: 1限" style={{ flex: 1, background: '#fff', border: '1px solid #ddd', borderRadius: 7, padding: '7px 10px', fontSize: 13, fontWeight: 700, outline: 'none', color: '#1a1a1a' }} />
+                  placeholder="例: 1限" style={{ flex: 1, background: 'var(--tt-bg-card)', border: '1px solid var(--tt-border)', borderRadius: 7, padding: '7px 10px', fontSize: 13, fontWeight: 700, outline: 'none', color: 'var(--tt-text)' }} />
                 <button onClick={() => removePeriod(i)}
-                  style={{ background: '#fff', border: '1px solid #ffcccc', borderRadius: 7, color: '#ef4444', fontWeight: 700, fontSize: 12, cursor: 'pointer', padding: '6px 10px' }}>削除</button>
+                  style={{ background: 'var(--tt-bg-card)', border: '1px solid #ffcccc', borderRadius: 7, color: '#ef4444', fontWeight: 700, fontSize: 12, cursor: 'pointer', padding: '6px 10px' }}>削除</button>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <span style={{ fontSize: 11, color: '#aaa' }}>開始</span>
+                <span style={{ fontSize: 11, color: 'var(--tt-text-muted)' }}>開始</span>
                 <input type="time" value={p.start} onChange={e => updatePeriod(i, { start: e.target.value })}
-                  style={{ flex: 1, background: '#fff', border: '1px solid #ddd', borderRadius: 7, padding: '7px 8px', fontSize: 13, outline: 'none', color: '#1a1a1a' }} />
-                <span style={{ fontSize: 11, color: '#aaa' }}>〜</span>
-                <span style={{ fontSize: 11, color: '#aaa' }}>終了</span>
+                  style={{ flex: 1, background: 'var(--tt-bg-card)', border: '1px solid var(--tt-border)', borderRadius: 7, padding: '7px 8px', fontSize: 13, outline: 'none', color: 'var(--tt-text)' }} />
+                <span style={{ fontSize: 11, color: 'var(--tt-text-muted)' }}>〜</span>
+                <span style={{ fontSize: 11, color: 'var(--tt-text-muted)' }}>終了</span>
                 <input type="time" value={p.end} onChange={e => updatePeriod(i, { end: e.target.value })}
-                  style={{ flex: 1, background: '#fff', border: '1px solid #ddd', borderRadius: 7, padding: '7px 8px', fontSize: 13, outline: 'none', color: '#1a1a1a' }} />
+                  style={{ flex: 1, background: 'var(--tt-bg-card)', border: '1px solid var(--tt-border)', borderRadius: 7, padding: '7px 8px', fontSize: 13, outline: 'none', color: 'var(--tt-text)' }} />
               </div>
             </div>
           ))}
         </div>
 
         <button onClick={addPeriod}
-          style={{ width: '100%', padding: 10, background: '#f8f9fa', border: '1.5px dashed #ccc', borderRadius: 8, color: '#555', fontWeight: 700, fontSize: 13, cursor: 'pointer', marginBottom: 16 }}>
+          style={{ width: '100%', padding: 10, background: 'var(--tt-bg-subtle)', border: '1.5px dashed var(--tt-border)', borderRadius: 8, color: 'var(--tt-text-secondary)', fontWeight: 700, fontSize: 13, cursor: 'pointer', marginBottom: 16 }}>
           ＋ 時限を追加
         </button>
 
         <div style={{ display: 'flex', gap: 8 }}>
-          <button onClick={onClose} style={{ flex: 1, padding: 11, background: '#f0f0f0', border: 'none', borderRadius: 8, color: '#666', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>キャンセル</button>
-          <button onClick={onSave} style={{ flex: 2, padding: 11, background: '#1a1a1a', border: 'none', borderRadius: 8, color: '#fff', fontWeight: 800, fontSize: 14, cursor: 'pointer' }}>保存</button>
+          <button onClick={onClose} style={{ flex: 1, padding: 11, background: 'var(--tt-bg-subtle)', border: 'none', borderRadius: 8, color: 'var(--tt-text-secondary)', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>キャンセル</button>
+          <button onClick={onSave} style={{ flex: 2, padding: 11, background: 'var(--tt-tab-active-bg)', border: 'none', borderRadius: 8, color: 'var(--tt-tab-active-text)', fontWeight: 800, fontSize: 14, cursor: 'pointer' }}>保存</button>
         </div>
       </div>
     </div>

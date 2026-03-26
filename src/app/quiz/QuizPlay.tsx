@@ -276,7 +276,7 @@ export const QuizPlay = () => {
   if (loading) return null;
 
   return (
-    <div className="min-h-screen bg-[#f8f9fa] text-[#1a1a1a] px-[14px] pt-5 pb-[120px]">
+    <div className="min-h-screen bg-[#f8f9fa] dark:bg-[#111] text-[#1a1a1a] dark:text-[#e0e0e0] px-[14px] pt-5 pb-[120px]">
       <div className="qz-toast-container">
         {toasts.map(t => <div key={t.id} className="qz-toast">{t.msg}</div>)}
       </div>
@@ -286,7 +286,7 @@ export const QuizPlay = () => {
           // ── 回答中 ─────────────────────────────────────
           <>
             <div className="flex items-center justify-between mb-5">
-              <h1 className="text-[1.3rem] font-black m-0 text-[#1a1a1a]">{session.mode === 'oneByOne' ? '一問一答' : '試験'}</h1>
+              <h1 className="text-[1.3rem] font-black m-0 text-[#1a1a1a] dark:text-[#e0e0e0]">{session.mode === 'oneByOne' ? '一問一答' : '試験'}</h1>
             </div>
             <QuizSession
               session={session}
@@ -314,20 +314,20 @@ export const QuizPlay = () => {
           // ── 出題設定 ──────────────────────────────────
           <>
             <div className="flex items-center justify-between mb-5">
-              <h1 className="text-[15px] font-black m-0 text-[#1a1a1a]">
+              <h1 className="text-[15px] font-black m-0 text-[#1a1a1a] dark:text-[#e0e0e0]">
                 {selectedSets.map(s => s.name).join(' + ')}
               </h1>
               <Button variant="outline" onClick={() => setConfigConfirmed(false)}>← 戻る</Button>
             </div>
 
-            <div className="bg-white border border-[#e8e8e8] rounded-[14px] p-[18px_16px] mb-5">
+            <div className="bg-white dark:bg-[#1a1a1a] border border-[#e8e8e8] dark:border-[#333] rounded-[14px] p-[18px_16px] mb-5">
               <div className="text-[12px] font-bold text-[#888] mb-3 uppercase tracking-[0.05em]">出題設定</div>
 
               <div className="mb-[14px]">
                 <div className="text-[11px] text-[#888] font-semibold mb-[6px]">問題フィルター</div>
                 <select
                   name="category-filter"
-                  className="w-full px-3 py-[9px] border-[1.5px] border-[#e0e0e0] rounded-[9px] bg-white text-[13px] text-[#1a1a1a] font-semibold cursor-pointer appearance-none outline-none focus:border-[#1a1a1a]"
+                  className="w-full px-3 py-[9px] border-[1.5px] border-[#e0e0e0] dark:border-[#444] rounded-[9px] bg-white dark:bg-[#222] text-[13px] text-[#1a1a1a] dark:text-[#e0e0e0] font-semibold cursor-pointer appearance-none outline-none focus:border-[#1a1a1a] dark:focus:border-[#888]"
                   value={categoryFilter}
                   onChange={e => setCategoryFilter(e.target.value)}
                 >
@@ -356,7 +356,7 @@ export const QuizPlay = () => {
                 </div>
               </div>
 
-              <div className="flex items-center justify-between mt-4 pt-[14px] border-t border-[#f0f0f0]">
+              <div className="flex items-center justify-between mt-4 pt-[14px] border-t border-[#f0f0f0] dark:border-[#333]">
                 <div className="text-[13px] text-[#888] font-semibold">対象: {targetCount}件</div>
                 <Button
                   variant="default"
@@ -372,7 +372,7 @@ export const QuizPlay = () => {
           // ── 問題集選択 ────────────────────────────────
           <>
             <div className="flex items-center justify-between mb-5">
-              <h1 className="text-[1.3rem] font-black m-0 text-[#1a1a1a]">出題する</h1>
+              <h1 className="text-[1.3rem] font-black m-0 text-[#1a1a1a] dark:text-[#e0e0e0]">出題する</h1>
               <Button variant="outline" onClick={() => navigate('/app/quiz')}>← 問題集一覧</Button>
             </div>
 
@@ -398,7 +398,7 @@ export const QuizPlay = () => {
                 })}
                 {recentConfigs.length > RECENT_INITIAL_SHOW && (
                   <button
-                    className="text-[12px] text-[#888] font-semibold mt-1 w-full text-center py-1 hover:text-[#1a1a1a]"
+                    className="text-[12px] text-[#888] font-semibold mt-1 w-full text-center py-1 hover:text-[#1a1a1a] dark:hover:text-[#e0e0e0]"
                     onClick={() => setShowAllRecent(v => !v)}
                   >
                     {showAllRecent ? '折りたたむ ▲' : `さらに表示 (${recentConfigs.length - RECENT_INITIAL_SHOW}件) ▼`}
@@ -409,9 +409,9 @@ export const QuizPlay = () => {
 
             {/* 問題集チェックリスト */}
             <div className="flex items-center justify-between mb-3">
-              <div className="text-sm font-black text-[#1a1a1a]">
+              <div className="text-sm font-black text-[#1a1a1a] dark:text-[#e0e0e0]">
                 問題集を選択
-                {selectedSetIds.length > 0 && <span className="text-sm font-semibold text-[#555]"> ({selectedSetIds.length}件)</span>}
+                {selectedSetIds.length > 0 && <span className="text-sm font-semibold text-[#555] dark:text-[#aaa]"> ({selectedSetIds.length}件)</span>}
               </div>
             </div>
 

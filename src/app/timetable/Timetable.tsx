@@ -337,7 +337,7 @@ export const Timetable = () => {
           <div className="tt-controls">
             <div className="tt-notify">
               <span className="tt-notify-icon">{notifyEnabled ? '🔔' : '🔕'}</span>
-              <div onClick={toggleNotify} className="tt-toggle" style={{ background: notifyEnabled ? '#1a1a1a' : '#ccc' }}>
+              <div onClick={toggleNotify} className="tt-toggle" style={{ background: notifyEnabled ? 'var(--tt-tab-active-bg)' : 'var(--tt-border)' }}>
                 <div className="tt-toggle-thumb" style={{ left: notifyEnabled ? 20 : 2 }} />
               </div>
               <div onClick={() => setShowNotifyPicker(true)} className="tt-notify-picker-btn">
@@ -414,7 +414,7 @@ export const Timetable = () => {
       {showNotifyPicker && (
         <div className="tt-modal-overlay" onClick={() => setShowNotifyPicker(false)}>
           <div className="tt-modal tt-modal-notify" onClick={e => e.stopPropagation()}>
-            <div style={{ fontSize: 15, fontWeight: 800, marginBottom: 16, color: '#1a1a1a' }}>通知タイミング</div>
+            <div style={{ fontSize: 15, fontWeight: 800, marginBottom: 16, color: 'var(--tt-text)' }}>通知タイミング</div>
             {NOTIFY_OPTIONS.map(o => (
               <div key={o.value} onClick={async () => {
                 setNotifyBefore(o.value);

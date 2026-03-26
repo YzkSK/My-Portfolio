@@ -81,16 +81,16 @@ export const ImportModal = ({ onImport, onClose, addToast }: Props) => {
 
         {preview && (
           <div>
-            <div className="text-sm font-black text-[#1a1a1a] mb-1.5">
+            <div className="text-sm font-black text-[#1a1a1a] dark:text-[#e0e0e0] mb-1.5">
               {preview.title}
             </div>
             <div className="text-xs text-[#888] mb-2.5">
               {preview.problems.length}件の問題
             </div>
-            <div className="border border-[#e8e8e8] rounded-[10px] overflow-hidden my-3">
+            <div className="border border-[#e8e8e8] dark:border-[#333] rounded-[10px] overflow-hidden my-3">
               {preview.problems.slice(0, 3).map((p, i) => (
-                <div key={i} className="px-[14px] py-[10px] border-b border-[#f0f0f0] last:border-b-0 text-[13px]">
-                  <div className="font-bold text-[#1a1a1a]">Q. {p.question}</div>
+                <div key={i} className="px-[14px] py-[10px] border-b border-[#f0f0f0] dark:border-[#333] last:border-b-0 text-[13px]">
+                  <div className="font-bold text-[#1a1a1a] dark:text-[#e0e0e0]">Q. {p.question}</div>
                   <div className="text-[#888] mt-[2px]">A. {p.answer}</div>
                 </div>
               ))}

@@ -189,7 +189,7 @@ export const Quiz = () => {
   if (loading) return null;
 
   return (
-    <div className="min-h-screen bg-[#f8f9fa] text-[#1a1a1a] px-[14px] pt-5 pb-[120px]">
+    <div className="min-h-screen bg-[#f8f9fa] dark:bg-[#111] text-[#1a1a1a] dark:text-[#e0e0e0] px-[14px] pt-5 pb-[120px]">
       <div className="qz-toast-container">
         {toasts.map(t => <div key={t.id} className="qz-toast">{t.msg}</div>)}
       </div>
@@ -199,12 +199,12 @@ export const Quiz = () => {
           // ── 問題集一覧 ─────────────────────────────────────
           <>
             <div className="flex items-center justify-between mb-5">
-              <h1 className="text-[1.3rem] font-black m-0 text-[#1a1a1a]">問題集</h1>
+              <h1 className="text-[1.3rem] font-black m-0 text-[#1a1a1a] dark:text-[#e0e0e0]">問題集</h1>
               <Button variant="outline" onClick={handleLogout}>ログアウト</Button>
             </div>
 
             <div className="flex items-center justify-between mb-3">
-              <div className="text-sm font-black text-[#1a1a1a]">マイ問題集 ({sets.length}件)</div>
+              <div className="text-sm font-black text-[#1a1a1a] dark:text-[#e0e0e0]">マイ問題集 ({sets.length}件)</div>
               <div className="flex gap-2">
                 <Button variant="outline" onClick={() => setModal({ type: 'import' })}>インポート</Button>
                 <Button variant="default" onClick={() => setModal({ type: 'set-create' })}>＋ 新規作成</Button>
@@ -252,7 +252,7 @@ export const Quiz = () => {
           <>
             <div className="flex items-center justify-between mb-5">
               <div className="flex items-center gap-2">
-                <h1 className="text-[1.3rem] font-black m-0 text-[#1a1a1a]">{activeSet?.name}</h1>
+                <h1 className="text-[1.3rem] font-black m-0 text-[#1a1a1a] dark:text-[#e0e0e0]">{activeSet?.name}</h1>
                 <Button
                   variant="outline"
                   size="sm"
