@@ -5,6 +5,7 @@ import { useAuth } from '../auth/AuthContext';
 import { useSetLoading } from '../shared/AppLoadingContext';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { AppFooter } from '../shared/AppFooter';
+import '../shared/app.css';
 import './quiz.css';
 import {
   SAVE_DEBOUNCE_MS, TOAST_DURATION_MS, EXAM_TIME_LIMIT_MS, EXAM_MAX_PROBLEMS, MASTER_THRESHOLD,

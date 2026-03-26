@@ -5,6 +5,7 @@ import { auth, db, messaging } from '../shared/firebase';
 import { useAuth } from '../auth/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { signOut } from 'firebase/auth';
+import '../shared/app.css';
 import './timetable.css';
 import { AppFooter } from '../shared/AppFooter';
 import { useSetLoading } from '../shared/AppLoadingContext';

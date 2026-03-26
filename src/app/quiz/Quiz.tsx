@@ -6,6 +6,7 @@ import { useAuth } from '../auth/AuthContext';
 import { useSetLoading } from '../shared/AppLoadingContext';
 import { useNavigate } from 'react-router-dom';
 import { AppFooter } from '../shared/AppFooter';
+import '../shared/app.css';
 import './quiz.css';
 import {
   SAVE_DEBOUNCE_MS, TOAST_DURATION_MS,

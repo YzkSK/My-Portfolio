@@ -1,4 +1,4 @@
-const APP_VERSION = '1.1.0';
+const APP_VERSION = '1.1.1';
 
 function getDevice(): string {
   const ua = navigator.userAgent;
