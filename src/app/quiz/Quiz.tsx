@@ -1,4 +1,5 @@
 import { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react';
+import { useToast } from '../shared/useToast';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
 import { auth, db } from '../shared/firebase';
@@ -32,7 +33,7 @@ export const Quiz = () => {
   const [sets, setSets]               = useState<ProblemSet[]>([]);
   const [activeSetId, setActiveSetId] = useState<string | null>(null);
   const [modal, setModal]             = useState<Modal>(null);
-  const [toasts, setToasts]           = useState<{ id: number; msg: string }[]>([]);
+  const { toasts, addToast }          = useToast(TOAST_DURATION_MS);
   const [loading, setLoading]         = useState(true);
   const [formError, setFormError]     = useState('');
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -76,12 +77,6 @@ export const Quiz = () => {
       await setDoc(ref, { sets: data }, { merge: true });
     }, SAVE_DEBOUNCE_MS);
   }, [currentUser]);
-
-  const addToast = (msg: string) => {
-    const id = Date.now() + Math.random();
-    setToasts(t => [...t, { id, msg }]);
-    setTimeout(() => setToasts(t => t.filter(x => x.id !== id)), TOAST_DURATION_MS);
-  };
 
   const handleLogout = async () => {
     await signOut(auth);

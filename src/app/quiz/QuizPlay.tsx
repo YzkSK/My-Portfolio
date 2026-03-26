@@ -1,4 +1,5 @@
 import { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react';
+import { useToast } from '../shared/useToast';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '../shared/firebase';
 import { useAuth } from '../auth/AuthContext';
@@ -37,7 +38,7 @@ export const QuizPlay = () => {
   const [selectedSetIds, setSelectedSetIds] = useState<string[]>(initSetId ? [initSetId] : []);
   const [configConfirmed, setConfigConfirmed] = useState(false);
   const [session, setSession]               = useState<ActiveSession | null>(null);
-  const [toasts, setToasts]                 = useState<{ id: number; msg: string }[]>([]);
+  const { toasts, addToast }                = useToast(TOAST_DURATION_MS);
   const [loading, setLoading]               = useState(true);
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const setsRef = useRef<ProblemSet[]>([]);
@@ -90,12 +91,6 @@ export const QuizPlay = () => {
       await setDoc(ref, payload, { merge: true });
     }, SAVE_DEBOUNCE_MS);
   }, [currentUser]);
-
-  const addToast = (msg: string) => {
-    const id = Date.now() + Math.random();
-    setToasts(t => [...t, { id, msg }]);
-    setTimeout(() => setToasts(t => t.filter(x => x.id !== id)), TOAST_DURATION_MS);
-  };
 
   // ── 選択中のセット・問題 ──────────────────────────────────
   const selectedSets = sets.filter(s => selectedSetIds.includes(s.id));
