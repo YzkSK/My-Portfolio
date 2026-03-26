@@ -1,0 +1,278 @@
+import { useState, useEffect, useRef } from 'react';
+import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
+import { storage } from '../../shared/firebase';
+import { getCachedImageUrl } from '../imageCache';
+import {
+  type AddModal, type EditModal, type Problem, type AnswerFormat,
+  WRONG_CHOICES_COUNT, CHOICE2_OPTIONS,
+} from '../constants';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
+
+type Props = {
+  modal: AddModal | EditModal;
+  problems: Problem[];
+  answerFormat: AnswerFormat;
+  uid: string;
+  formError: string;
+  onSave: (question: string, answer: string, category: string, wrongChoices: string[], memo: string, imageUrl: string) => void;
+  onDelete: (id: string) => void;
+  onClose: () => void;
+};
+
+export const ProblemModal = ({ modal, problems, answerFormat, uid, formError, onSave, onDelete, onClose }: Props) => {
+  const [question, setQuestion]         = useState('');
+  const [answer, setAnswer]             = useState('');
+  const [category, setCategory]         = useState('');
+  const [memo, setMemo]                 = useState('');
+  const [wrongChoices, setWrongChoices] = useState<string[]>([]);
+  const [existingImageUrl, setExistingImageUrl] = useState('');
+  const [imageFile, setImageFile]       = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState('');
+  const [imageRemoved, setImageRemoved] = useState(false);
+  const [imageError, setImageError]     = useState('');
+  const [uploading, setUploading]       = useState(false);
+  const [imgLoaded, setImgLoaded]       = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const needed = WRONG_CHOICES_COUNT[answerFormat];
+    if (modal.type === 'edit') {
+      const p = problems.find(p => p.id === modal.problemId);
+      if (p) {
+        setQuestion(p.question);
+        setAnswer(p.answer);
+        setCategory(p.category);
+        setMemo(p.memo);
+        const wc = [...p.wrongChoices];
+        while (wc.length < needed) wc.push('');
+        setWrongChoices(wc.slice(0, needed));
+        if (p.imageUrl) {
+          getCachedImageUrl(p.imageUrl).then(url => {
+            setExistingImageUrl(p.imageUrl ?? '');
+            setImagePreview(url);
+          }).catch(() => {
+            setExistingImageUrl(p.imageUrl ?? '');
+            setImagePreview(p.imageUrl ?? '');
+          });
+        }
+      }
+    } else {
+      setWrongChoices(Array(needed).fill(''));
+    }
+  }, []);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 1024 * 1024) {
+      setImageError('画像は1MB以下にしてください');
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      return;
+    }
+    setImageError('');
+    setImageFile(file);
+    setImageRemoved(false);
+    setImgLoaded(true); // ローカルファイルはすぐ表示
+    setImagePreview(URL.createObjectURL(file));
+  };
+
+  const handleRemoveImage = () => {
+    setImageFile(null);
+    setImagePreview('');
+    setImageRemoved(true);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const handleSave = async () => {
+    let imageUrl = existingImageUrl;
+
+    if (imageFile) {
+      setUploading(true);
+      try {
+        const ext = imageFile.name.split('.').pop() ?? 'jpg';
+        const path = `quiz-images/${uid}/${crypto.randomUUID()}.${ext}`;
+        const storageRef = ref(storage, path);
+        await uploadBytes(storageRef, imageFile);
+        imageUrl = await getDownloadURL(storageRef);
+        // 古い画像を削除
+        if (existingImageUrl) {
+          try { await deleteObject(ref(storage, existingImageUrl)); } catch {}
+        }
+      } catch (e) {
+        console.error('画像アップロードエラー:', e);
+        setUploading(false);
+        return;
+      }
+      setUploading(false);
+    } else if (imageRemoved) {
+      if (existingImageUrl) {
+        try { await deleteObject(ref(storage, existingImageUrl)); } catch {}
+      }
+      imageUrl = '';
+    }
+
+    onSave(question, answer, category, wrongChoices.map(s => s.trim()), memo, imageUrl);
+  };
+
+  const handleWrongChoiceChange = (index: number, value: string) => {
+    setWrongChoices(prev => prev.map((v, i) => i === index ? value : v));
+  };
+
+  const wrongChoiceCount = WRONG_CHOICES_COUNT[answerFormat];
+  const currentPreview = imagePreview;
+
+  return (
+    <Dialog open={true} onOpenChange={(open) => { if (!open) onClose(); }}>
+      <DialogContent className="max-w-[400px]" aria-describedby={undefined}>
+        <DialogHeader>
+          <DialogTitle>
+            {modal.type === 'add' ? '問題を追加' : '問題を編集'}
+          </DialogTitle>
+        </DialogHeader>
+
+        {formError && <p className="text-sm text-red-500 mb-3">{formError}</p>}
+
+        {/* 問題文 */}
+        <div className="mb-4">
+          <Label>問題文 *</Label>
+          <Textarea
+            className={formError && !question.trim() ? 'border-red-400' : ''}
+            value={question}
+            onChange={e => setQuestion(e.target.value)}
+            placeholder="問題文を入力してください"
+            autoFocus
+          />
+        </div>
+
+        {/* 画像 */}
+        <div className="mb-4">
+          <Label>画像（任意）</Label>
+          {currentPreview ? (
+            <div className="qz-img-preview-wrap">
+              {!imgLoaded && <div className="qz-img-spinner qz-img-spinner--preview" />}
+              {imgLoaded && (
+                <div className="qz-img-preview-inner">
+                  <img src={currentPreview} className="qz-img-preview" alt="問題画像" />
+                  <button className="qz-img-remove-btn" onClick={handleRemoveImage} type="button">✕ 削除</button>
+                </div>
+              )}
+              {/* ロード検知用（非表示） */}
+              {!imgLoaded && (
+                <img src={currentPreview} className="hidden" alt=""
+                  onLoad={() => setImgLoaded(true)} onError={() => setImgLoaded(true)} />
+              )}
+            </div>
+          ) : (
+            <button
+              className="qz-img-upload-btn"
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+            >
+              ＋ 画像を選択
+            </button>
+          )}
+          {currentPreview && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="mt-1.5"
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+            >
+              画像を変更
+            </Button>
+          )}
+          <input
+            ref={fileInputRef}
+            name="problem-image"
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={handleFileChange}
+          />
+          {imageError && <p className="text-sm text-red-500 mt-1">{imageError}</p>}
+        </div>
+
+        {/* 正解 */}
+        <div className="mb-4">
+          <Label>{wrongChoiceCount > 0 ? '正解 *' : '答え *'}</Label>
+          {answerFormat === 'choice2' ? (
+            <div className="qz-mode-btns">
+              {CHOICE2_OPTIONS.map(opt => (
+                <button
+                  key={opt}
+                  type="button"
+                  style={{ flex: 1 }}
+                  className={`qz-mode-btn text-lg${answer === opt ? ' qz-mode-btn--active' : ''}${formError && !answer ? ' qz-mode-btn--error' : ''}`}
+                  onClick={() => setAnswer(opt)}
+                >
+                  {opt}
+                </button>
+              ))}
+            </div>
+          ) : (
+            <Input
+              className={formError && !answer.trim() ? 'border-red-400' : ''}
+              value={answer}
+              onChange={e => setAnswer(e.target.value)}
+              placeholder={wrongChoiceCount > 0 ? '正解の選択肢を入力' : '答えを入力してください'}
+            />
+          )}
+        </div>
+
+        {/* 不正解の選択肢（choice4） */}
+        {wrongChoiceCount > 0 && (
+          <div className="mb-4">
+            <Label>不正解の選択肢 *</Label>
+            {wrongChoices.map((wc, i) => (
+              <Input
+                key={i}
+                className={`mb-2${formError && !wc.trim() ? ' border-red-400' : ''}`}
+                value={wc}
+                onChange={e => handleWrongChoiceChange(i, e.target.value)}
+                placeholder={`不正解 ${i + 1}`}
+              />
+            ))}
+          </div>
+        )}
+
+        {/* カテゴリ */}
+        <div className="mb-4">
+          <Label>カテゴリ（任意）</Label>
+          <Input
+            value={category}
+            onChange={e => setCategory(e.target.value)}
+            placeholder="例：数学, 英単語"
+          />
+        </div>
+
+        {/* メモ */}
+        <div className="mb-4">
+          <Label>メモ（任意）</Label>
+          <Textarea
+            className="min-h-[72px]"
+            value={memo}
+            onChange={e => setMemo(e.target.value)}
+            placeholder="補足・解説・覚え方など"
+          />
+        </div>
+
+        <div className="flex gap-2 items-center mt-5">
+          {modal.type === 'edit' && (
+            <Button variant="destructive" onClick={() => onDelete(modal.problemId)}>
+              削除
+            </Button>
+          )}
+          <Button variant="outline" className="flex-1" onClick={onClose} disabled={uploading}>キャンセル</Button>
+          <Button variant="default" className="flex-[2]" onClick={handleSave} disabled={uploading}>
+            {uploading ? 'アップロード中...' : '保存'}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+};

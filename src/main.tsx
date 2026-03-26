@@ -12,6 +12,8 @@ import { AppLoadingProvider } from './app/shared/AppLoadingContext';
 const Login = lazy(() => import('./app/auth/Login').then(m => ({ default: m.Login })));
 const Dashboard = lazy(() => import('./app/dashboard/Dashboard').then(m => ({ default: m.Dashboard })));
 const Timetable = lazy(() => import('./app/timetable/Timetable').then(m => ({ default: m.Timetable })));
+const Quiz     = lazy(() => import('./app/quiz/Quiz').then(m => ({ default: m.Quiz })));
+const QuizPlay = lazy(() => import('./app/quiz/QuizPlay').then(m => ({ default: m.QuizPlay })));
 
 // アプリページ表示中は #root の margin-top をリセット
 const AppWrapper = ({ children }: { children: React.ReactNode }) => {
@@ -49,6 +51,12 @@ createRoot(root!).render(
                     } />
                     <Route path="timetable" element={
                       <ProtectedRoute><Timetable /></ProtectedRoute>
+                    } />
+                    <Route path="quiz" element={
+                      <ProtectedRoute><Quiz /></ProtectedRoute>
+                    } />
+                    <Route path="quiz/play" element={
+                      <ProtectedRoute><QuizPlay /></ProtectedRoute>
                     } />
                   </Routes>
                 </Suspense>
