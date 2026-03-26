@@ -4,6 +4,7 @@ import { auth } from '../shared/firebase';
 import { useAuth } from '../auth/AuthContext';
 import '../shared/app.css';
 import { AppFooter } from '../shared/AppFooter';
+import { usePageTitle } from '../shared/usePageTitle';
 
 
 const APPS = [
@@ -14,6 +15,7 @@ const APPS = [
 export const Dashboard = () => {
   const { currentUser, username } = useAuth();
   const navigate = useNavigate();
+  usePageTitle('Dashboard');
 
   const handleLogout = async () => {
     await signOut(auth);

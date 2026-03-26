@@ -16,6 +16,8 @@ import {
 } from './constants';
 import { QuizSession } from './views/QuizSession';
 import { Button } from '@/components/ui/button';
+import { AppMenu } from '../shared/AppMenu';
+import { usePageTitle } from '../shared/usePageTitle';
 
 const MAX_RECENT = 10;
 const RECENT_INITIAL_SHOW = 3;
@@ -25,6 +27,7 @@ export const QuizPlay = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const setGlobalLoading = useSetLoading();
+  usePageTitle('問題集');
 
   const [sets, setSets]                     = useState<ProblemSet[]>([]);
   const [recentConfigs, setRecentConfigs]   = useState<RecentConfig[]>([]);
@@ -286,7 +289,10 @@ export const QuizPlay = () => {
           // ── 回答中 ─────────────────────────────────────
           <>
             <div className="flex items-center justify-between mb-5">
-              <h1 className="text-[1.3rem] font-black m-0 text-[#1a1a1a] dark:text-[#e0e0e0]">{session.mode === 'oneByOne' ? '一問一答' : '試験'}</h1>
+              <div className="flex items-center gap-2">
+                <AppMenu />
+                <h1 className="text-[1.3rem] font-black m-0 text-[#1a1a1a] dark:text-[#e0e0e0]">{session.mode === 'oneByOne' ? '一問一答' : '試験'}</h1>
+              </div>
             </div>
             <QuizSession
               session={session}
@@ -314,9 +320,12 @@ export const QuizPlay = () => {
           // ── 出題設定 ──────────────────────────────────
           <>
             <div className="flex items-center justify-between mb-5">
-              <h1 className="text-[15px] font-black m-0 text-[#1a1a1a] dark:text-[#e0e0e0]">
-                {selectedSets.map(s => s.name).join(' + ')}
-              </h1>
+              <div className="flex items-center gap-2">
+                <AppMenu />
+                <h1 className="text-[15px] font-black m-0 text-[#1a1a1a] dark:text-[#e0e0e0]">
+                  {selectedSets.map(s => s.name).join(' + ')}
+                </h1>
+              </div>
               <Button variant="outline" onClick={() => setConfigConfirmed(false)}>← 戻る</Button>
             </div>
 
@@ -372,7 +381,10 @@ export const QuizPlay = () => {
           // ── 問題集選択 ────────────────────────────────
           <>
             <div className="flex items-center justify-between mb-5">
-              <h1 className="text-[1.3rem] font-black m-0 text-[#1a1a1a] dark:text-[#e0e0e0]">出題する</h1>
+              <div className="flex items-center gap-2">
+                <AppMenu />
+                <h1 className="text-[1.3rem] font-black m-0 text-[#1a1a1a] dark:text-[#e0e0e0]">出題する</h1>
+              </div>
               <Button variant="outline" onClick={() => navigate('/app/quiz')}>← 問題集一覧</Button>
             </div>
 

@@ -19,11 +19,14 @@ import { ProblemSetModal } from './modals/ProblemSetModal';
 import { ShareModal } from './modals/ShareModal';
 import { ImportModal } from './modals/ImportModal';
 import { Button } from '@/components/ui/button';
+import { AppMenu } from '../shared/AppMenu';
+import { usePageTitle } from '../shared/usePageTitle';
 
 export const Quiz = () => {
   const { currentUser } = useAuth();
   const navigate = useNavigate();
   const setGlobalLoading = useSetLoading();
+  usePageTitle('問題集');
 
   const [sets, setSets]               = useState<ProblemSet[]>([]);
   const [activeSetId, setActiveSetId] = useState<string | null>(null);
@@ -199,7 +202,10 @@ export const Quiz = () => {
           // ── 問題集一覧 ─────────────────────────────────────
           <>
             <div className="flex items-center justify-between mb-5">
-              <h1 className="text-[1.3rem] font-black m-0 text-[#1a1a1a] dark:text-[#e0e0e0]">問題集</h1>
+              <div className="flex items-center gap-2">
+                <AppMenu />
+                <h1 className="text-[1.3rem] font-black m-0 text-[#1a1a1a] dark:text-[#e0e0e0]">問題集</h1>
+              </div>
               <Button variant="outline" onClick={handleLogout}>ログアウト</Button>
             </div>
 
@@ -252,6 +258,7 @@ export const Quiz = () => {
           <>
             <div className="flex items-center justify-between mb-5">
               <div className="flex items-center gap-2">
+                <AppMenu />
                 <h1 className="text-[1.3rem] font-black m-0 text-[#1a1a1a] dark:text-[#e0e0e0]">{activeSet?.name}</h1>
                 <Button
                   variant="outline"
