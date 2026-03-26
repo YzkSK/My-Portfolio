@@ -329,8 +329,8 @@ export const Quiz = () => {
       )}
 
       {activeSetId === null && sets.length > 0 && (
-        <div className="max-w-[640px] mx-auto mt-5">
-          <Button className="w-full" variant="default" onClick={() => navigate('/app/quiz/play')}>
+        <div className="fixed bottom-[56px] left-0 right-0 px-[14px] flex justify-center pointer-events-none">
+          <Button className="w-full max-w-[640px] pointer-events-auto" variant="default" onClick={() => navigate('/app/quiz/play')}>
             回答する
           </Button>
         </div>
