@@ -24,12 +24,12 @@
   --app-btn-hover: #ddd;
   /* timetable */
   --tt-bg: #111;
-  --tt-bg-card: #1a1a1a;
-  --tt-border: #2e2e2e;
+  --tt-bg-card: #242424;
+  --tt-border: #3a3a3a;
   --tt-text: #e0e0e0;
   --tt-text-muted: #888;
-  --tt-text-secondary: #666;
-  --tt-bg-subtle: #222;
+  --tt-text-secondary: #777;
+  --tt-bg-subtle: #2a2a2a;
   --tt-tab-active-bg: #fff;
   --tt-tab-active-text: #111;
   --tt-picker-bg: #2a2a2a;
