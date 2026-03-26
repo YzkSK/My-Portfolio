@@ -15,13 +15,15 @@ export const useTheme = () => useContext(ThemeContext);
 
 export const ThemeProvider = ({ children }: { children: ReactNode }) => {
   const { currentUser } = useAuth();
-  const [darkMode, setDarkMode] = useState(false);
+  const [darkMode, setDarkMode] = useState(() => localStorage.getItem('tt-dark-mode') === 'true');
 
   useEffect(() => {
     if (!currentUser) return;
     getDoc(doc(db, 'users', currentUser.uid, 'profile', 'data')).then(snap => {
       if (snap.exists() && snap.data().darkMode !== undefined) {
-        setDarkMode(snap.data().darkMode as boolean);
+        const value = snap.data().darkMode as boolean;
+        setDarkMode(value);
+        localStorage.setItem('tt-dark-mode', String(value));
       }
     });
   }, [currentUser]);
@@ -31,9 +33,24 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
     document.documentElement.classList.toggle('dark', darkMode);
   }, [darkMode]);
 
+  // iOS PWA: force CSS variable re-evaluation on app resume
+  useEffect(() => {
+    const onVisibilityChange = () => {
+      if (!document.hidden) {
+        const el = document.documentElement;
+        el.style.display = 'none';
+        void el.offsetHeight;
+        el.style.display = '';
+      }
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', onVisibilityChange);
+  }, []);
+
   const toggleDarkMode = async () => {
     const next = !darkMode;
     setDarkMode(next);
+    localStorage.setItem('tt-dark-mode', String(next));
     if (currentUser) {
       await setDoc(
         doc(db, 'users', currentUser.uid, 'profile', 'data'),

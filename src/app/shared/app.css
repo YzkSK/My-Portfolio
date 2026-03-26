@@ -38,6 +38,7 @@
   --tt-option-text: #ddd;
   --tt-option-active-bg: #fff;
   --tt-option-active-text: #111;
+  --tt-today-bg: #404040;
   /* quiz */
   --qz-bg: #1a1a1a;
   --qz-border: #2e2e2e;
@@ -94,6 +95,7 @@ html.app-theme-light {
   --tt-option-text: #333;
   --tt-option-active-bg: #1a1a1a;
   --tt-option-active-text: #fff;
+  --tt-today-bg: #e0e0e0;
   /* quiz */
   --qz-bg: #fff;
   --qz-border: #e0e0e0;

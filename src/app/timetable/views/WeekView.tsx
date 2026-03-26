@@ -44,7 +44,7 @@ export const WeekView = ({ cursor, events, periods, todayKey, onDayClick, onAdd,
               return (
                 <div key={`${key}-${periodIndex}-${di}`}
                   onClick={() => ev ? onEdit(key, periodIndex, ev.eventId) : onAdd(key, periodIndex)}
-                  style={{ minHeight: 60, borderRadius: 8, cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '4px 3px', textAlign: 'center', background: ev ? c!.bg : isTod ? 'var(--tt-bg-subtle)' : 'var(--tt-bg-card)', border: ev ? 'none' : isTod ? '1.5px dashed var(--tt-border)' : '1.5px dashed var(--tt-border)', transition: 'opacity 0.1s' }}
+                  style={{ minHeight: 60, borderRadius: 8, cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '4px 3px', textAlign: 'center', background: ev ? c!.bg : isTod ? 'var(--tt-today-bg)' : 'var(--tt-bg-card)', border: ev ? 'none' : `1.5px dashed ${isTod ? 'var(--tt-text-muted)' : 'var(--tt-border)'}`, transition: 'opacity 0.1s' }}
                   onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.opacity = '0.8'; }}
                   onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.opacity = '1'; }}
                 >
@@ -53,7 +53,7 @@ export const WeekView = ({ cursor, events, periods, todayKey, onDayClick, onAdd,
                       <div style={{ fontSize: 10, fontWeight: 800, color: c!.text, lineHeight: 1.3, wordBreak: 'break-all' }}>{ev.name}</div>
                       {ev.room && <div style={{ fontSize: 8, color: c!.text, opacity: 0.75, marginTop: 1 }}>{ev.room}</div>}
                     </>
-                  ) : <div style={{ fontSize: 14, color: 'var(--tt-border)' }}>+</div>}
+                  ) : <div style={{ fontSize: 14, color: isTod ? 'var(--tt-text-muted)' : 'var(--tt-border)' }}>+</div>}
                 </div>
               );
             })}

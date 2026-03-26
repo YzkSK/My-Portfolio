@@ -344,7 +344,7 @@ export const Timetable = () => {
             <div className="tt-notify">
               <span className="tt-notify-icon">{notifyEnabled ? '🔔' : '🔕'}</span>
               <div onClick={toggleNotify} className="tt-toggle" style={{ background: notifyEnabled ? 'var(--tt-tab-active-bg)' : 'var(--tt-border)' }}>
-                <div className="tt-toggle-thumb" style={{ left: notifyEnabled ? 20 : 2 }} />
+                <div className="tt-toggle-thumb" style={{ left: notifyEnabled ? 20 : 2, background: notifyEnabled ? 'var(--tt-tab-active-text)' : '#fff' }} />
               </div>
               <div onClick={() => setShowNotifyPicker(true)} className="tt-notify-picker-btn">
                 {notifyBefore}分前

@@ -9,6 +9,12 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <title>My PortFolio</title>
+    <script>
+      (function() {
+        var dark = localStorage.getItem('tt-dark-mode') === 'true';
+        document.documentElement.classList.add(dark ? 'dark' : 'app-theme-light');
+      })();
+    </script>
   </head>
   <body style="margin: 0;">
     <div id="root"></div>
