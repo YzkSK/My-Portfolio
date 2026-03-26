@@ -1,92 +1,6 @@
-/* ── ページ構造 ──────────────────────────────────────────── */
-.qz-page {
-  min-height: 100vh;
-  background: #f8f9fa;
-  color: #1a1a1a;
-  padding: 20px 14px 120px;
-}
-
-.qz-inner {
-  max-width: 640px;
-  margin: 0 auto;
-}
-
-.qz-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 20px;
-}
-
-.qz-title {
-  font-size: 1.3rem;
-  font-weight: 800;
-  margin: 0;
-  color: #1a1a1a;
-}
-
-/* ── ボタン ──────────────────────────────────────────────── */
-.qz-btn {
-  padding: 8px 14px;
-  background: #fff;
-  border: 1.5px solid #d0d0d0;
-  border-radius: 8px;
-  color: #1a1a1a;
-  font-size: 13px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: border-color 0.15s;
-  white-space: nowrap;
-}
-.qz-btn:hover { border-color: #888; }
-
-.qz-btn--primary {
-  background: #1a1a1a;
-  border-color: #1a1a1a;
-  color: #fff;
-}
-.qz-btn--primary:hover { background: #333; border-color: #333; }
-
-.qz-btn--danger {
-  background: #fff;
-  border-color: #ffcccc;
-  color: #ef4444;
-}
-.qz-btn--danger:hover { border-color: #ef4444; }
-
-.qz-btn:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
+/* ── ボタン (replaced by shadcn Button) ──────────────────── */
 
 /* ── セッション設定パネル ─────────────────────────────────── */
-.qz-setup {
-  background: #fff;
-  border: 1px solid #e8e8e8;
-  border-radius: 14px;
-  padding: 18px 16px;
-  margin-bottom: 20px;
-}
-
-.qz-setup-title {
-  font-size: 12px;
-  font-weight: 700;
-  color: #888;
-  margin: 0 0 12px;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.qz-setup-row {
-  margin-bottom: 14px;
-}
-
-.qz-setup-label {
-  font-size: 11px;
-  color: #888;
-  font-weight: 600;
-  margin-bottom: 6px;
-}
 
 .qz-mode-btns {
   display: flex;
@@ -113,62 +27,8 @@
   color: #fff;
 }
 
-.qz-filter-select {
-  width: 100%;
-  padding: 9px 12px;
-  border: 1.5px solid #e0e0e0;
-  border-radius: 9px;
-  background: #fff;
-  font-size: 13px;
-  color: #1a1a1a;
-  font-weight: 600;
-  cursor: pointer;
-  appearance: none;
-  outline: none;
-}
-.qz-filter-select:focus { border-color: #1a1a1a; }
-
-.qz-setup-footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-top: 16px;
-  padding-top: 14px;
-  border-top: 1px solid #f0f0f0;
-}
-
-.qz-target-count {
-  font-size: 13px;
-  color: #888;
-  font-weight: 600;
-}
-
-/* ── ヘッダーボタン群 ────────────────────────────────────── */
-.qz-header-actions {
-  display: flex;
-  gap: 8px;
-}
-
 /* ── 問題一覧 ────────────────────────────────────────────── */
-.qz-list-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 12px;
-}
-
-.qz-list-title {
-  font-size: 14px;
-  font-weight: 800;
-  color: #1a1a1a;
-}
-
-.qz-empty {
-  text-align: center;
-  padding: 40px 20px;
-  color: #aaa;
-  font-size: 14px;
-}
+/* .qz-empty replaced by Tailwind */
 
 .qz-problem-item {
   background: #fff;
@@ -181,14 +41,48 @@
 }
 .qz-problem-item:hover { border-color: #aaa; }
 
-.qz-problem-row {
+.qz-problem-top-row {
   display: flex;
   align-items: flex-start;
-  justify-content: space-between;
   gap: 8px;
 }
 
-.qz-problem-content { flex: 1; min-width: 0; }
+.qz-problem-stats {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+  flex-wrap: wrap;
+}
+
+.qz-problem-stat-item {
+  font-size: 11px;
+  font-weight: 700;
+  color: #aaa;
+}
+
+.qz-problem-stat-correct { color: #22c55e; }
+.qz-problem-stat-wrong   { color: #ef4444; }
+.qz-problem-stat-weak    { color: #f59e0b; }
+
+.qz-problem-qa {
+  display: flex;
+  gap: 0;
+  align-items: flex-start;
+}
+
+.qz-problem-q {
+  flex: 7;
+  min-width: 0;
+  padding-right: 10px;
+}
+
+.qz-problem-a {
+  flex: 1;
+  min-width: 0;
+  padding-left: 10px;
+  border-left: 1.5px solid #e8e8e8;
+}
 
 .qz-problem-question {
   font-size: 14px;
@@ -200,76 +94,34 @@
 }
 
 .qz-problem-answer {
-  font-size: 12px;
-  color: #888;
-  margin-top: 3px;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  font-size: 13px;
+  font-weight: 600;
+  color: #1a1a1a;
+  word-break: break-word;
+}
+
+.qz-answer-peek-btn {
+  font-size: 11px;
+  font-weight: 700;
+  color: #3b82f6;
+  background: #eff6ff;
+  border: 1.5px solid #bfdbfe;
+  border-radius: 6px;
+  padding: 3px 8px;
+  cursor: pointer;
   white-space: nowrap;
 }
+.qz-answer-peek-btn:hover { background: #dbeafe; }
 
 .qz-problem-meta {
   display: flex;
   align-items: center;
   gap: 6px;
-  margin-top: 7px;
+  margin-top: 6px;
   flex-wrap: wrap;
 }
 
-.qz-format-badge {
-  display: inline-block;
-  background: #e8f0fe;
-  color: #3b5bdb;
-  border-radius: 5px;
-  padding: 2px 8px;
-  font-size: 11px;
-  font-weight: 700;
-}
-
-.qz-category-badge {
-  display: inline-block;
-  background: #f0f0f0;
-  color: #555;
-  border-radius: 5px;
-  padding: 2px 8px;
-  font-size: 11px;
-  font-weight: 600;
-}
-
-.qz-bookmark-icon {
-  font-size: 14px;
-  color: #f59e0b;
-}
-
-.qz-weak-icon {
-  font-size: 12px;
-  color: #ef4444;
-  font-weight: 700;
-}
-
-.qz-streak-badge {
-  display: inline-block;
-  background: #f0fdf4;
-  color: #16a34a;
-  border-radius: 5px;
-  padding: 2px 7px;
-  font-size: 11px;
-  font-weight: 700;
-}
-
 /* ── クイズセッション ──────────────────────────────────────── */
-.qz-session-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 14px;
-}
-
-.qz-progress-text {
-  font-size: 13px;
-  color: #888;
-  font-weight: 600;
-}
 
 .qz-timer {
   font-size: 20px;
@@ -279,19 +131,7 @@
 }
 .qz-timer--warning { color: #ef4444; }
 
-.qz-progress-bar {
-  height: 4px;
-  background: #e8e8e8;
-  border-radius: 2px;
-  margin-bottom: 20px;
-}
-
-.qz-progress-fill {
-  height: 100%;
-  background: #1a1a1a;
-  border-radius: 2px;
-  transition: width 0.4s ease;
-}
+/* .qz-progress-bar / .qz-progress-fill, .qz-session-header, .qz-progress-text replaced by Tailwind */
 
 /* ── カード ──────────────────────────────────────────────── */
 .qz-card {
@@ -411,6 +251,14 @@
   margin-bottom: 12px;
 }
 
+.qz-choices--row {
+  flex-direction: row;
+}
+.qz-choices--row .qz-choice-btn {
+  flex: 1;
+  justify-content: center;
+}
+
 .qz-choice-btn {
   width: 100%;
   padding: 14px 16px;
@@ -446,11 +294,6 @@
 .qz-choice-btn--incorrect .qz-choice-label { color: #ef4444; }
 
 /* ── アクションボタン行 ───────────────────────────────────── */
-.qz-action-row {
-  display: flex;
-  gap: 8px;
-  margin-top: 4px;
-}
 
 .qz-judge-btn {
   flex: 1;
@@ -466,48 +309,7 @@
 .qz-judge-btn--correct   { background: #22c55e; color: #fff; }
 .qz-judge-btn--incorrect { background: #ef4444; color: #fff; }
 
-.qz-nav-row {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-}
-
 /* ── 結果画面 ────────────────────────────────────────────── */
-.qz-results {
-  padding-bottom: 24px;
-}
-
-.qz-results-score {
-  text-align: center;
-  padding: 28px 0 8px;
-}
-
-.qz-results-score-num {
-  font-size: 52px;
-  font-weight: 900;
-  color: #1a1a1a;
-  line-height: 1;
-}
-
-.qz-results-score-label {
-  font-size: 13px;
-  color: #888;
-  margin-top: 6px;
-}
-
-.qz-results-elapsed {
-  text-align: center;
-  font-size: 13px;
-  color: #888;
-  margin-bottom: 20px;
-}
-
-.qz-filter-bar {
-  display: flex;
-  gap: 6px;
-  margin-bottom: 14px;
-  flex-wrap: wrap;
-}
 
 .qz-filter-btn {
   padding: 6px 12px;
@@ -550,8 +352,6 @@
 .qz-result-icon--ok   { color: #22c55e; }
 .qz-result-icon--ng   { color: #ef4444; }
 .qz-result-icon--skip { color: #bbb; }
-
-.qz-result-body { flex: 1; min-width: 0; }
 
 .qz-result-qa {
   display: flex;
@@ -669,114 +469,7 @@
   line-height: 1;
 }
 
-/* ── モーダル ─────────────────────────────────────────────── */
-.qz-modal-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 200;
-  background: rgba(0,0,0,0.4);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 16px;
-}
-
-.qz-modal {
-  background: #fff;
-  border-radius: 18px;
-  padding: 24px 20px;
-  width: 100%;
-  max-width: 380px;
-  box-shadow: 0 12px 40px rgba(0,0,0,0.15);
-  max-height: 90vh;
-  overflow-y: auto;
-}
-
-.qz-modal-title {
-  font-size: 16px;
-  font-weight: 800;
-  color: #1a1a1a;
-  margin: 0 0 18px;
-}
-
-.qz-modal-field { margin-bottom: 16px; }
-
-.qz-modal-label {
-  font-size: 11px;
-  color: #888;
-  font-weight: 700;
-  margin-bottom: 6px;
-}
-
-.qz-modal-input,
-.qz-modal-textarea {
-  width: 100%;
-  box-sizing: border-box;
-  background: transparent;
-  border: none;
-  border-bottom: 2px solid #1a1a1a;
-  padding: 8px 2px;
-  color: #1a1a1a;
-  font-size: 14px;
-  outline: none;
-  font-family: inherit;
-}
-
-.qz-modal-textarea {
-  resize: vertical;
-  min-height: 70px;
-  border: 1.5px solid #e0e0e0;
-  border-radius: 8px;
-  padding: 10px;
-}
-.qz-modal-textarea:focus { border-color: #1a1a1a; }
-
-.qz-modal-input--error  { border-bottom-color: #ef4444; }
-.qz-modal-textarea--error { border-color: #ef4444; }
-
-.qz-modal-error {
-  color: #ef4444;
-  font-size: 12px;
-  font-weight: 600;
-  margin-bottom: 12px;
-}
-
-.qz-modal-hint {
-  font-size: 11px;
-  color: #aaa;
-  margin-top: 4px;
-}
-
-.qz-modal-btns {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-  margin-top: 20px;
-}
-
-/* シェアコード表示 */
-.qz-share-code {
-  background: #f8f9fa;
-  border: 2px dashed #e0e0e0;
-  border-radius: 12px;
-  padding: 20px;
-  text-align: center;
-  margin: 16px 0;
-}
-
-.qz-share-code-value {
-  font-size: 28px;
-  font-weight: 900;
-  color: #1a1a1a;
-  letter-spacing: 0.15em;
-  font-variant-numeric: tabular-nums;
-}
-
-.qz-share-code-hint {
-  font-size: 12px;
-  color: #888;
-  margin-top: 6px;
-}
+/* ── モーダル (replaced by shadcn Dialog + Input + Textarea + Label) ── */
 
 /* ── Toast ───────────────────────────────────────────────── */
 .qz-toast-container {
@@ -808,22 +501,7 @@
   to   { opacity: 1; transform: translateY(0); }
 }
 
-/* ── プレビューリスト（Import） ──────────────────────────── */
-.qz-preview-list {
-  border: 1px solid #e8e8e8;
-  border-radius: 10px;
-  overflow: hidden;
-  margin: 12px 0;
-}
-
-.qz-preview-item {
-  padding: 10px 14px;
-  border-bottom: 1px solid #f0f0f0;
-  font-size: 13px;
-}
-.qz-preview-item:last-child { border-bottom: none; }
-.qz-preview-item-q { font-weight: 700; color: #1a1a1a; }
-.qz-preview-item-a { color: #888; margin-top: 2px; }
+/* ── プレビューリスト（Import）replaced by Tailwind ──────── */
 
 /* ── 問題集リスト ─────────────────────────────────────────── */
 .qz-set-item {
@@ -870,12 +548,6 @@
   font-size: 20px;
   color: #bbb;
   flex-shrink: 0;
-}
-
-.qz-set-invalid {
-  color: #f59e0b;
-  font-size: 12px;
-  font-weight: 600;
 }
 
 .qz-invalid-badge {
@@ -964,12 +636,13 @@
 }
 
 .qz-problem-thumb {
-  display: block;
-  max-height: 60px;
-  max-width: 100%;
+  width: 52px;
+  height: auto;
+  max-height: 72px;
+  flex-shrink: 0;
   object-fit: contain;
-  border-radius: 4px;
-  margin-top: 6px;
+  border-radius: 6px;
+  border: 1px solid #f0f0f0;
 }
 
 /* ── 画像アップロードUI（ProblemModal）──────────────────── */
@@ -1032,14 +705,13 @@
 .qz-bm-btn {
   background: none;
   border: none;
-  font-size: 18px;
+  font-size: 16px;
   cursor: pointer;
-  padding: 4px 6px;
+  padding: 2px;
   line-height: 1;
   color: #f5a623;
   opacity: 0.5;
   transition: opacity 0.15s;
-  flex-shrink: 0;
 }
 .qz-bm-btn:hover { opacity: 1; }
 
@@ -1134,29 +806,7 @@
   justify-content: flex-end;
 }
 
-/* ── チェックボックスラベル（ShareModal）────────────────── */
-.qz-modal-checkbox-label {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 13px;
-  color: #444;
-  cursor: pointer;
-}
-
 /* ── 直近の記録（QuizPlay）──────────────────────────────── */
-.qz-recent-section {
-  margin-bottom: 20px;
-}
-
-.qz-section-label {
-  font-size: 11px;
-  font-weight: 700;
-  color: #aaa;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  margin-bottom: 8px;
-}
 
 .qz-recent-item {
   display: flex;
@@ -1240,8 +890,3 @@
   border-color: #1a1a1a;
 }
 
-.qz-selected-count {
-  font-size: 13px;
-  font-weight: 600;
-  color: #555;
-}

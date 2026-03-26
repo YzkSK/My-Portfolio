@@ -2,6 +2,10 @@ import { useState } from 'react';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../../shared/firebase';
 import { type Problem, type AnswerFormat, firestorePaths, newProblem } from '../constants';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
 type SharedData = {
   problems: { question: string; answer: string; category: string; answerFormat?: AnswerFormat; wrongChoices?: string[]; memo?: string }[];
@@ -51,46 +55,47 @@ export const ImportModal = ({ onImport, onClose, addToast }: Props) => {
   };
 
   return (
-    <div className="qz-modal-overlay" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="qz-modal">
-        <div className="qz-modal-title">問題集をインポート</div>
+    <Dialog open={true} onOpenChange={(open) => { if (!open) onClose(); }}>
+      <DialogContent className="max-w-[400px]" aria-describedby={undefined}>
+        <DialogHeader>
+          <DialogTitle>問題集をインポート</DialogTitle>
+        </DialogHeader>
 
-        <div className="qz-modal-field">
-          <div className="qz-modal-label">シェアコード</div>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <input
-              className="qz-modal-input"
-              style={{ flex: 1, fontSize: 16, letterSpacing: '0.1em', textTransform: 'uppercase' }}
+        <div className="mb-4">
+          <Label>シェアコード</Label>
+          <div className="flex gap-2">
+            <Input
+              className="flex-1 text-base tracking-wider uppercase"
               value={code}
               onChange={e => { setCode(e.target.value); setError(''); setPreview(null); }}
               placeholder="例：AB3XYZ12"
               maxLength={8}
               onKeyDown={e => { if (e.key === 'Enter') handleSearch(); }}
             />
-            <button className="qz-btn qz-btn--primary" onClick={handleSearch} disabled={loading || !code.trim()}>
+            <Button variant="default" onClick={handleSearch} disabled={loading || !code.trim()}>
               {loading ? '…' : '検索'}
-            </button>
+            </Button>
           </div>
-          {error && <div className="qz-modal-error" style={{ marginTop: 6 }}>{error}</div>}
+          {error && <p className="text-sm text-red-500 mt-1">{error}</p>}
         </div>
 
         {preview && (
           <div>
-            <div style={{ fontSize: 14, fontWeight: 800, color: '#1a1a1a', marginBottom: 6 }}>
+            <div className="text-sm font-black text-[#1a1a1a] mb-1.5">
               {preview.title}
             </div>
-            <div style={{ fontSize: 12, color: '#888', marginBottom: 10 }}>
+            <div className="text-xs text-[#888] mb-2.5">
               {preview.problems.length}件の問題
             </div>
-            <div className="qz-preview-list">
+            <div className="border border-[#e8e8e8] rounded-[10px] overflow-hidden my-3">
               {preview.problems.slice(0, 3).map((p, i) => (
-                <div key={i} className="qz-preview-item">
-                  <div className="qz-preview-item-q">Q. {p.question}</div>
-                  <div className="qz-preview-item-a">A. {p.answer}</div>
+                <div key={i} className="px-[14px] py-[10px] border-b border-[#f0f0f0] last:border-b-0 text-[13px]">
+                  <div className="font-bold text-[#1a1a1a]">Q. {p.question}</div>
+                  <div className="text-[#888] mt-[2px]">A. {p.answer}</div>
                 </div>
               ))}
               {preview.problems.length > 3 && (
-                <div className="qz-preview-item" style={{ color: '#aaa', textAlign: 'center' }}>
+                <div className="px-[14px] py-[10px] border-b border-[#f0f0f0] last:border-b-0 text-[13px] text-[#aaa] text-center">
                   ＋ {preview.problems.length - 3}件
                 </div>
               )}
@@ -98,15 +103,15 @@ export const ImportModal = ({ onImport, onClose, addToast }: Props) => {
           </div>
         )}
 
-        <div className="qz-modal-btns">
-          <button className="qz-btn" style={{ flex: 1 }} onClick={onClose}>キャンセル</button>
+        <div className="flex gap-2 items-center mt-5">
+          <Button variant="outline" className="flex-1" onClick={onClose}>キャンセル</Button>
           {preview && (
-            <button className="qz-btn qz-btn--primary" style={{ flex: 2 }} onClick={handleImport}>
+            <Button variant="default" className="flex-[2]" onClick={handleImport}>
               {preview.problems.length}件をインポート
-            </button>
+            </Button>
           )}
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 };

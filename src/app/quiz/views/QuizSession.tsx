@@ -4,6 +4,9 @@ import {
   type ActiveSession, type OneByOneSession, type ExamSession, type Problem,
   isExamSession, isAnswerCorrect, buildProblemChoices, formatTime, formatElapsed,
 } from '../constants';
+import { Button } from '@/components/ui/button';
+import { Progress } from '@/components/ui/progress';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 type ResultFilter = 'all' | 'correct' | 'incorrect' | 'bookmarked';
 
@@ -45,6 +48,7 @@ export const QuizSession = ({
   const [remainingMs, setRemainingMs]   = useState<number>(0);
   const [editingMemoId, setEditingMemoId] = useState<string | null>(null);
   const [memoInput, setMemoInput]         = useState('');
+  const [showSubmitConfirm, setShowSubmitConfirm] = useState(false);
   const timeUpFired = useRef(false);
 
   const isExam = isExamSession(session);
@@ -95,10 +99,10 @@ export const QuizSession = ({
   const renderMemo = (id: string) => (
     editingMemoId === id ? (
       <div className="qz-memo-edit">
-        <textarea className="qz-memo-input" value={memoInput} onChange={e => setMemoInput(e.target.value)} autoFocus placeholder="メモを入力" />
+        <textarea name="memo" className="qz-memo-input" value={memoInput} onChange={e => setMemoInput(e.target.value)} autoFocus placeholder="メモを入力" />
         <div className="qz-memo-edit-btns">
-          <button className="qz-btn" style={{ fontSize: 12 }} onClick={() => setEditingMemoId(null)}>キャンセル</button>
-          <button className="qz-btn qz-btn--primary" style={{ fontSize: 12 }} onClick={() => saveMemo(id)}>保存</button>
+          <Button variant="outline" size="sm" onClick={() => setEditingMemoId(null)}>キャンセル</Button>
+          <Button variant="default" size="sm" onClick={() => saveMemo(id)}>保存</Button>
         </div>
       </div>
     ) : (
@@ -172,13 +176,13 @@ export const QuizSession = ({
     });
 
     return (
-      <div className="qz-results">
-        <div className="qz-results-score">
-          <div className="qz-results-score-num">{correctCount}/{totalCount}</div>
-          <div className="qz-results-score-label">正解</div>
+      <div className="pb-6">
+        <div className="text-center py-7">
+          <div className="text-[52px] font-black text-[#1a1a1a] leading-none">{correctCount}/{totalCount}</div>
+          <div className="text-[13px] text-[#888] mt-[6px]">正解</div>
         </div>
 
-        <div className="qz-filter-bar">
+        <div className="flex gap-[6px] mb-[14px] flex-wrap">
           {([['all','すべて'],['correct','✓ 正解'],['incorrect','✗ 不正解'],['bookmarked','★ ブックマーク']] as [ResultFilter, string][]).map(([f, label]) => (
             <button key={f} className={`qz-filter-btn${resultFilter === f ? ' qz-filter-btn--active' : ''}`} onClick={() => setResultFilter(f)}>
               {label}
@@ -194,7 +198,7 @@ export const QuizSession = ({
             <div className={`qz-result-icon qz-result-icon--${!answered ? 'skip' : correct ? 'ok' : 'ng'}`}>
               {!answered ? '—' : correct ? '○' : '✗'}
             </div>
-            <div className="qz-result-body">
+            <div className="flex-1 min-w-0">
               <div className="qz-result-qa">
                 <div className="qz-result-q">
                   <div className="qz-result-qa-label">問題</div>
@@ -206,23 +210,23 @@ export const QuizSession = ({
                 {p.answerFormat !== 'flashcard' && answered && (
                   <div className="qz-result-a">
                     <div className="qz-result-qa-label">回答</div>
-                    <div className={`qz-result-answer${correct ? '' : ' qz-result-answer--wrong'}`}>{userAns || '（未入力）'}</div>
+                    <div className={`qz-result-answer${correct ? '' : ' qz-result-answer--wrong'}`}>{userAns || '未回答'}</div>
                     {!correct && <div className="qz-result-userans">正解: {p.answer}</div>}
                   </div>
                 )}
                 {!answered && p.answerFormat !== 'flashcard' && (
                   <div className="qz-result-a">
-                    <div className="qz-result-qa-label" style={{ color: '#bbb' }}>未回答</div>
+                    <div className="qz-result-qa-label text-[#bbb]">未回答</div>
                     <div className="qz-result-userans">正解: {p.answer}</div>
                   </div>
                 )}
               </div>
               {editingMemoId === p.id ? (
                 <div className="qz-memo-edit">
-                  <textarea className="qz-memo-input" value={memoInput} onChange={e => setMemoInput(e.target.value)} autoFocus placeholder="メモを入力" />
+                  <textarea name="memo" className="qz-memo-input" value={memoInput} onChange={e => setMemoInput(e.target.value)} autoFocus placeholder="メモを入力" />
                   <div className="qz-memo-edit-btns">
-                    <button className="qz-btn" style={{ fontSize: 12 }} onClick={() => setEditingMemoId(null)}>キャンセル</button>
-                    <button className="qz-btn qz-btn--primary" style={{ fontSize: 12 }} onClick={() => saveMemo(p.id)}>保存</button>
+                    <Button variant="outline" size="sm" onClick={() => setEditingMemoId(null)}>キャンセル</Button>
+                    <Button variant="default" size="sm" onClick={() => saveMemo(p.id)}>保存</Button>
                   </div>
                 </div>
               ) : (
@@ -238,8 +242,8 @@ export const QuizSession = ({
           );
         })}
 
-        <div style={{ marginTop: 20, display: 'flex', gap: 8 }}>
-          <button className="qz-btn qz-btn--primary" style={{ flex: 1 }} onClick={onEnd}>問題一覧に戻る</button>
+        <div className="mt-5 flex gap-2">
+          <Button variant="default" className="flex-1" onClick={onEnd}>問題一覧に戻る</Button>
         </div>
       </div>
     );
@@ -262,14 +266,14 @@ export const QuizSession = ({
     });
 
     return (
-      <div className="qz-results">
-        <div className="qz-results-score">
-          <div className="qz-results-score-num">{correctCount}/{session.queue.length}</div>
-          <div className="qz-results-score-label">正解</div>
+      <div className="pb-6">
+        <div className="text-center py-7">
+          <div className="text-[52px] font-black text-[#1a1a1a] leading-none">{correctCount}/{session.queue.length}</div>
+          <div className="text-[13px] text-[#888] mt-[6px]">正解</div>
         </div>
-        {elapsed && <div className="qz-results-elapsed">所要時間: {elapsed}</div>}
+        {elapsed && <div className="text-center text-[13px] text-[#888] mb-5">所要時間: {elapsed}</div>}
 
-        <div className="qz-filter-bar">
+        <div className="flex gap-[6px] mb-[14px] flex-wrap">
           {([['all','すべて'],['correct','✓ 正解'],['incorrect','✗ 不正解'],['bookmarked','★ ブックマーク']] as [ResultFilter, string][]).map(([f, label]) => (
             <button key={f} className={`qz-filter-btn${resultFilter === f ? ' qz-filter-btn--active' : ''}`} onClick={() => setResultFilter(f)}>
               {label}
@@ -280,7 +284,7 @@ export const QuizSession = ({
         {filtered.map(({ p, correct, userAns }) => (
           <div key={p.id} className={`qz-result-item qz-result-item--${correct ? 'ok' : 'ng'}`}>
             <div className={`qz-result-icon qz-result-icon--${correct ? 'ok' : 'ng'}`}>{correct ? '○' : '✗'}</div>
-            <div className="qz-result-body">
+            <div className="flex-1 min-w-0">
               <div className="qz-result-qa">
                 <div className="qz-result-q">
                   <div className="qz-result-qa-label">問題</div>
@@ -291,16 +295,16 @@ export const QuizSession = ({
                 </div>
                 <div className="qz-result-a">
                   <div className="qz-result-qa-label">回答</div>
-                  <div className={`qz-result-answer${correct ? '' : ' qz-result-answer--wrong'}`}>{userAns || '（未入力）'}</div>
+                  <div className={`qz-result-answer${correct ? '' : ' qz-result-answer--wrong'}`}>{userAns || '未回答'}</div>
                   {!correct && <div className="qz-result-userans">正解: {p.answer}</div>}
                 </div>
               </div>
               {editingMemoId === p.id ? (
                 <div className="qz-memo-edit">
-                  <textarea className="qz-memo-input" value={memoInput} onChange={e => setMemoInput(e.target.value)} autoFocus placeholder="メモを入力" />
+                  <textarea name="memo" className="qz-memo-input" value={memoInput} onChange={e => setMemoInput(e.target.value)} autoFocus placeholder="メモを入力" />
                   <div className="qz-memo-edit-btns">
-                    <button className="qz-btn" style={{ fontSize: 12 }} onClick={() => setEditingMemoId(null)}>キャンセル</button>
-                    <button className="qz-btn qz-btn--primary" style={{ fontSize: 12 }} onClick={() => saveMemo(p.id)}>保存</button>
+                    <Button variant="outline" size="sm" onClick={() => setEditingMemoId(null)}>キャンセル</Button>
+                    <Button variant="default" size="sm" onClick={() => saveMemo(p.id)}>保存</Button>
                   </div>
                 </div>
               ) : (
@@ -315,8 +319,8 @@ export const QuizSession = ({
           </div>
         ))}
 
-        <div style={{ marginTop: 20 }}>
-          <button className="qz-btn qz-btn--primary" style={{ width: '100%' }} onClick={onEnd}>問題一覧に戻る</button>
+        <div className="mt-5">
+          <Button variant="default" className="w-full" onClick={onEnd}>問題一覧に戻る</Button>
         </div>
       </div>
     );
@@ -346,19 +350,21 @@ export const QuizSession = ({
     return (
       <>
         {/* タイマーヘッダー */}
-        <div className="qz-session-header">
+        <div className="flex items-center justify-between mb-[14px]">
           <div className={`qz-timer${remainingMs < 5 * 60 * 1000 ? ' qz-timer--warning' : ''}`}>
             {formatTime(remainingMs)}
           </div>
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            <span className="qz-progress-text">{answeredCount}/{totalQ} 回答済み</span>
-            <button className="qz-btn qz-btn--primary" style={{ fontSize: 12 }} onClick={onSubmitExam}>提出する</button>
+          <div className="flex gap-2 items-center">
+            <span className="text-[13px] text-[#888] font-semibold">{answeredCount}/{totalQ} 回答済み</span>
+            <Button variant="default" size="sm" onClick={() => {
+              const unanswered = session.answers.filter(a => a === '').length;
+              if (unanswered > 0) setShowSubmitConfirm(true);
+              else onSubmitExam();
+            }}>提出する</Button>
           </div>
         </div>
 
-        <div className="qz-progress-bar">
-          <div className="qz-progress-fill" style={{ width: `${(session.currentIndex / totalQ) * 100}%` }} />
-        </div>
+        <Progress value={(session.currentIndex / totalQ) * 100} className="mb-5" />
 
         <button
           className={`qz-bookmark-row${bookmarked ? ' qz-bookmark-row--active' : ''}`}
@@ -377,6 +383,7 @@ export const QuizSession = ({
 
         {isWritten && (
           <textarea
+            name="exam-answer"
             className="qz-written-input"
             value={session.answers[session.currentIndex] ?? ''}
             onChange={e => onExamWrittenInputChange(e.target.value)}
@@ -385,35 +392,75 @@ export const QuizSession = ({
         )}
 
         {isChoice && (
-          <div className="qz-choices">
+          <div className={`qz-choices${method === 'choice2' ? ' qz-choices--row' : ''}`}>
             {choiceOptions.map((opt, i) => (
               <button
                 key={opt}
                 className={`qz-choice-btn${selectedChoice === opt ? ' qz-choice-btn--selected' : ''}`}
                 onClick={() => handleChoiceClick(opt)}
               >
-                <span className="qz-choice-label">{CHOICE_LABELS[i]}</span>
+
                 {opt}
               </button>
             ))}
           </div>
         )}
 
-        <div className="qz-nav-row">
+        <div className="flex gap-2 items-center">
           {session.currentIndex > 0 && (
-            <button className="qz-btn" onClick={onExamPrev}>← 前の問題</button>
+            <Button variant="outline" onClick={onExamPrev}>← 前の問題</Button>
           )}
-          <button
-            className="qz-btn qz-btn--primary"
-            style={{ flex: 1 }}
-            onClick={onExamNext}
+          <Button
+            variant="default"
+            className="flex-1"
+            onClick={session.currentIndex === totalQ - 1
+            ? () => {
+                const unanswered = session.answers.filter(a => a === '').length;
+                if (unanswered > 0) setShowSubmitConfirm(true);
+                else onSubmitExam();
+              }
+            : onExamNext}
             disabled={!canNext}
           >
             {session.currentIndex === totalQ - 1 ? '提出する' : '次の問題 →'}
-          </button>
+          </Button>
         </div>
 
         {renderSheet()}
+
+        {showSubmitConfirm && (() => {
+          const unansweredNums = session.answers
+            .map((a, i) => a === '' ? i + 1 : null)
+            .filter((n): n is number => n !== null);
+          return (
+            <Dialog open={true} onOpenChange={() => setShowSubmitConfirm(false)}>
+              <DialogContent aria-describedby={undefined}>
+                <DialogHeader>
+                  <DialogTitle>未回答の問題があります</DialogTitle>
+                </DialogHeader>
+                <p className="text-sm text-gray-500 mb-1">
+                  以下の問題が未回答のまま提出されます。このまま提出しますか？
+                </p>
+                <div className="flex flex-wrap gap-1.5 mb-4">
+                  {unansweredNums.map(n => (
+                    <span
+                      key={n}
+                      className="text-xs font-bold px-2 py-1 rounded bg-[#f3f4f6] text-[#1a1a1a] cursor-pointer hover:bg-[#e5e7eb]"
+                      onClick={() => { onJumpTo(n - 1); setShowSubmitConfirm(false); }}
+                      title={`問題 ${n} へ移動`}
+                    >
+                      {n}
+                    </span>
+                  ))}
+                </div>
+                <div className="flex gap-2">
+                  <Button variant="outline" className="flex-1" onClick={() => setShowSubmitConfirm(false)}>戻る</Button>
+                  <Button variant="default" className="flex-1" onClick={() => { setShowSubmitConfirm(false); onSubmitExam(); }}>提出する</Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+          );
+        })()}
       </>
     );
   }
@@ -425,14 +472,12 @@ export const QuizSession = ({
 
   return (
     <>
-      <div className="qz-session-header">
-        <div className="qz-progress-text">{progress} / {totalQ}</div>
-        <button className="qz-btn" style={{ fontSize: 12 }} onClick={onInterrupt}>中断</button>
+      <div className="flex items-center justify-between mb-[14px]">
+        <div className="text-[13px] text-[#888] font-semibold">{progress} / {totalQ}</div>
+        <Button variant="outline" size="sm" onClick={onInterrupt}>中断</Button>
       </div>
 
-      <div className="qz-progress-bar">
-        <div className="qz-progress-fill" style={{ width: `${(progress / totalQ) * 100}%` }} />
-      </div>
+      <Progress value={(progress / totalQ) * 100} className="mb-5" />
 
       {/* ブックマークボタン（共通） */}
       <button
@@ -459,14 +504,14 @@ export const QuizSession = ({
             )}
           </div>
           {isAnswering && (
-            <button className="qz-btn qz-btn--primary" style={{ width: '100%' }} onClick={onFlashcardReveal}>
+            <Button variant="default" className="w-full" onClick={onFlashcardReveal}>
               答えを見る
-            </button>
+            </Button>
           )}
           {isRevealed && (
             <>
               {renderMemo(currentQ.id)}
-              <div className="qz-action-row">
+              <div className="flex gap-2 mt-1">
                 <button className="qz-judge-btn qz-judge-btn--incorrect" onClick={() => onFlashcardJudge(false)}>✗ 不正解</button>
                 <button className="qz-judge-btn qz-judge-btn--correct"   onClick={() => onFlashcardJudge(true)}>✓ 正解</button>
               </div>
@@ -488,15 +533,16 @@ export const QuizSession = ({
           {isAnswering && (
             <>
               <textarea
+                name="written-answer"
                 className="qz-written-input"
                 value={s.writtenInput}
                 onChange={e => onWrittenInputChange(e.target.value)}
                 placeholder="答えを入力してください"
                 autoFocus
               />
-              <button className="qz-btn qz-btn--primary" style={{ width: '100%' }} onClick={onWrittenSubmit}>
+              <Button variant="default" className="w-full" onClick={onWrittenSubmit}>
                 回答する
-              </button>
+              </Button>
             </>
           )}
           {isRevealed && (
@@ -505,15 +551,15 @@ export const QuizSession = ({
                 {s.pendingResult ? '✓ 正解' : '✗ 不正解'}
               </div>
               <div className="qz-written-compare">
-                あなたの回答: <span>{s.writtenInput || '（未入力）'}</span>
+                あなたの回答: <span>{s.writtenInput || '未回答'}</span>
               </div>
               <div className="qz-written-compare">
                 正解: <span>{currentQ.answer}</span>
               </div>
               {renderMemo(currentQ.id)}
-              <button className="qz-btn qz-btn--primary" style={{ width: '100%' }} onClick={() => onWrittenNext(!!s.pendingResult, s.writtenInput)}>
+              <Button variant="default" className="w-full" onClick={() => onWrittenNext(!!s.pendingResult, s.writtenInput)}>
                 次へ
-              </button>
+              </Button>
             </>
           )}
         </>
@@ -529,7 +575,7 @@ export const QuizSession = ({
               <div className="qz-card-question">{currentQ.question}</div>
             </div>
           </div>
-          <div className="qz-choices">
+          <div className={`qz-choices${method === 'choice2' ? ' qz-choices--row' : ''}`}>
             {choiceOptions.map((opt, i) => {
               let cls = 'qz-choice-btn';
               if (isRevealed) {
@@ -550,28 +596,28 @@ export const QuizSession = ({
                     }
                   }}
                 >
-                  <span className="qz-choice-label">{CHOICE_LABELS[i]}</span>
+  
                   {opt}
                 </button>
               );
             })}
           </div>
           {isAnswering && (
-            <button
-              className="qz-btn qz-btn--primary"
-              style={{ width: '100%' }}
+            <Button
+              variant="default"
+              className="w-full"
               disabled={!selectedChoice}
               onClick={onFlashcardReveal}
             >
               答えを見る
-            </button>
+            </Button>
           )}
           {isRevealed && (
             <>
               {renderMemo(currentQ.id)}
-              <button className="qz-btn qz-btn--primary" style={{ width: '100%' }} onClick={() => onChoiceNext(selectedChoice === currentQ.answer, selectedChoice ?? '')}>
+              <Button variant="default" className="w-full" onClick={() => onChoiceNext(selectedChoice === currentQ.answer, selectedChoice ?? '')}>
                 次へ
-              </button>
+              </Button>
             </>
           )}
         </>

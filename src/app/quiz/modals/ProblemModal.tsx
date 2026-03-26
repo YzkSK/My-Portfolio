@@ -6,6 +6,11 @@ import {
   type AddModal, type EditModal, type Problem, type AnswerFormat,
   WRONG_CHOICES_COUNT, CHOICE2_OPTIONS,
 } from '../constants';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
 
 type Props = {
   modal: AddModal | EditModal;
@@ -121,19 +126,21 @@ export const ProblemModal = ({ modal, problems, answerFormat, uid, formError, on
   const currentPreview = imagePreview;
 
   return (
-    <div className="qz-modal-overlay" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="qz-modal">
-        <div className="qz-modal-title">
-          {modal.type === 'add' ? '問題を追加' : '問題を編集'}
-        </div>
+    <Dialog open={true} onOpenChange={(open) => { if (!open) onClose(); }}>
+      <DialogContent className="max-w-[400px]" aria-describedby={undefined}>
+        <DialogHeader>
+          <DialogTitle>
+            {modal.type === 'add' ? '問題を追加' : '問題を編集'}
+          </DialogTitle>
+        </DialogHeader>
 
-        {formError && <div className="qz-modal-error">{formError}</div>}
+        {formError && <p className="text-sm text-red-500 mb-3">{formError}</p>}
 
         {/* 問題文 */}
-        <div className="qz-modal-field">
-          <div className="qz-modal-label">問題文 *</div>
-          <textarea
-            className={`qz-modal-textarea${formError && !question.trim() ? ' qz-modal-textarea--error' : ''}`}
+        <div className="mb-4">
+          <Label>問題文 *</Label>
+          <Textarea
+            className={formError && !question.trim() ? 'border-red-400' : ''}
             value={question}
             onChange={e => setQuestion(e.target.value)}
             placeholder="問題文を入力してください"
@@ -142,8 +149,8 @@ export const ProblemModal = ({ modal, problems, answerFormat, uid, formError, on
         </div>
 
         {/* 画像 */}
-        <div className="qz-modal-field">
-          <div className="qz-modal-label">画像（任意）</div>
+        <div className="mb-4">
+          <Label>画像（任意）</Label>
           {currentPreview ? (
             <div className="qz-img-preview-wrap">
               {!imgLoaded && <div className="qz-img-spinner qz-img-spinner--preview" />}
@@ -155,7 +162,7 @@ export const ProblemModal = ({ modal, problems, answerFormat, uid, formError, on
               )}
               {/* ロード検知用（非表示） */}
               {!imgLoaded && (
-                <img src={currentPreview} style={{ display: 'none' }} alt=""
+                <img src={currentPreview} className="hidden" alt=""
                   onLoad={() => setImgLoaded(true)} onError={() => setImgLoaded(true)} />
               )}
             </div>
@@ -169,36 +176,38 @@ export const ProblemModal = ({ modal, problems, answerFormat, uid, formError, on
             </button>
           )}
           {currentPreview && (
-            <button
-              className="qz-btn"
-              style={{ fontSize: 12, marginTop: 6 }}
+            <Button
+              variant="outline"
+              size="sm"
+              className="mt-1.5"
               type="button"
               onClick={() => fileInputRef.current?.click()}
             >
               画像を変更
-            </button>
+            </Button>
           )}
           <input
             ref={fileInputRef}
+            name="problem-image"
             type="file"
             accept="image/*"
-            style={{ display: 'none' }}
+            className="hidden"
             onChange={handleFileChange}
           />
-          {imageError && <div className="qz-modal-error" style={{ marginTop: 6 }}>{imageError}</div>}
+          {imageError && <p className="text-sm text-red-500 mt-1">{imageError}</p>}
         </div>
 
         {/* 正解 */}
-        <div className="qz-modal-field">
-          <div className="qz-modal-label">{wrongChoiceCount > 0 ? '正解 *' : '答え *'}</div>
+        <div className="mb-4">
+          <Label>{wrongChoiceCount > 0 ? '正解 *' : '答え *'}</Label>
           {answerFormat === 'choice2' ? (
             <div className="qz-mode-btns">
               {CHOICE2_OPTIONS.map(opt => (
                 <button
                   key={opt}
                   type="button"
-                  className={`qz-mode-btn${answer === opt ? ' qz-mode-btn--active' : ''}${formError && !answer ? ' qz-mode-btn--error' : ''}`}
-                  style={{ flex: 1, fontSize: 18 }}
+                  style={{ flex: 1 }}
+                  className={`qz-mode-btn text-lg${answer === opt ? ' qz-mode-btn--active' : ''}${formError && !answer ? ' qz-mode-btn--error' : ''}`}
                   onClick={() => setAnswer(opt)}
                 >
                   {opt}
@@ -206,8 +215,8 @@ export const ProblemModal = ({ modal, problems, answerFormat, uid, formError, on
               ))}
             </div>
           ) : (
-            <input
-              className={`qz-modal-input${formError && !answer.trim() ? ' qz-modal-input--error' : ''}`}
+            <Input
+              className={formError && !answer.trim() ? 'border-red-400' : ''}
               value={answer}
               onChange={e => setAnswer(e.target.value)}
               placeholder={wrongChoiceCount > 0 ? '正解の選択肢を入力' : '答えを入力してください'}
@@ -217,13 +226,12 @@ export const ProblemModal = ({ modal, problems, answerFormat, uid, formError, on
 
         {/* 不正解の選択肢（choice4） */}
         {wrongChoiceCount > 0 && (
-          <div className="qz-modal-field">
-            <div className="qz-modal-label">不正解の選択肢 *</div>
+          <div className="mb-4">
+            <Label>不正解の選択肢 *</Label>
             {wrongChoices.map((wc, i) => (
-              <input
+              <Input
                 key={i}
-                className={`qz-modal-input${formError && !wc.trim() ? ' qz-modal-input--error' : ''}`}
-                style={{ marginBottom: 10 }}
+                className={`mb-2${formError && !wc.trim() ? ' border-red-400' : ''}`}
                 value={wc}
                 onChange={e => handleWrongChoiceChange(i, e.target.value)}
                 placeholder={`不正解 ${i + 1}`}
@@ -233,10 +241,9 @@ export const ProblemModal = ({ modal, problems, answerFormat, uid, formError, on
         )}
 
         {/* カテゴリ */}
-        <div className="qz-modal-field">
-          <div className="qz-modal-label">カテゴリ（任意）</div>
-          <input
-            className="qz-modal-input"
+        <div className="mb-4">
+          <Label>カテゴリ（任意）</Label>
+          <Input
             value={category}
             onChange={e => setCategory(e.target.value)}
             placeholder="例：数学, 英単語"
@@ -244,29 +251,28 @@ export const ProblemModal = ({ modal, problems, answerFormat, uid, formError, on
         </div>
 
         {/* メモ */}
-        <div className="qz-modal-field">
-          <div className="qz-modal-label">メモ（任意）</div>
-          <textarea
-            className="qz-modal-textarea"
-            style={{ minHeight: 72 }}
+        <div className="mb-4">
+          <Label>メモ（任意）</Label>
+          <Textarea
+            className="min-h-[72px]"
             value={memo}
             onChange={e => setMemo(e.target.value)}
             placeholder="補足・解説・覚え方など"
           />
         </div>
 
-        <div className="qz-modal-btns">
+        <div className="flex gap-2 items-center mt-5">
           {modal.type === 'edit' && (
-            <button className="qz-btn qz-btn--danger" onClick={() => onDelete(modal.problemId)}>
+            <Button variant="destructive" onClick={() => onDelete(modal.problemId)}>
               削除
-            </button>
+            </Button>
           )}
-          <button className="qz-btn" style={{ flex: 1 }} onClick={onClose} disabled={uploading}>キャンセル</button>
-          <button className="qz-btn qz-btn--primary" style={{ flex: 2 }} onClick={handleSave} disabled={uploading}>
+          <Button variant="outline" className="flex-1" onClick={onClose} disabled={uploading}>キャンセル</Button>
+          <Button variant="default" className="flex-[2]" onClick={handleSave} disabled={uploading}>
             {uploading ? 'アップロード中...' : '保存'}
-          </button>
+          </Button>
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 };

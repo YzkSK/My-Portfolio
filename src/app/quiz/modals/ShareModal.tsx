@@ -2,6 +2,10 @@ import { useState } from 'react';
 import { doc, setDoc } from 'firebase/firestore';
 import { db } from '../../shared/firebase';
 import { type Problem, getCategories, filterProblems, genShareCode, firestorePaths } from '../constants';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
 type Props = {
   problems: Problem[];
@@ -57,26 +61,28 @@ export const ShareModal = ({ problems, uid, defaultTitle = '', existingShareCode
   };
 
   return (
-    <div className="qz-modal-overlay" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="qz-modal">
-        <div className="qz-modal-title">問題集をシェア</div>
+    <Dialog open={true} onOpenChange={(open) => { if (!open) onClose(); }}>
+      <DialogContent className="max-w-[400px]" aria-describedby={undefined}>
+        <DialogHeader>
+          <DialogTitle>問題集をシェア</DialogTitle>
+        </DialogHeader>
 
         {!shareCode ? (
           <>
-            <div className="qz-modal-field">
-              <div className="qz-modal-label">タイトル（任意）</div>
-              <input
-                className="qz-modal-input"
+            <div className="mb-4">
+              <Label>タイトル（任意）</Label>
+              <Input
                 value={title}
                 onChange={e => setTitle(e.target.value)}
                 placeholder="例：英単語テスト 第1章"
               />
             </div>
 
-            <div className="qz-modal-field">
-              <div className="qz-modal-label">シェアする問題</div>
+            <div className="mb-4">
+              <Label>シェアする問題</Label>
               <select
-                className="qz-filter-select"
+                name="share-category"
+                className="w-full px-3 py-[9px] border-[1.5px] border-[#e0e0e0] rounded-[9px] bg-white text-[13px] text-[#1a1a1a] font-semibold cursor-pointer appearance-none outline-none focus:border-[#1a1a1a]"
                 value={categoryFilter}
                 onChange={e => setCategoryFilter(e.target.value)}
               >
@@ -85,14 +91,13 @@ export const ShareModal = ({ problems, uid, defaultTitle = '', existingShareCode
                   <option key={c} value={c}>{c} ({problems.filter(p => p.category === c).length}件)</option>
                 ))}
               </select>
-              <div className="qz-modal-hint" style={{ marginTop: 8 }}>
-                対象: {targetProblems.length}件の問題
-              </div>
+              <p className="text-xs text-gray-400 mt-2">対象: {targetProblems.length}件の問題</p>
             </div>
 
-            <div className="qz-modal-field">
-              <label className="qz-modal-checkbox-label">
+            <div className="mb-4">
+              <label className="flex items-center gap-2 text-[13px] text-[#444] cursor-pointer">
                 <input
+                  name="include-memo"
                   type="checkbox"
                   checked={includeMemo}
                   onChange={e => setIncludeMemo(e.target.checked)}
@@ -101,31 +106,31 @@ export const ShareModal = ({ problems, uid, defaultTitle = '', existingShareCode
               </label>
             </div>
 
-            <div className="qz-modal-btns">
-              <button className="qz-btn" style={{ flex: 1 }} onClick={onClose}>キャンセル</button>
-              <button className="qz-btn qz-btn--primary" style={{ flex: 2 }} onClick={handleGenerate} disabled={loading || targetProblems.length === 0}>
+            <div className="flex gap-2 items-center mt-5">
+              <Button variant="outline" className="flex-1" onClick={onClose}>キャンセル</Button>
+              <Button variant="default" className="flex-[2]" onClick={handleGenerate} disabled={loading || targetProblems.length === 0}>
                 {loading ? '生成中...' : 'シェアコードを生成'}
-              </button>
+              </Button>
             </div>
           </>
         ) : (
           <>
-            <div style={{ fontSize: 13, color: '#555', marginBottom: 4 }}>シェアコードが生成されました</div>
+            <p className="text-sm text-gray-500 mb-1">シェアコードが生成されました</p>
 
-            <div className="qz-share-code">
-              <div className="qz-share-code-value">{shareCode}</div>
-              <div className="qz-share-code-hint">{targetProblems.length}件の問題 · このコードを相手に伝えてください</div>
+            <div className="bg-[#f8f9fa] border-2 border-dashed border-[#e0e0e0] rounded-[12px] p-5 text-center my-4">
+              <div className="text-[28px] font-black text-[#1a1a1a] tracking-[0.15em] tabular-nums">{shareCode}</div>
+              <div className="text-[12px] text-[#888] mt-[6px]">{targetProblems.length}件の問題 · このコードを相手に伝えてください</div>
             </div>
 
-            <div className="qz-modal-btns">
-              <button className="qz-btn" style={{ flex: 1 }} onClick={onClose}>閉じる</button>
-              <button className="qz-btn qz-btn--primary" style={{ flex: 2 }} onClick={handleCopy}>
+            <div className="flex gap-2 items-center mt-5">
+              <Button variant="outline" className="flex-1" onClick={onClose}>閉じる</Button>
+              <Button variant="default" className="flex-[2]" onClick={handleCopy}>
                 コードをコピー
-              </button>
+              </Button>
             </div>
           </>
         )}
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 };

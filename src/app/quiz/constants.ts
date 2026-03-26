@@ -13,6 +13,8 @@ export type Problem = {
   createdAt: number;
   bookmarked: boolean;
   consecutiveCorrect: number;
+  consecutiveWrong: number;
+  correctCount: number;
   attemptCount: number;
 };
 
@@ -137,7 +139,8 @@ export function filterProblems(problems: Problem[], filter: string): Problem[] {
 }
 
 export function isWeak(p: Problem): boolean {
-  return p.attemptCount > 0 && p.consecutiveCorrect === 0;
+  // 初回不正解 or 2回連続不正解
+  return (p.attemptCount === 1 && p.consecutiveWrong === 1) || p.consecutiveWrong >= 2;
 }
 
 export function isInvalidProblem(p: Problem): boolean {
@@ -233,7 +236,7 @@ export function newProblem(
     id: crypto.randomUUID(),
     question, answer, wrongChoices, answerFormat, category, memo, imageUrl,
     createdAt: Date.now(),
-    bookmarked: false, consecutiveCorrect: 0, attemptCount: 0,
+    bookmarked: false, consecutiveCorrect: 0, consecutiveWrong: 0, correctCount: 0, attemptCount: 0,
   };
 }
 
@@ -251,6 +254,8 @@ export function parseProblem(p: Record<string, unknown>): Problem {
     createdAt: (p.createdAt as number) ?? Date.now(),
     bookmarked: (p.bookmarked as boolean) ?? false,
     consecutiveCorrect: (p.consecutiveCorrect as number) ?? 0,
+    consecutiveWrong: (p.consecutiveWrong as number) ?? 0,
+    correctCount: (p.correctCount as number) ?? 0,
     attemptCount: (p.attemptCount as number) ?? 0,
   };
 }

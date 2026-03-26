@@ -3,6 +3,10 @@ import {
   type ProblemSet, type SetCreateModal, type SetEditModal,
   type AnswerFormat, ANSWER_FORMAT_LABELS,
 } from '../constants';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
 const FORMATS: AnswerFormat[] = ['flashcard', 'written', 'choice2', 'choice4'];
 const FORMAT_HINTS: Record<AnswerFormat, string> = {
@@ -17,13 +21,15 @@ type Props = {
   sets: ProblemSet[];
   onSave: (name: string, answerFormat: AnswerFormat) => void;
   onDelete?: () => void;
+  onReset?: () => void;
   onClose: () => void;
 };
 
-export const ProblemSetModal = ({ modal, sets, onSave, onDelete, onClose }: Props) => {
+export const ProblemSetModal = ({ modal, sets, onSave, onDelete, onReset, onClose }: Props) => {
   const [name, setName]               = useState('');
   const [answerFormat, setAnswerFormat] = useState<AnswerFormat>('written');
   const [error, setError]             = useState('');
+  const [confirmingReset, setConfirmingReset] = useState(false);
 
   useEffect(() => {
     if (modal.type === 'set-edit') {
@@ -38,18 +44,20 @@ export const ProblemSetModal = ({ modal, sets, onSave, onDelete, onClose }: Prop
   };
 
   return (
-    <div className="qz-modal-overlay" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="qz-modal">
-        <div className="qz-modal-title">
-          {modal.type === 'set-create' ? '問題集を作成' : '問題集を編集'}
-        </div>
+    <Dialog open={true} onOpenChange={(open) => { if (!open) onClose(); }}>
+      <DialogContent className="max-w-[400px]" aria-describedby={undefined}>
+        <DialogHeader>
+          <DialogTitle>
+            {modal.type === 'set-create' ? '問題集を作成' : '問題集を編集'}
+          </DialogTitle>
+        </DialogHeader>
 
-        {error && <div className="qz-modal-error">{error}</div>}
+        {error && <p className="text-sm text-red-500 mb-3">{error}</p>}
 
-        <div className="qz-modal-field">
-          <div className="qz-modal-label">問題集名 *</div>
-          <input
-            className={`qz-modal-input${error ? ' qz-modal-input--error' : ''}`}
+        <div className="mb-4">
+          <Label>問題集名 *</Label>
+          <Input
+            className={error ? 'border-red-400' : ''}
             value={name}
             onChange={e => { setName(e.target.value); setError(''); }}
             placeholder="例：英単語 第1章"
@@ -58,9 +66,9 @@ export const ProblemSetModal = ({ modal, sets, onSave, onDelete, onClose }: Prop
           />
         </div>
 
-        <div className="qz-modal-field">
-          <div className="qz-modal-label">回答形式 *</div>
-          <div className="qz-mode-btns" style={{ flexWrap: 'wrap', gap: 6 }}>
+        <div className="mb-4">
+          <Label>回答形式 *</Label>
+          <div className="qz-mode-btns flex-wrap gap-1.5">
             {FORMATS.map(fmt => (
               <button
                 key={fmt}
@@ -73,21 +81,38 @@ export const ProblemSetModal = ({ modal, sets, onSave, onDelete, onClose }: Prop
               </button>
             ))}
           </div>
-          <div className="qz-modal-hint" style={{ marginTop: 6 }}>
-            {FORMAT_HINTS[answerFormat]}
-          </div>
+          <p className="text-xs text-gray-400 mt-1">{FORMAT_HINTS[answerFormat]}</p>
         </div>
 
-        <div className="qz-modal-btns">
+        {onReset && (
+          confirmingReset ? (
+            <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+              <p className="text-sm font-semibold text-amber-800 mb-2">回答履歴をリセットしますか？</p>
+              <p className="text-xs text-amber-600 mb-3">すべての問題の回答数・正解数・苦手フラグがリセットされます。この操作は元に戻せません。</p>
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" className="flex-1" onClick={() => setConfirmingReset(false)}>キャンセル</Button>
+                <Button variant="destructive" size="sm" className="flex-1" onClick={() => { onReset(); onClose(); }}>リセットする</Button>
+              </div>
+            </div>
+          ) : (
+            <div className="mt-4">
+              <Button variant="outline" size="sm" className="w-full text-amber-600 border-amber-200 hover:border-amber-400" onClick={() => setConfirmingReset(true)}>
+                回答履歴をリセット
+              </Button>
+            </div>
+          )
+        )}
+
+        <div className="flex gap-2 items-center mt-4">
           {onDelete && (
-            <button className="qz-btn qz-btn--danger" onClick={onDelete}>削除</button>
+            <Button variant="destructive" onClick={onDelete}>削除</Button>
           )}
-          <button className="qz-btn" style={{ flex: 1 }} onClick={onClose}>キャンセル</button>
-          <button className="qz-btn qz-btn--primary" style={{ flex: 2 }} onClick={handleSave}>
+          <Button variant="outline" className="flex-1" onClick={onClose}>キャンセル</Button>
+          <Button variant="default" className="flex-[2]" onClick={handleSave}>
             保存
-          </button>
+          </Button>
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 };

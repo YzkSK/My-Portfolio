@@ -18,6 +18,7 @@ import { ProblemModal } from './modals/ProblemModal';
 import { ProblemSetModal } from './modals/ProblemSetModal';
 import { ShareModal } from './modals/ShareModal';
 import { ImportModal } from './modals/ImportModal';
+import { Button } from '@/components/ui/button';
 
 export const Quiz = () => {
   const { currentUser } = useAuth();
@@ -117,6 +118,15 @@ export const Quiz = () => {
     setModal(null);
   };
 
+  const resetSetStats = (setId: string) => {
+    const next = sets.map(s => s.id !== setId ? s : {
+      ...s,
+      problems: s.problems.map(p => ({ ...p, attemptCount: 0, correctCount: 0, consecutiveCorrect: 0, consecutiveWrong: 0 })),
+    });
+    setSets(next);
+    saveToFirestore(next);
+  };
+
   // ── 問題 CRUD（アクティブセット内）────────────────────────
   const activeSet  = sets.find(s => s.id === activeSetId) ?? null;
   const problems   = activeSet?.problems ?? [];
@@ -179,38 +189,38 @@ export const Quiz = () => {
   if (loading) return null;
 
   return (
-    <div className="qz-page">
+    <div className="min-h-screen bg-[#f8f9fa] text-[#1a1a1a] px-[14px] pt-5 pb-[120px]">
       <div className="qz-toast-container">
         {toasts.map(t => <div key={t.id} className="qz-toast">{t.msg}</div>)}
       </div>
 
-      <div className="qz-inner">
+      <div className="max-w-[640px] mx-auto">
         {activeSetId === null ? (
           // ── 問題集一覧 ─────────────────────────────────────
           <>
-            <div className="qz-header">
-              <h1 className="qz-title">問題集</h1>
-              <button className="qz-btn" onClick={handleLogout}>ログアウト</button>
+            <div className="flex items-center justify-between mb-5">
+              <h1 className="text-[1.3rem] font-black m-0 text-[#1a1a1a]">問題集</h1>
+              <Button variant="outline" onClick={handleLogout}>ログアウト</Button>
             </div>
 
-            <div className="qz-list-header">
-              <div className="qz-list-title">マイ問題集 ({sets.length}件)</div>
-              <div className="qz-header-actions">
-                <button className="qz-btn" style={{ fontSize: 12 }} onClick={() => setModal({ type: 'import' })}>インポート</button>
-                <button className="qz-btn qz-btn--primary" onClick={() => setModal({ type: 'set-create' })}>＋ 新規作成</button>
+            <div className="flex items-center justify-between mb-3">
+              <div className="text-sm font-black text-[#1a1a1a]">マイ問題集 ({sets.length}件)</div>
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={() => setModal({ type: 'import' })}>インポート</Button>
+                <Button variant="default" onClick={() => setModal({ type: 'set-create' })}>＋ 新規作成</Button>
               </div>
             </div>
 
             {sets.length === 0 ? (
-              <div className="qz-empty">
-                <div style={{ fontSize: 32, marginBottom: 12 }}>📚</div>
-                <div>問題集がまだありません</div>
-                <div style={{ marginTop: 10 }}>
-                  <button className="qz-btn qz-btn--primary" onClick={() => setModal({ type: 'set-create' })}>
+              <p className="text-sm text-gray-400 text-center py-8">
+                <span className="text-[32px] block mb-3">📚</span>
+                問題集がまだありません
+                <span className="block mt-2.5">
+                  <Button variant="default" onClick={() => setModal({ type: 'set-create' })}>
                     ＋ 問題集を作成する
-                  </button>
-                </div>
-              </div>
+                  </Button>
+                </span>
+              </p>
             ) : (
               sets.map(s => {
                 const invalidCount = getInvalidCount(s.problems);
@@ -220,26 +230,17 @@ export const Quiz = () => {
                     <div className="qz-set-name">{s.name}</div>
                     <div className="qz-set-count">
                       {s.problems.length}問
-                      {invalidCount > 0 && <span className="qz-set-invalid"> · ⚠ {invalidCount}件の選択肢が不足</span>}
+                      {invalidCount > 0 && <span className="text-amber-500 text-[12px] font-semibold"> · ⚠ {invalidCount}件の選択肢が不足</span>}
                     </div>
                   </div>
                   <div className="qz-set-actions" onClick={e => e.stopPropagation()}>
-                    <button
-                      className="qz-btn qz-btn--primary"
-                      style={{ fontSize: 12 }}
-                      disabled={s.problems.length === 0 || invalidCount > 0}
-                      title={invalidCount > 0 ? '選択肢が不足している問題があります' : undefined}
-                      onClick={() => navigate(`/app/quiz/play?set=${s.id}`)}
-                    >
-                      出題する
-                    </button>
-                    <button
-                      className="qz-btn"
-                      style={{ fontSize: 12 }}
+                    <Button
+                      variant="outline"
+                      size="sm"
                       onClick={() => setModal({ type: 'set-edit', setId: s.id })}
                     >
                       編集
-                    </button>
+                    </Button>
                   </div>
                 </div>
                 );
@@ -249,19 +250,19 @@ export const Quiz = () => {
         ) : (
           // ── 問題一覧（アクティブセット内）──────────────────
           <>
-            <div className="qz-header">
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <h1 className="qz-title">{activeSet?.name}</h1>
-                <button
-                  className="qz-btn"
-                  style={{ fontSize: 11, padding: '4px 8px' }}
+            <div className="flex items-center justify-between mb-5">
+              <div className="flex items-center gap-2">
+                <h1 className="text-[1.3rem] font-black m-0 text-[#1a1a1a]">{activeSet?.name}</h1>
+                <Button
+                  variant="outline"
+                  size="sm"
                   onClick={() => setModal({ type: 'set-edit', setId: activeSetId! })}
                 >
                   名前変更
-                </button>
+                </Button>
               </div>
-              <div className="qz-header-actions">
-                <button className="qz-btn" onClick={() => setActiveSetId(null)}>← 一覧</button>
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={() => setActiveSetId(null)}>← 一覧</Button>
               </div>
             </div>
 
@@ -286,6 +287,7 @@ export const Quiz = () => {
             else updateSet(modal.setId, name, answerFormat);
           }}
           onDelete={modal.type === 'set-edit' ? () => deleteSet(modal.setId) : undefined}
+          onReset={modal.type === 'set-edit' ? () => resetSetStats(modal.setId) : undefined}
           onClose={() => setModal(null)}
         />
       )}
@@ -324,6 +326,14 @@ export const Quiz = () => {
           onClose={() => setModal(null)}
           addToast={addToast}
         />
+      )}
+
+      {activeSetId === null && sets.length > 0 && (
+        <div className="max-w-[640px] mx-auto mt-5">
+          <Button className="w-full" variant="default" onClick={() => navigate('/app/quiz/play')}>
+            回答する
+          </Button>
+        </div>
       )}
 
       <AppFooter />

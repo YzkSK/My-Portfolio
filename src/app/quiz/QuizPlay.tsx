@@ -15,8 +15,10 @@ import {
   type OneByOneSession, type ExamSession, type QuizMode,
 } from './constants';
 import { QuizSession } from './views/QuizSession';
+import { Button } from '@/components/ui/button';
 
-const MAX_RECENT = 5;
+const MAX_RECENT = 10;
+const RECENT_INITIAL_SHOW = 3;
 
 export const QuizPlay = () => {
   const { currentUser } = useAuth();
@@ -26,6 +28,7 @@ export const QuizPlay = () => {
 
   const [sets, setSets]                     = useState<ProblemSet[]>([]);
   const [recentConfigs, setRecentConfigs]   = useState<RecentConfig[]>([]);
+  const [showAllRecent, setShowAllRecent]   = useState(false);
   const initSetId = searchParams.get('set');
   const [selectedSetIds, setSelectedSetIds] = useState<string[]>(initSetId ? [initSetId] : []);
   const [configConfirmed, setConfigConfirmed] = useState(false);
@@ -126,11 +129,12 @@ export const QuizPlay = () => {
         const entry = entries.find(e => e.id === p.id);
         if (!entry) return p;
         const consecutive = entry.correct ? p.consecutiveCorrect + 1 : 0;
+        const consecutiveWrong = entry.correct ? 0 : p.consecutiveWrong + 1;
         // 不正解経験あり (attemptCount > consecutiveCorrect) の問題がちょうど5連続正解に達したときのみトースト
         if (consecutive === MASTER_THRESHOLD && p.attemptCount > p.consecutiveCorrect) {
           mastered.push(p.question);
         }
-        return { ...p, consecutiveCorrect: consecutive, attemptCount: p.attemptCount + 1 };
+        return { ...p, consecutiveCorrect: consecutive, consecutiveWrong, correctCount: p.correctCount + (entry.correct ? 1 : 0), attemptCount: p.attemptCount + 1 };
       }),
     }));
     setSets(next);
@@ -272,17 +276,17 @@ export const QuizPlay = () => {
   if (loading) return null;
 
   return (
-    <div className="qz-page">
+    <div className="min-h-screen bg-[#f8f9fa] text-[#1a1a1a] px-[14px] pt-5 pb-[120px]">
       <div className="qz-toast-container">
         {toasts.map(t => <div key={t.id} className="qz-toast">{t.msg}</div>)}
       </div>
 
-      <div className="qz-inner">
+      <div className="max-w-[640px] mx-auto">
         {session !== null ? (
           // ── 回答中 ─────────────────────────────────────
           <>
-            <div className="qz-header">
-              <h1 className="qz-title">{session.mode === 'oneByOne' ? '一問一答' : '試験'}</h1>
+            <div className="flex items-center justify-between mb-5">
+              <h1 className="text-[1.3rem] font-black m-0 text-[#1a1a1a]">{session.mode === 'oneByOne' ? '一問一答' : '試験'}</h1>
             </div>
             <QuizSession
               session={session}
@@ -309,20 +313,21 @@ export const QuizPlay = () => {
         ) : configConfirmed ? (
           // ── 出題設定 ──────────────────────────────────
           <>
-            <div className="qz-header">
-              <h1 className="qz-title" style={{ fontSize: 15 }}>
+            <div className="flex items-center justify-between mb-5">
+              <h1 className="text-[15px] font-black m-0 text-[#1a1a1a]">
                 {selectedSets.map(s => s.name).join(' + ')}
               </h1>
-              <button className="qz-btn" onClick={() => setConfigConfirmed(false)}>← 戻る</button>
+              <Button variant="outline" onClick={() => setConfigConfirmed(false)}>← 戻る</Button>
             </div>
 
-            <div className="qz-setup">
-              <div className="qz-setup-title">出題設定</div>
+            <div className="bg-white border border-[#e8e8e8] rounded-[14px] p-[18px_16px] mb-5">
+              <div className="text-[12px] font-bold text-[#888] mb-3 uppercase tracking-[0.05em]">出題設定</div>
 
-              <div className="qz-setup-row">
-                <div className="qz-setup-label">問題フィルター</div>
+              <div className="mb-[14px]">
+                <div className="text-[11px] text-[#888] font-semibold mb-[6px]">問題フィルター</div>
                 <select
-                  className="qz-filter-select"
+                  name="category-filter"
+                  className="w-full px-3 py-[9px] border-[1.5px] border-[#e0e0e0] rounded-[9px] bg-white text-[13px] text-[#1a1a1a] font-semibold cursor-pointer appearance-none outline-none focus:border-[#1a1a1a]"
                   value={categoryFilter}
                   onChange={e => setCategoryFilter(e.target.value)}
                 >
@@ -335,8 +340,8 @@ export const QuizPlay = () => {
                 </select>
               </div>
 
-              <div className="qz-setup-row">
-                <div className="qz-setup-label">モード</div>
+              <div className="mb-[14px]">
+                <div className="text-[11px] text-[#888] font-semibold mb-[6px]">モード</div>
                 <div className="qz-mode-btns">
                   {(['oneByOne', 'exam'] as QuizMode[]).map(m => (
                     <button
@@ -345,37 +350,37 @@ export const QuizPlay = () => {
                       onClick={() => setQuizMode(m)}
                     >
                       {QUIZ_MODE_LABELS[m]}
-                      {m === 'exam' && <span style={{ fontSize: 10, opacity: 0.7, display: 'block' }}>最大50問・50分</span>}
+                      {m === 'exam' && <span className="text-[10px] opacity-70 block">最大50問・50分</span>}
                     </button>
                   ))}
                 </div>
               </div>
 
-              <div className="qz-setup-footer">
-                <div className="qz-target-count">対象: {targetCount}件</div>
-                <button
-                  className="qz-btn qz-btn--primary"
+              <div className="flex items-center justify-between mt-4 pt-[14px] border-t border-[#f0f0f0]">
+                <div className="text-[13px] text-[#888] font-semibold">対象: {targetCount}件</div>
+                <Button
+                  variant="default"
                   onClick={() => startSession({ mode: quizMode, categoryFilter })}
                   disabled={targetCount === 0}
                 >
                   出題開始
-                </button>
+                </Button>
               </div>
             </div>
           </>
         ) : (
           // ── 問題集選択 ────────────────────────────────
           <>
-            <div className="qz-header">
-              <h1 className="qz-title">出題する</h1>
-              <button className="qz-btn" onClick={() => navigate('/app/quiz')}>← 問題集一覧</button>
+            <div className="flex items-center justify-between mb-5">
+              <h1 className="text-[1.3rem] font-black m-0 text-[#1a1a1a]">出題する</h1>
+              <Button variant="outline" onClick={() => navigate('/app/quiz')}>← 問題集一覧</Button>
             </div>
 
             {/* 直近の記録 */}
             {recentConfigs.length > 0 && (
-              <div className="qz-recent-section">
-                <div className="qz-section-label">直近の記録</div>
-                {recentConfigs.map(config => {
+              <div className="mb-5">
+                <div className="text-[11px] font-bold text-[#aaa] uppercase tracking-[0.06em] mb-2">直近の記録</div>
+                {(showAllRecent ? recentConfigs : recentConfigs.slice(0, RECENT_INITIAL_SHOW)).map(config => {
                   const validCount = config.setIds.filter(id => sets.some(s => s.id === id)).length;
                   return (
                     <div key={config.id} className="qz-recent-item" onClick={() => applyRecentConfig(config)}>
@@ -391,27 +396,35 @@ export const QuizPlay = () => {
                     </div>
                   );
                 })}
+                {recentConfigs.length > RECENT_INITIAL_SHOW && (
+                  <button
+                    className="text-[12px] text-[#888] font-semibold mt-1 w-full text-center py-1 hover:text-[#1a1a1a]"
+                    onClick={() => setShowAllRecent(v => !v)}
+                  >
+                    {showAllRecent ? '折りたたむ ▲' : `さらに表示 (${recentConfigs.length - RECENT_INITIAL_SHOW}件) ▼`}
+                  </button>
+                )}
               </div>
             )}
 
             {/* 問題集チェックリスト */}
-            <div className="qz-list-header">
-              <div className="qz-list-title">
+            <div className="flex items-center justify-between mb-3">
+              <div className="text-sm font-black text-[#1a1a1a]">
                 問題集を選択
-                {selectedSetIds.length > 0 && <span className="qz-selected-count"> ({selectedSetIds.length}件)</span>}
+                {selectedSetIds.length > 0 && <span className="text-sm font-semibold text-[#555]"> ({selectedSetIds.length}件)</span>}
               </div>
             </div>
 
             {sets.length === 0 ? (
-              <div className="qz-empty">
-                <div style={{ fontSize: 32, marginBottom: 12 }}>📚</div>
-                <div>問題集がまだありません</div>
-                <div style={{ marginTop: 10 }}>
-                  <button className="qz-btn qz-btn--primary" onClick={() => navigate('/app/quiz')}>
+              <p className="text-sm text-gray-400 text-center py-8">
+                <span className="text-[32px] block mb-3">📚</span>
+                問題集がまだありません
+                <span className="block mt-2.5">
+                  <Button variant="default" onClick={() => navigate('/app/quiz')}>
                     問題集を作成する →
-                  </button>
-                </div>
-              </div>
+                  </Button>
+                </span>
+              </p>
             ) : (
               <>
                 {sets.map(s => {
@@ -433,7 +446,7 @@ export const QuizPlay = () => {
                           {s.problems.length === 0
                             ? '問題なし'
                             : invalidCount > 0
-                              ? <span className="qz-set-invalid">⚠ {invalidCount}件の選択肢が不足</span>
+                              ? <span className="text-amber-500 text-[12px] font-semibold">⚠ {invalidCount}件の選択肢が不足</span>
                               : `${s.problems.length}問`}
                         </div>
                       </div>
@@ -441,15 +454,15 @@ export const QuizPlay = () => {
                   );
                 })}
 
-                <div style={{ marginTop: 16 }}>
-                  <button
-                    className="qz-btn qz-btn--primary"
-                    style={{ width: '100%' }}
+                <div className="mt-4">
+                  <Button
+                    variant="default"
+                    className="w-full"
                     disabled={selectedSetIds.length === 0}
                     onClick={() => setConfigConfirmed(true)}
                   >
                     次へ →
-                  </button>
+                  </Button>
                 </div>
               </>
             )}
