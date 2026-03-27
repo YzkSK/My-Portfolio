@@ -44,7 +44,7 @@ export const MonthView = ({ cursor, events, periods, todayKey, onDayClick }: Pro
                 {dayEvents.slice(0, 3).map((ev, idx) => {
                   const c = COLORS[ev.colorIdx ?? 0];
                   return (
-                    <div key={idx} style={{ background: c.bg, color: c.text, borderRadius: 3, fontSize: 9, fontWeight: 700, padding: '1px 4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    <div key={idx} style={{ background: `var(--tt-event-${ev.colorIdx ?? 0}-bg)`, color: c.text, borderRadius: 3, fontSize: 9, fontWeight: 700, padding: '1px 4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {periods[ev.periodIndex]?.label} {ev.name}
                     </div>
                   );
