@@ -45,6 +45,7 @@ export const ShareModal = ({ problems, uid, defaultTitle = '', existingShareCode
         title: title.trim() || '問題集',
         createdBy: uid,
         createdAt: Date.now(),
+        expireAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
       };
       await setDoc(doc(db, firestorePaths.sharedProblem(code)), payload);
       setShareCode(code);
@@ -120,7 +121,7 @@ export const ShareModal = ({ problems, uid, defaultTitle = '', existingShareCode
 
             <div className="bg-[#f8f9fa] dark:bg-[#222] border-2 border-dashed border-[#e0e0e0] dark:border-[#444] rounded-[12px] p-5 text-center my-4">
               <div className="text-[28px] font-black text-[#1a1a1a] dark:text-[#e0e0e0] tracking-[0.15em] tabular-nums">{shareCode}</div>
-              <div className="text-[12px] text-[#888] mt-[6px]">{targetProblems.length}件の問題 · このコードを相手に伝えてください</div>
+              <div className="text-[12px] text-[#888] mt-[6px]">{targetProblems.length}件の問題 · 有効期限7日間</div>
             </div>
 
             <div className="flex gap-2 items-center mt-5">

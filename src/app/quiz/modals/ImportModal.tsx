@@ -12,6 +12,7 @@ type SharedData = {
   problems: { question: string; answer: string; category: string; answerFormat?: AnswerFormat; wrongChoices?: string[]; memo?: string; imageUrl?: string }[];
   title: string;
   createdAt: number;
+  expireAt?: { toDate: () => Date } | null;
 };
 
 type Props = {
@@ -40,7 +41,12 @@ export const ImportModal = ({ onImport, onClose, addToast, uid, allProblems }: P
         setError('コードが見つかりませんでした');
         return;
       }
-      setPreview(snap.data() as SharedData);
+      const data = snap.data() as SharedData;
+      if (data.expireAt && data.expireAt.toDate() < new Date()) {
+        setError('このシェアコードは期限切れです');
+        return;
+      }
+      setPreview(data);
     } catch (e) {
       console.error(e);
       setError('検索に失敗しました');
