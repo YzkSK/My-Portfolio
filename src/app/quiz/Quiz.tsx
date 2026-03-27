@@ -13,7 +13,7 @@ import './quiz.css';
 import {
   SAVE_DEBOUNCE_MS, TOAST_DURATION_MS,
   newProblem, newProblemSet, parseProblem, parseProblemSet, firestorePaths, WRONG_CHOICES_COUNT,
-  getInvalidCount, storagePathFromUrl,
+  getInvalidCount,
   type Problem, type ProblemSet, type Modal, type AddModal, type EditModal, type AnswerFormat,
 } from './constants';
 import { ProblemList } from './views/ProblemList';
@@ -75,19 +75,25 @@ export const Quiz = () => {
 
   const cleanupImages = useCallback(async (guardUrl: string) => {
     if (!currentUser) return;
+    // Firebase 自身の ref() でパスを取得（自前の URL パースより確実）
+    const toPath = (url: string): string | null => {
+      try { return ref(storage, url).fullPath; } catch { return null; }
+    };
     const usedPaths = new Set(
       setsRef.current
         .flatMap(s => s.problems)
-        .map(p => p.imageUrl ? storagePathFromUrl(p.imageUrl) : null)
+        .map(p => p.imageUrl ? toPath(p.imageUrl) : null)
         .filter((p): p is string => p !== null),
     );
     // setsRef が古い場合でも guardUrl のファイルは絶対に削除しない
-    const guardPath = storagePathFromUrl(guardUrl);
+    const guardPath = toPath(guardUrl);
     if (guardPath) usedPaths.add(guardPath);
     try {
       const { items } = await listAll(ref(storage, `quiz-images/${currentUser.uid}`));
       await Promise.all(
-        items.filter(item => !usedPaths.has(item.fullPath)).map(item => deleteObject(item).catch(() => {})),
+        items
+          .filter(item => !usedPaths.has(item.fullPath))
+          .map(item => deleteObject(item).catch(() => {})),
       );
     } catch {}
   }, [currentUser]);
@@ -133,9 +139,30 @@ export const Quiz = () => {
   };
 
   const deleteSet = (setId: string) => {
-    const next = sets.filter(s => s.id !== setId);
-    setSets(next);
-    saveToFirestore(next);
+    const deletingSet = sets.find(s => s.id === setId);
+    const remainingSets = sets.filter(s => s.id !== setId);
+
+    // 削除する問題集の画像のうち、他のセットで使われていないものを削除
+    if (deletingSet) {
+      const remainingPaths = new Set(
+        remainingSets.flatMap(s => s.problems).map(p => {
+          if (!p.imageUrl) return null;
+          try { return ref(storage, p.imageUrl).fullPath; } catch { return null; }
+        }).filter((p): p is string => p !== null),
+      );
+      for (const p of deletingSet.problems) {
+        if (!p.imageUrl) continue;
+        try {
+          const path = ref(storage, p.imageUrl).fullPath;
+          if (!remainingPaths.has(path)) {
+            deleteObject(ref(storage, p.imageUrl)).catch(() => {});
+          }
+        } catch {}
+      }
+    }
+
+    setSets(remainingSets);
+    saveToFirestore(remainingSets);
     if (activeSetId === setId) setActiveSetId(null);
     setModal(null);
   };
@@ -194,7 +221,11 @@ export const Quiz = () => {
   const deleteProblem = (id: string) => {
     const problem = problems.find(p => p.id === id);
     if (problem?.imageUrl) {
-      const usedElsewhere = sets.flatMap(s => s.problems).some(p => p.id !== id && p.imageUrl === problem.imageUrl);
+      const problemPath = (() => { try { return ref(storage, problem.imageUrl).fullPath; } catch { return null; } })();
+      const usedElsewhere = problemPath !== null && sets.flatMap(s => s.problems).some(p => {
+        if (p.id === id || !p.imageUrl) return false;
+        try { return ref(storage, p.imageUrl).fullPath === problemPath; } catch { return false; }
+      });
       if (!usedElsewhere) {
         deleteObject(ref(storage, problem.imageUrl)).catch(() => {});
       }
@@ -362,6 +393,8 @@ export const Quiz = () => {
           onImport={handleImport}
           onClose={() => setModal(null)}
           addToast={addToast}
+          uid={currentUser?.uid ?? ''}
+          allProblems={sets.flatMap(s => s.problems)}
         />
       )}
 

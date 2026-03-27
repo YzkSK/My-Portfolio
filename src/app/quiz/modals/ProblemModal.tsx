@@ -46,6 +46,8 @@ export const ProblemModal = ({ modal, problems, allProblems, answerFormat, uid, 
   const [uploading, setUploading]       = useState(false);
   const [imgLoaded, setImgLoaded]       = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const allProblemsRef = useRef(allProblems);
+  useEffect(() => { allProblemsRef.current = allProblems; }, [allProblems]);
 
   useEffect(() => {
     const needed = WRONG_CHOICES_COUNT[answerFormat];
@@ -108,12 +110,14 @@ export const ProblemModal = ({ modal, problems, allProblems, answerFormat, uid, 
         const path = `quiz-images/${uid}/${hash}.${ext}`;
         const storageRef = ref(storage, path);
 
-        // 同じハッシュのファイルが既に存在すれば再利用
-        let reusedUrl: string | null = null;
-        try { reusedUrl = await getDownloadURL(storageRef); } catch {}
+        // 既存の問題と同じファイル（パス一致）があれば、そのURLを再利用してトークンを保持
+        const reused = allProblemsRef.current.find(p => {
+          if (!p.imageUrl) return false;
+          try { return ref(storage, p.imageUrl).fullPath === path; } catch { return false; }
+        });
 
-        if (reusedUrl) {
-          imageUrl = reusedUrl;
+        if (reused) {
+          imageUrl = reused.imageUrl;
         } else {
           await uploadBytes(storageRef, imageFile);
           imageUrl = await getDownloadURL(storageRef);
@@ -132,10 +136,15 @@ export const ProblemModal = ({ modal, problems, allProblems, answerFormat, uid, 
     const success = onSave(question, answer, category, wrongChoices.map(s => s.trim()), memo, imageUrl);
 
     if (success) {
-      // 保存成功: 古い画像を削除（新しい画像と同じURL、または他の問題で使用中でなければ）
+      // 保存成功: 古い画像を削除（新しい画像と同じパス、または他の問題で使用中でなければ）
       const editingId = modal.type === 'edit' ? modal.problemId : null;
-      if ((imageFile || imageRemoved) && existingImageUrl && existingImageUrl !== imageUrl) {
-        const usedElsewhere = allProblems.some(p => p.id !== editingId && p.imageUrl === existingImageUrl);
+      const existingPath = (() => { try { return ref(storage, existingImageUrl).fullPath; } catch { return null; } })();
+      const newPath = imageUrl ? (() => { try { return ref(storage, imageUrl).fullPath; } catch { return null; } })() : null;
+      if ((imageFile || imageRemoved) && existingImageUrl && existingPath !== newPath) {
+        const usedElsewhere = existingPath !== null && allProblemsRef.current.some(p => {
+          if (p.id === editingId || !p.imageUrl) return false;
+          try { return ref(storage, p.imageUrl).fullPath === existingPath; } catch { return false; }
+        });
         if (!usedElsewhere) {
           try { await deleteObject(ref(storage, existingImageUrl)); } catch {}
         }

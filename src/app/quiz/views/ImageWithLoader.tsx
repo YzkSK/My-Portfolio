@@ -22,7 +22,9 @@ export const ImageWithLoader = ({ src, className, spinnerClassName = 'qz-img-spi
     return () => { cancelled = true; };
   }, [src]);
 
-  if (failed) return null;
+  const errorSizeClass = spinnerClassName.replace('qz-img-spinner', 'qz-img-error');
+
+  if (failed) return <div className={`qz-img-error ${errorSizeClass}`}>✕</div>;
 
   return (
     <>
