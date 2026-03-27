@@ -153,6 +153,8 @@ export function isWeak(p: Problem): boolean {
 }
 
 export function isInvalidProblem(p: Problem): boolean {
+  if (!p.question.trim()) return true;
+  if (!p.answer.trim()) return true;
   if (p.answerFormat === 'choice4') {
     return p.wrongChoices.length < 3 || p.wrongChoices.some(w => !w.trim());
   }
