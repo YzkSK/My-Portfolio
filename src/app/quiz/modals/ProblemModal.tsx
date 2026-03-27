@@ -127,11 +127,16 @@ export const ProblemModal = ({ modal, problems, allProblems, answerFormat, uid, 
     const success = onSave(question, answer, category, wrongChoices.map(s => s.trim()), memo, imageUrl);
 
     if (success) {
-      // 保存成功: 古い画像を削除（新しい画像と同じURL、または他の問題で使用中でなければ）
+      // 保存成功: 古い画像を削除（新しい画像と同じパス、または他の問題で使用中でなければ）
       const editingId = modal.type === 'edit' ? modal.problemId : null;
-      if ((imageFile || imageRemoved) && existingImageUrl && existingImageUrl !== imageUrl) {
-        const usedElsewhere = allProblems.some(p => p.id !== editingId && p.imageUrl === existingImageUrl);
-        console.debug('[ProblemModal] old image delete: url=%s usedElsewhere=%s', existingImageUrl, usedElsewhere);
+      const existingPath = (() => { try { return ref(storage, existingImageUrl).fullPath; } catch { return null; } })();
+      const newPath = imageUrl ? (() => { try { return ref(storage, imageUrl).fullPath; } catch { return null; } })() : null;
+      if ((imageFile || imageRemoved) && existingImageUrl && existingPath !== newPath) {
+        const usedElsewhere = existingPath !== null && allProblems.some(p => {
+          if (p.id === editingId || !p.imageUrl) return false;
+          try { return ref(storage, p.imageUrl).fullPath === existingPath; } catch { return false; }
+        });
+        console.debug('[ProblemModal] old image delete: path=%s usedElsewhere=%s', existingPath, usedElsewhere);
         if (!usedElsewhere) {
           try {
             await deleteObject(ref(storage, existingImageUrl));
