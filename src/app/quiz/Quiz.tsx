@@ -73,7 +73,7 @@ export const Quiz = () => {
 
   useEffect(() => { setsRef.current = sets; }, [sets]);
 
-  const cleanupImages = useCallback(async () => {
+  const cleanupImages = useCallback(async (guardUrl: string) => {
     if (!currentUser) return;
     const usedPaths = new Set(
       setsRef.current
@@ -81,6 +81,9 @@ export const Quiz = () => {
         .map(p => p.imageUrl ? storagePathFromUrl(p.imageUrl) : null)
         .filter((p): p is string => p !== null),
     );
+    // setsRef が古い場合でも guardUrl のファイルは絶対に削除しない
+    const guardPath = storagePathFromUrl(guardUrl);
+    if (guardPath) usedPaths.add(guardPath);
     try {
       const { items } = await listAll(ref(storage, `quiz-images/${currentUser.uid}`));
       await Promise.all(

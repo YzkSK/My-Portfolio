@@ -23,7 +23,7 @@ type Props = {
   onDelete: (id: string) => void;
   onClose: () => void;
   addToast: (msg: string) => void;
-  onCleanupImages: () => void;
+  onCleanupImages: (guardUrl: string) => void;
 };
 
 const hashFile = async (file: File): Promise<string> => {
@@ -141,7 +141,7 @@ export const ProblemModal = ({ modal, problems, allProblems, answerFormat, uid, 
         }
       }
       // 画像を選択した操作だった場合、孤立した画像をクリーンアップ
-      if (imageFile) onCleanupImages();
+      if (imageFile) onCleanupImages(imageUrl);
     } else {
       // 保存失敗: 新たにアップロードした画像のみ削除してロールバック
       if (newStoragePath) {
