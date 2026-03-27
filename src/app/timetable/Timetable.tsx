@@ -187,7 +187,11 @@ export const Timetable = () => {
     const unsub = onMessage(messaging, (payload) => {
       const title = payload.data?.title ?? payload.notification?.title ?? '時間割';
       const body = payload.data?.body ?? payload.notification?.body ?? '';
-      if (permission === 'granted') new Notification(title, { body, icon: '/vite.svg' });
+      if (permission === 'granted') {
+        navigator.serviceWorker.ready.then(reg => {
+          reg.showNotification(title, { body });
+        }).catch(() => {});
+      }
     });
     return unsub;
   }, [permission]);
