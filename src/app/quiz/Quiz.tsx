@@ -21,6 +21,7 @@ import { ProblemModal } from './modals/ProblemModal';
 import { ProblemSetModal } from './modals/ProblemSetModal';
 import { ShareModal } from './modals/ShareModal';
 import { ImportModal } from './modals/ImportModal';
+import { GeminiPdfModal } from './modals/GeminiPdfModal';
 import { Button } from '@/components/ui/button';
 import { AppMenu } from '../shared/AppMenu';
 import { usePageTitle } from '../shared/usePageTitle';
@@ -247,6 +248,15 @@ export const Quiz = () => {
     setModal(null);
   };
 
+  const handleImportToExisting = (imported: Problem[], setId: string) => {
+    const next = sets.map(s =>
+      s.id === setId ? { ...s, problems: [...s.problems, ...imported] } : s
+    );
+    setSets(next);
+    saveToFirestore(next);
+    setModal(null);
+  };
+
   if (loading) return null;
 
   return (
@@ -271,6 +281,7 @@ export const Quiz = () => {
               <div className="text-sm font-black text-[#1a1a1a] dark:text-[#e0e0e0]">マイ問題集 ({sets.length}件)</div>
               <div className="flex gap-2">
                 <Button variant="outline" onClick={() => setModal({ type: 'import' })}>インポート</Button>
+                <Button variant="outline" onClick={() => setModal({ type: 'gemini-pdf' })}>PDF抽出</Button>
                 <Button variant="default" onClick={() => setModal({ type: 'set-create' })}>＋ 新規作成</Button>
               </div>
             </div>
@@ -395,6 +406,16 @@ export const Quiz = () => {
           addToast={addToast}
           uid={currentUser?.uid ?? ''}
           allProblems={sets.flatMap(s => s.problems)}
+        />
+      )}
+      {modal?.type === 'gemini-pdf' && (
+        <GeminiPdfModal
+          sets={sets}
+          uid={currentUser?.uid ?? ''}
+          onImportNew={handleImport}
+          onImportExisting={handleImportToExisting}
+          onClose={() => setModal(null)}
+          addToast={addToast}
         />
       )}
 
