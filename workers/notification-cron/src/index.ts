@@ -11,7 +11,8 @@ interface ServiceAccount {
 }
 
 interface TimetableEvent {
-  pi: number;
+  periodIndex?: number;
+  pi?: number;       // 旧フィールド名（後方互換）
   name: string;
   room: string;
 }
@@ -242,7 +243,8 @@ export default {
 
       const todayEvents = events[dateKey] ?? [];
       for (const ev of todayEvents) {
-        const period = periods[ev.pi];
+        const periodIdx = ev.periodIndex ?? ev.pi;
+        const period = periodIdx !== undefined ? periods[periodIdx] : undefined;
         if (!period) continue;
 
         const notifyAt = timeToMin(period.start) - notifyBefore;

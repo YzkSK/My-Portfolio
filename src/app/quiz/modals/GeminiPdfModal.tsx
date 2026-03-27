@@ -150,7 +150,7 @@ export const GeminiPdfModal = ({ sets, uid, onImportNew, onImportExisting, onClo
       ]);
 
       const apiKey = import.meta.env.VITE_GOOGLE_GEMINI_API_KEY as string;
-      const model = new GoogleGenerativeAI(apiKey).getGenerativeModel({ model: 'gemini-2.0-flash' });
+      const model = new GoogleGenerativeAI(apiKey).getGenerativeModel({ model: 'gemini-2.5-flash' });
 
       const result = await model.generateContent([
         { inlineData: { mimeType: 'application/pdf', data: base64Data } },
@@ -198,7 +198,12 @@ export const GeminiPdfModal = ({ sets, uid, onImportNew, onImportExisting, onClo
       setStep('review');
     } catch (e) {
       console.error(e);
-      setError('抽出に失敗しました。APIキーや接続を確認してください。');
+      const msg = e instanceof Error ? e.message : String(e);
+      if (msg.includes('429') || msg.toLowerCase().includes('spending cap') || msg.toLowerCase().includes('quota')) {
+        setError('APIの利用上限に達しました。しばらく待つか、Google AI Studioでスペンディングキャップを確認してください。');
+      } else {
+        setError('抽出に失敗しました。APIキーや接続を確認してください。');
+      }
       setStep('upload');
     }
   };
