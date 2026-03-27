@@ -84,12 +84,22 @@ export const Quiz = () => {
     // setsRef が古い場合でも guardUrl のファイルは絶対に削除しない
     const guardPath = storagePathFromUrl(guardUrl);
     if (guardPath) usedPaths.add(guardPath);
+    console.debug('[cleanupImages] guardUrl=%s guardPath=%s usedPaths=%o', guardUrl, guardPath, [...usedPaths]);
     try {
       const { items } = await listAll(ref(storage, `quiz-images/${currentUser.uid}`));
+      console.debug('[cleanupImages] storage items: %o', items.map(i => i.fullPath));
+      const toDelete = items.filter(item => !usedPaths.has(item.fullPath));
+      console.debug('[cleanupImages] to delete: %o', toDelete.map(i => i.fullPath));
       await Promise.all(
-        items.filter(item => !usedPaths.has(item.fullPath)).map(item => deleteObject(item).catch(() => {})),
+        toDelete.map(item =>
+          deleteObject(item)
+            .then(() => console.debug('[cleanupImages] deleted: %s', item.fullPath))
+            .catch(e => console.warn('[cleanupImages] delete failed: %s', item.fullPath, e)),
+        ),
       );
-    } catch {}
+    } catch (e) {
+      console.warn('[cleanupImages] listAll failed:', e);
+    }
   }, [currentUser]);
 
   const saveToFirestore = useCallback((data: ProblemSet[]) => {
@@ -195,8 +205,11 @@ export const Quiz = () => {
     const problem = problems.find(p => p.id === id);
     if (problem?.imageUrl) {
       const usedElsewhere = sets.flatMap(s => s.problems).some(p => p.id !== id && p.imageUrl === problem.imageUrl);
+      console.debug('[deleteProblem] id=%s imageUrl=%s usedElsewhere=%s', id, problem.imageUrl, usedElsewhere);
       if (!usedElsewhere) {
-        deleteObject(ref(storage, problem.imageUrl)).catch(() => {});
+        deleteObject(ref(storage, problem.imageUrl))
+          .then(() => console.debug('[deleteProblem] image deleted'))
+          .catch(e => console.warn('[deleteProblem] image delete failed:', e));
       }
     }
     updateActiveSetProblems(problems.filter(p => p.id !== id));

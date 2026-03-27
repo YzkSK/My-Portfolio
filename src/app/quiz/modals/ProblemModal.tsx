@@ -108,10 +108,13 @@ export const ProblemModal = ({ modal, problems, allProblems, answerFormat, uid, 
         const path = `quiz-images/${uid}/${hash}.${ext}`;
         const storageRef = ref(storage, path);
 
+        console.debug('[ProblemModal] upload: file=%s size=%d hash=%s path=%s', imageFile.name, imageFile.size, hash, path);
         await uploadBytes(storageRef, imageFile);
         imageUrl = await getDownloadURL(storageRef);
         newStoragePath = path;
+        console.debug('[ProblemModal] upload success: url=%s', imageUrl);
       } catch (e) {
+        console.error('[ProblemModal] upload error:', e);
         addToast(`画像のアップロードに失敗しました（${getErrorCode(e)}）`);
         setUploading(false);
         return;
@@ -128,8 +131,14 @@ export const ProblemModal = ({ modal, problems, allProblems, answerFormat, uid, 
       const editingId = modal.type === 'edit' ? modal.problemId : null;
       if ((imageFile || imageRemoved) && existingImageUrl && existingImageUrl !== imageUrl) {
         const usedElsewhere = allProblems.some(p => p.id !== editingId && p.imageUrl === existingImageUrl);
+        console.debug('[ProblemModal] old image delete: url=%s usedElsewhere=%s', existingImageUrl, usedElsewhere);
         if (!usedElsewhere) {
-          try { await deleteObject(ref(storage, existingImageUrl)); } catch {}
+          try {
+            await deleteObject(ref(storage, existingImageUrl));
+            console.debug('[ProblemModal] old image deleted');
+          } catch (e) {
+            console.warn('[ProblemModal] old image delete failed:', e);
+          }
         }
       }
       // 画像を選択した操作だった場合、孤立した画像をクリーンアップ
@@ -137,7 +146,13 @@ export const ProblemModal = ({ modal, problems, allProblems, answerFormat, uid, 
     } else {
       // 保存失敗: 新たにアップロードした画像のみ削除してロールバック
       if (newStoragePath) {
-        try { await deleteObject(ref(storage, newStoragePath)); } catch {}
+        console.debug('[ProblemModal] rollback: delete path=%s', newStoragePath);
+        try {
+          await deleteObject(ref(storage, newStoragePath));
+          console.debug('[ProblemModal] rollback success');
+        } catch (e) {
+          console.warn('[ProblemModal] rollback failed:', e);
+        }
       }
     }
   };
