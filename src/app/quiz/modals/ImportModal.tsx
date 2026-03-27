@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { doc, getDoc } from 'firebase/firestore';
-import { db } from '../../shared/firebase';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { db, storage } from '../../shared/firebase';
 import { type Problem, type AnswerFormat, firestorePaths, newProblem } from '../constants';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -8,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
 type SharedData = {
-  problems: { question: string; answer: string; category: string; answerFormat?: AnswerFormat; wrongChoices?: string[]; memo?: string }[];
+  problems: { question: string; answer: string; category: string; answerFormat?: AnswerFormat; wrongChoices?: string[]; memo?: string; imageUrl?: string }[];
   title: string;
   createdAt: number;
 };
@@ -17,9 +18,11 @@ type Props = {
   onImport: (problems: Problem[], title: string) => void;
   onClose: () => void;
   addToast: (msg: string) => void;
+  uid: string;
+  allProblems: Problem[];
 };
 
-export const ImportModal = ({ onImport, onClose, addToast }: Props) => {
+export const ImportModal = ({ onImport, onClose, addToast, uid, allProblems }: Props) => {
   const [code, setCode]         = useState('');
   const [loading, setLoading]   = useState(false);
   const [preview, setPreview]   = useState<SharedData | null>(null);
@@ -46,12 +49,48 @@ export const ImportModal = ({ onImport, onClose, addToast }: Props) => {
     }
   };
 
-  const handleImport = () => {
+  const resolveImageUrl = async (sourceUrl: string): Promise<string> => {
+    // 既存の問題に同じパスの画像があれば URL を再利用
+    const sourcePath = (() => { try { return ref(storage, sourceUrl).fullPath; } catch { return null; } })();
+    if (sourcePath) {
+      const reused = allProblems.find(p => {
+        if (!p.imageUrl) return false;
+        try { return ref(storage, p.imageUrl).fullPath === sourcePath; } catch { return false; }
+      });
+      if (reused) return reused.imageUrl;
+    }
+
+    // blob を取得して自分の Storage に再アップロード
+    const res = await fetch(sourceUrl);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const blob = await res.blob();
+    const ext = blob.type.split('/')[1] ?? 'jpg';
+    const buffer = await blob.arrayBuffer();
+    const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
+    const hash = Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
+    const path = `quiz-images/${uid}/${hash}.${ext}`;
+    const storageRef = ref(storage, path);
+    await uploadBytes(storageRef, blob);
+    return getDownloadURL(storageRef);
+  };
+
+  const handleImport = async () => {
     if (!preview) return;
-    const imported = preview.problems.map(p => newProblem(p.question, p.answer, p.category, p.answerFormat, p.wrongChoices, p.memo));
-    onImport(imported, preview.title);
-    addToast(`${imported.length}件の問題をインポートしました`);
-    onClose();
+    setLoading(true);
+    try {
+      const imported = await Promise.all(preview.problems.map(async p => {
+        let imageUrl = '';
+        if (p.imageUrl) {
+          try { imageUrl = await resolveImageUrl(p.imageUrl); } catch {}
+        }
+        return newProblem(p.question, p.answer, p.category, p.answerFormat, p.wrongChoices, p.memo, imageUrl);
+      }));
+      onImport(imported, preview.title);
+      addToast(`${imported.length}件の問題をインポートしました`);
+      onClose();
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -106,8 +145,8 @@ export const ImportModal = ({ onImport, onClose, addToast }: Props) => {
         <div className="flex gap-2 items-center mt-5">
           <Button variant="outline" className="flex-1" onClick={onClose}>キャンセル</Button>
           {preview && (
-            <Button variant="default" className="flex-[2]" onClick={handleImport}>
-              {preview.problems.length}件をインポート
+            <Button variant="default" className="flex-[2]" onClick={handleImport} disabled={loading}>
+              {loading ? 'インポート中...' : `${preview.problems.length}件をインポート`}
             </Button>
           )}
         </div>

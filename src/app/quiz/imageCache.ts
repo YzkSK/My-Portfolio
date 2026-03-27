@@ -1,21 +1,46 @@
 const CACHE_NAME = 'quiz-img-v1';
 
-// セッション内の blob URL を再利用（Cache API から毎回 blob 生成しない）
+// セッション内の blob URL を再利用
 const memoryCache = new Map<string, string>();
+// セッション内で失敗した URL（次回呼び出し時に再取得を試みる）
+const failedUrls = new Set<string>();
 
 export async function getCachedImageUrl(url: string): Promise<string> {
-  if (memoryCache.has(url)) return memoryCache.get(url)!;
+  // 失敗済みでなければメモリキャッシュを返す
+  if (!failedUrls.has(url) && memoryCache.has(url)) return memoryCache.get(url)!;
 
   if ('caches' in window) {
     const cache = await caches.open(CACHE_NAME);
-    const match = await cache.match(url);
-    if (match) {
-      const blob = await match.blob();
-      const blobUrl = URL.createObjectURL(blob);
-      memoryCache.set(url, blobUrl);
-      return blobUrl;
+
+    // 失敗済みでなければ Cache API を確認
+    if (!failedUrls.has(url)) {
+      const match = await cache.match(url);
+      if (match) {
+        const blob = await match.blob();
+        const blobUrl = URL.createObjectURL(blob);
+        memoryCache.set(url, blobUrl);
+        return blobUrl;
+      }
     }
-    const response = await fetch(url);
+
+    // フェッチ（再取得）
+    let response: Response;
+    try {
+      response = await fetch(url);
+    } catch (e) {
+      failedUrls.add(url);
+      await cache.delete(url);
+      throw e;
+    }
+
+    if (!response.ok) {
+      failedUrls.add(url);
+      await cache.delete(url);
+      throw new Error(`HTTP ${response.status}`);
+    }
+
+    // 成功: キャッシュして返す
+    failedUrls.delete(url);
     await cache.put(url, response.clone());
     const blob = await response.blob();
     const blobUrl = URL.createObjectURL(blob);

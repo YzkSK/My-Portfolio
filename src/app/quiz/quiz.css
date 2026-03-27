@@ -635,6 +635,20 @@
   height: 60px;
 }
 
+.qz-img-error {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--qz-img-spinner-bg);
+  border-radius: 8px;
+  color: var(--qz-text-muted);
+  font-size: 16px;
+}
+
+.qz-img-error--side    { width: 110px; height: 110px; }
+.qz-img-error--preview { width: 100%;  height: 150px; }
+.qz-img-error--thumb   { width: 60px;  height: 60px;  }
+
 .qz-problem-thumb {
   width: 52px;
   height: auto;

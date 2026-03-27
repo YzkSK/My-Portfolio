@@ -46,6 +46,8 @@ export const ProblemModal = ({ modal, problems, allProblems, answerFormat, uid, 
   const [uploading, setUploading]       = useState(false);
   const [imgLoaded, setImgLoaded]       = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const allProblemsRef = useRef(allProblems);
+  useEffect(() => { allProblemsRef.current = allProblems; }, [allProblems]);
 
   useEffect(() => {
     const needed = WRONG_CHOICES_COUNT[answerFormat];
@@ -109,23 +111,19 @@ export const ProblemModal = ({ modal, problems, allProblems, answerFormat, uid, 
         const storageRef = ref(storage, path);
 
         // 既存の問題と同じファイル（パス一致）があれば、そのURLを再利用してトークンを保持
-        const reused = allProblems.find(p => {
+        const reused = allProblemsRef.current.find(p => {
           if (!p.imageUrl) return false;
           try { return ref(storage, p.imageUrl).fullPath === path; } catch { return false; }
         });
 
         if (reused) {
           imageUrl = reused.imageUrl;
-          console.debug('[ProblemModal] reuse existing url: path=%s url=%s', path, imageUrl);
         } else {
-          console.debug('[ProblemModal] upload: file=%s size=%d hash=%s path=%s', imageFile.name, imageFile.size, hash, path);
           await uploadBytes(storageRef, imageFile);
           imageUrl = await getDownloadURL(storageRef);
           newStoragePath = path;
-          console.debug('[ProblemModal] upload success: url=%s', imageUrl);
         }
       } catch (e) {
-        console.error('[ProblemModal] upload error:', e);
         addToast(`画像のアップロードに失敗しました（${getErrorCode(e)}）`);
         setUploading(false);
         return;
@@ -143,18 +141,12 @@ export const ProblemModal = ({ modal, problems, allProblems, answerFormat, uid, 
       const existingPath = (() => { try { return ref(storage, existingImageUrl).fullPath; } catch { return null; } })();
       const newPath = imageUrl ? (() => { try { return ref(storage, imageUrl).fullPath; } catch { return null; } })() : null;
       if ((imageFile || imageRemoved) && existingImageUrl && existingPath !== newPath) {
-        const usedElsewhere = existingPath !== null && allProblems.some(p => {
+        const usedElsewhere = existingPath !== null && allProblemsRef.current.some(p => {
           if (p.id === editingId || !p.imageUrl) return false;
           try { return ref(storage, p.imageUrl).fullPath === existingPath; } catch { return false; }
         });
-        console.debug('[ProblemModal] old image delete: path=%s usedElsewhere=%s', existingPath, usedElsewhere);
         if (!usedElsewhere) {
-          try {
-            await deleteObject(ref(storage, existingImageUrl));
-            console.debug('[ProblemModal] old image deleted');
-          } catch (e) {
-            console.warn('[ProblemModal] old image delete failed:', e);
-          }
+          try { await deleteObject(ref(storage, existingImageUrl)); } catch {}
         }
       }
       // 画像を選択した操作だった場合、孤立した画像をクリーンアップ
@@ -162,13 +154,7 @@ export const ProblemModal = ({ modal, problems, allProblems, answerFormat, uid, 
     } else {
       // 保存失敗: 新たにアップロードした画像のみ削除してロールバック
       if (newStoragePath) {
-        console.debug('[ProblemModal] rollback: delete path=%s', newStoragePath);
-        try {
-          await deleteObject(ref(storage, newStoragePath));
-          console.debug('[ProblemModal] rollback success');
-        } catch (e) {
-          console.warn('[ProblemModal] rollback failed:', e);
-        }
+        try { await deleteObject(ref(storage, newStoragePath)); } catch {}
       }
     }
   };

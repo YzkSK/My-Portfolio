@@ -88,22 +88,14 @@ export const Quiz = () => {
     // setsRef が古い場合でも guardUrl のファイルは絶対に削除しない
     const guardPath = toPath(guardUrl);
     if (guardPath) usedPaths.add(guardPath);
-    console.debug('[cleanupImages] guardUrl=%s guardPath=%s usedPaths=%o', guardUrl, guardPath, [...usedPaths]);
     try {
       const { items } = await listAll(ref(storage, `quiz-images/${currentUser.uid}`));
-      console.debug('[cleanupImages] storage items: %o', items.map(i => i.fullPath));
-      const toDelete = items.filter(item => !usedPaths.has(item.fullPath));
-      console.debug('[cleanupImages] to delete: %o', toDelete.map(i => i.fullPath));
       await Promise.all(
-        toDelete.map(item =>
-          deleteObject(item)
-            .then(() => console.debug('[cleanupImages] deleted: %s', item.fullPath))
-            .catch(e => console.warn('[cleanupImages] delete failed: %s', item.fullPath, e)),
-        ),
+        items
+          .filter(item => !usedPaths.has(item.fullPath))
+          .map(item => deleteObject(item).catch(() => {})),
       );
-    } catch (e) {
-      console.warn('[cleanupImages] listAll failed:', e);
-    }
+    } catch {}
   }, [currentUser]);
 
   const saveToFirestore = useCallback((data: ProblemSet[]) => {
@@ -147,9 +139,30 @@ export const Quiz = () => {
   };
 
   const deleteSet = (setId: string) => {
-    const next = sets.filter(s => s.id !== setId);
-    setSets(next);
-    saveToFirestore(next);
+    const deletingSet = sets.find(s => s.id === setId);
+    const remainingSets = sets.filter(s => s.id !== setId);
+
+    // 削除する問題集の画像のうち、他のセットで使われていないものを削除
+    if (deletingSet) {
+      const remainingPaths = new Set(
+        remainingSets.flatMap(s => s.problems).map(p => {
+          if (!p.imageUrl) return null;
+          try { return ref(storage, p.imageUrl).fullPath; } catch { return null; }
+        }).filter((p): p is string => p !== null),
+      );
+      for (const p of deletingSet.problems) {
+        if (!p.imageUrl) continue;
+        try {
+          const path = ref(storage, p.imageUrl).fullPath;
+          if (!remainingPaths.has(path)) {
+            deleteObject(ref(storage, p.imageUrl)).catch(() => {});
+          }
+        } catch {}
+      }
+    }
+
+    setSets(remainingSets);
+    saveToFirestore(remainingSets);
     if (activeSetId === setId) setActiveSetId(null);
     setModal(null);
   };
@@ -213,11 +226,8 @@ export const Quiz = () => {
         if (p.id === id || !p.imageUrl) return false;
         try { return ref(storage, p.imageUrl).fullPath === problemPath; } catch { return false; }
       });
-      console.debug('[deleteProblem] id=%s path=%s usedElsewhere=%s', id, problemPath, usedElsewhere);
       if (!usedElsewhere) {
-        deleteObject(ref(storage, problem.imageUrl))
-          .then(() => console.debug('[deleteProblem] image deleted'))
-          .catch(e => console.warn('[deleteProblem] image delete failed:', e));
+        deleteObject(ref(storage, problem.imageUrl)).catch(() => {});
       }
     }
     updateActiveSetProblems(problems.filter(p => p.id !== id));
@@ -383,6 +393,8 @@ export const Quiz = () => {
           onImport={handleImport}
           onClose={() => setModal(null)}
           addToast={addToast}
+          uid={currentUser?.uid ?? ''}
+          allProblems={sets.flatMap(s => s.problems)}
         />
       )}
 

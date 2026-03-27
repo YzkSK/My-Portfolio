@@ -20,7 +20,7 @@ type Props = {
 export const ShareModal = ({ problems, uid, defaultTitle = '', existingShareCode, onShareCodeSaved, onClose, addToast }: Props) => {
   const [title, setTitle]             = useState(defaultTitle);
   const [categoryFilter, setCategoryFilter] = useState('');
-  const [includeMemo, setIncludeMemo] = useState(false);
+  const [includeMemo, setIncludeMemo]   = useState(false);
   const [shareCode, setShareCode]     = useState('');
   const [loading, setLoading]         = useState(false);
 
@@ -40,6 +40,7 @@ export const ShareModal = ({ problems, uid, defaultTitle = '', existingShareCode
           question: p.question, answer: p.answer, category: p.category,
           answerFormat: p.answerFormat, wrongChoices: p.wrongChoices,
           ...(includeMemo && p.memo ? { memo: p.memo } : {}),
+          ...(p.imageUrl ? { imageUrl: p.imageUrl } : {}),
         })),
         title: title.trim() || '問題集',
         createdBy: uid,
