@@ -108,17 +108,9 @@ export const ProblemModal = ({ modal, problems, allProblems, answerFormat, uid, 
         const path = `quiz-images/${uid}/${hash}.${ext}`;
         const storageRef = ref(storage, path);
 
-        // 同じハッシュのファイルが既に存在すれば再利用
-        let reusedUrl: string | null = null;
-        try { reusedUrl = await getDownloadURL(storageRef); } catch {}
-
-        if (reusedUrl) {
-          imageUrl = reusedUrl;
-        } else {
-          await uploadBytes(storageRef, imageFile);
-          imageUrl = await getDownloadURL(storageRef);
-          newStoragePath = path;
-        }
+        await uploadBytes(storageRef, imageFile);
+        imageUrl = await getDownloadURL(storageRef);
+        newStoragePath = path;
       } catch (e) {
         addToast(`画像のアップロードに失敗しました（${getErrorCode(e)}）`);
         setUploading(false);
