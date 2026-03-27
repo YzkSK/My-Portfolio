@@ -4,7 +4,7 @@ import { storage } from '../../shared/firebase';
 import { getCachedImageUrl } from '../imageCache';
 import {
   type AddModal, type EditModal, type Problem, type AnswerFormat,
-  WRONG_CHOICES_COUNT, CHOICE2_OPTIONS,
+  WRONG_CHOICES_COUNT, CHOICE2_OPTIONS, getErrorCode,
 } from '../constants';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -15,15 +15,24 @@ import { Label } from '@/components/ui/label';
 type Props = {
   modal: AddModal | EditModal;
   problems: Problem[];
+  allProblems: Problem[];
   answerFormat: AnswerFormat;
   uid: string;
   formError: string;
-  onSave: (question: string, answer: string, category: string, wrongChoices: string[], memo: string, imageUrl: string) => void;
+  onSave: (question: string, answer: string, category: string, wrongChoices: string[], memo: string, imageUrl: string) => boolean;
   onDelete: (id: string) => void;
   onClose: () => void;
+  addToast: (msg: string) => void;
+  onCleanupImages: () => void;
 };
 
-export const ProblemModal = ({ modal, problems, answerFormat, uid, formError, onSave, onDelete, onClose }: Props) => {
+const hashFile = async (file: File): Promise<string> => {
+  const buffer = await file.arrayBuffer();
+  const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
+  return Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
+};
+
+export const ProblemModal = ({ modal, problems, allProblems, answerFormat, uid, formError, onSave, onDelete, onClose, addToast, onCleanupImages }: Props) => {
   const [question, setQuestion]         = useState('');
   const [answer, setAnswer]             = useState('');
   const [category, setCategory]         = useState('');
@@ -89,33 +98,56 @@ export const ProblemModal = ({ modal, problems, answerFormat, uid, formError, on
 
   const handleSave = async () => {
     let imageUrl = existingImageUrl;
+    let newStoragePath: string | null = null;
 
     if (imageFile) {
       setUploading(true);
       try {
         const ext = imageFile.name.split('.').pop() ?? 'jpg';
-        const path = `quiz-images/${uid}/${crypto.randomUUID()}.${ext}`;
+        const hash = await hashFile(imageFile);
+        const path = `quiz-images/${uid}/${hash}.${ext}`;
         const storageRef = ref(storage, path);
-        await uploadBytes(storageRef, imageFile);
-        imageUrl = await getDownloadURL(storageRef);
-        // 古い画像を削除
-        if (existingImageUrl) {
-          try { await deleteObject(ref(storage, existingImageUrl)); } catch {}
+
+        // 同じハッシュのファイルが既に存在すれば再利用
+        let reusedUrl: string | null = null;
+        try { reusedUrl = await getDownloadURL(storageRef); } catch {}
+
+        if (reusedUrl) {
+          imageUrl = reusedUrl;
+        } else {
+          await uploadBytes(storageRef, imageFile);
+          imageUrl = await getDownloadURL(storageRef);
+          newStoragePath = path;
         }
       } catch (e) {
-        console.error('画像アップロードエラー:', e);
+        addToast(`画像のアップロードに失敗しました（${getErrorCode(e)}）`);
         setUploading(false);
         return;
       }
       setUploading(false);
     } else if (imageRemoved) {
-      if (existingImageUrl) {
-        try { await deleteObject(ref(storage, existingImageUrl)); } catch {}
-      }
       imageUrl = '';
     }
 
-    onSave(question, answer, category, wrongChoices.map(s => s.trim()), memo, imageUrl);
+    const success = onSave(question, answer, category, wrongChoices.map(s => s.trim()), memo, imageUrl);
+
+    if (success) {
+      // 保存成功: 古い画像を削除（新しい画像と同じURL、または他の問題で使用中でなければ）
+      const editingId = modal.type === 'edit' ? modal.problemId : null;
+      if ((imageFile || imageRemoved) && existingImageUrl && existingImageUrl !== imageUrl) {
+        const usedElsewhere = allProblems.some(p => p.id !== editingId && p.imageUrl === existingImageUrl);
+        if (!usedElsewhere) {
+          try { await deleteObject(ref(storage, existingImageUrl)); } catch {}
+        }
+      }
+      // 画像を選択した操作だった場合、孤立した画像をクリーンアップ
+      if (imageFile) onCleanupImages();
+    } else {
+      // 保存失敗: 新たにアップロードした画像のみ削除してロールバック
+      if (newStoragePath) {
+        try { await deleteObject(ref(storage, newStoragePath)); } catch {}
+      }
+    }
   };
 
   const handleWrongChoiceChange = (index: number, value: string) => {

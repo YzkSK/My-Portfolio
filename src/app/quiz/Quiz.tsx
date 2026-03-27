@@ -2,7 +2,8 @@ import { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react
 import { useToast } from '../shared/useToast';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
-import { auth, db } from '../shared/firebase';
+import { ref, deleteObject, listAll } from 'firebase/storage';
+import { auth, db, storage } from '../shared/firebase';
 import { useAuth } from '../auth/AuthContext';
 import { useSetLoading } from '../shared/AppLoadingContext';
 import { useNavigate } from 'react-router-dom';
@@ -12,7 +13,7 @@ import './quiz.css';
 import {
   SAVE_DEBOUNCE_MS, TOAST_DURATION_MS,
   newProblem, newProblemSet, parseProblem, parseProblemSet, firestorePaths, WRONG_CHOICES_COUNT,
-  getInvalidCount,
+  getInvalidCount, storagePathFromUrl,
   type Problem, type ProblemSet, type Modal, type AddModal, type EditModal, type AnswerFormat,
 } from './constants';
 import { ProblemList } from './views/ProblemList';
@@ -37,6 +38,7 @@ export const Quiz = () => {
   const [loading, setLoading]         = useState(true);
   const [formError, setFormError]     = useState('');
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const setsRef = useRef<ProblemSet[]>([]);
 
   useLayoutEffect(() => {
     setGlobalLoading('quiz', true);
@@ -67,6 +69,24 @@ export const Quiz = () => {
         setGlobalLoading('quiz', false);
       }
     })();
+  }, [currentUser]);
+
+  useEffect(() => { setsRef.current = sets; }, [sets]);
+
+  const cleanupImages = useCallback(async () => {
+    if (!currentUser) return;
+    const usedPaths = new Set(
+      setsRef.current
+        .flatMap(s => s.problems)
+        .map(p => p.imageUrl ? storagePathFromUrl(p.imageUrl) : null)
+        .filter((p): p is string => p !== null),
+    );
+    try {
+      const { items } = await listAll(ref(storage, `quiz-images/${currentUser.uid}`));
+      await Promise.all(
+        items.filter(item => !usedPaths.has(item.fullPath)).map(item => deleteObject(item).catch(() => {})),
+      );
+    } catch {}
   }, [currentUser]);
 
   const saveToFirestore = useCallback((data: ProblemSet[]) => {
@@ -141,15 +161,15 @@ export const Quiz = () => {
 
   const saveProblem = (
     question: string, answer: string, category: string, wrongChoices: string[], memo: string, imageUrl: string,
-  ) => {
+  ): boolean => {
     const fmt = activeSet?.answerFormat ?? 'written';
     if (!question.trim() || !answer.trim()) {
       setFormError('問題文と答えは必須です');
-      return;
+      return false;
     }
     if (fmt === 'choice4' && wrongChoices.some(w => !w.trim())) {
       setFormError('不正解の選択肢をすべて入力してください');
-      return;
+      return false;
     }
     let next: Problem[];
     if (modal?.type === 'add') {
@@ -161,13 +181,21 @@ export const Quiz = () => {
           : p
       );
     } else {
-      return;
+      return false;
     }
     updateActiveSetProblems(next);
     setModal(null);
+    return true;
   };
 
   const deleteProblem = (id: string) => {
+    const problem = problems.find(p => p.id === id);
+    if (problem?.imageUrl) {
+      const usedElsewhere = sets.flatMap(s => s.problems).some(p => p.id !== id && p.imageUrl === problem.imageUrl);
+      if (!usedElsewhere) {
+        deleteObject(ref(storage, problem.imageUrl)).catch(() => {});
+      }
+    }
     updateActiveSetProblems(problems.filter(p => p.id !== id));
     setModal(null);
   };
@@ -299,12 +327,15 @@ export const Quiz = () => {
         <ProblemModal
           modal={modal as AddModal | EditModal}
           problems={problems}
+          allProblems={sets.flatMap(s => s.problems)}
           answerFormat={activeSet?.answerFormat ?? 'written'}
           uid={currentUser.uid}
           formError={formError}
           onSave={saveProblem}
           onDelete={deleteProblem}
           onClose={() => setModal(null)}
+          addToast={addToast}
+          onCleanupImages={cleanupImages}
         />
       )}
       {modal?.type === 'share' && currentUser && (

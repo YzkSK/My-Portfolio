@@ -1,3 +1,20 @@
+// ── ユーティリティ ────────────────────────────────────────────
+export const getErrorCode = (e: unknown): string => {
+  if (e != null && typeof e === 'object' && 'code' in e) return String((e as { code: unknown }).code);
+  if (e instanceof Error) return e.message;
+  return String(e);
+};
+
+/** Firebase Storage のダウンロードURLからストレージパス（fullPath）を抽出する */
+export const storagePathFromUrl = (url: string): string | null => {
+  try {
+    const match = new URL(url).pathname.match(/\/o\/(.+)/);
+    return match ? decodeURIComponent(match[1]) : null;
+  } catch {
+    return null;
+  }
+};
+
 // ── 型定義 ──────────────────────────────────────────────────
 export type AnswerFormat = 'flashcard' | 'written' | 'choice2' | 'choice4';
 
