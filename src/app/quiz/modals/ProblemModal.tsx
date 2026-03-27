@@ -108,11 +108,22 @@ export const ProblemModal = ({ modal, problems, allProblems, answerFormat, uid, 
         const path = `quiz-images/${uid}/${hash}.${ext}`;
         const storageRef = ref(storage, path);
 
-        console.debug('[ProblemModal] upload: file=%s size=%d hash=%s path=%s', imageFile.name, imageFile.size, hash, path);
-        await uploadBytes(storageRef, imageFile);
-        imageUrl = await getDownloadURL(storageRef);
-        newStoragePath = path;
-        console.debug('[ProblemModal] upload success: url=%s', imageUrl);
+        // 既存の問題と同じファイル（パス一致）があれば、そのURLを再利用してトークンを保持
+        const reused = allProblems.find(p => {
+          if (!p.imageUrl) return false;
+          try { return ref(storage, p.imageUrl).fullPath === path; } catch { return false; }
+        });
+
+        if (reused) {
+          imageUrl = reused.imageUrl;
+          console.debug('[ProblemModal] reuse existing url: path=%s url=%s', path, imageUrl);
+        } else {
+          console.debug('[ProblemModal] upload: file=%s size=%d hash=%s path=%s', imageFile.name, imageFile.size, hash, path);
+          await uploadBytes(storageRef, imageFile);
+          imageUrl = await getDownloadURL(storageRef);
+          newStoragePath = path;
+          console.debug('[ProblemModal] upload success: url=%s', imageUrl);
+        }
       } catch (e) {
         console.error('[ProblemModal] upload error:', e);
         addToast(`画像のアップロードに失敗しました（${getErrorCode(e)}）`);
