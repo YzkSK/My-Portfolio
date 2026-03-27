@@ -109,7 +109,7 @@ export const ImportModal = ({ onImport, onClose, addToast, uid, allProblems }: P
               onChange={e => { setCode(e.target.value); setError(''); setPreview(null); }}
               placeholder="例：AB3XYZ12"
               maxLength={8}
-              onKeyDown={e => { if (e.key === 'Enter') handleSearch(); }}
+              onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) handleSearch(); }}
             />
             <Button variant="default" onClick={handleSearch} disabled={loading || !code.trim()}>
               {loading ? '…' : '検索'}

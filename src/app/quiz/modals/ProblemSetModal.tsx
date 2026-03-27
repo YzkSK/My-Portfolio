@@ -62,7 +62,7 @@ export const ProblemSetModal = ({ modal, sets, onSave, onDelete, onReset, onClos
             onChange={e => { setName(e.target.value); setError(''); }}
             placeholder="例：英単語 第1章"
             autoFocus
-            onKeyDown={e => { if (e.key === 'Enter') handleSave(); }}
+            onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) handleSave(); }}
           />
         </div>
 
