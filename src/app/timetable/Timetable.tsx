@@ -58,6 +58,8 @@ export const Timetable = () => {
   const [nextNotify, setNextNotify] = useState<{
     label: string; name: string; start: string; notifyAt: string; pushReady: boolean;
   } | null>(null);
+  const [tokenVersion, setTokenVersion] = useState(0);
+  const [notifyToggling, setNotifyToggling] = useState(false);
   const setGlobalLoading = useSetLoading();
   const scheduledRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -155,34 +157,74 @@ export const Timetable = () => {
     await deleteDoc(ref);
   };
 
+  const NOTIFY_ERROR_CODES = {
+    SW_NOT_READY:    'E001',
+    TOKEN_FETCH:     'E002',
+    TOKEN_SAVE:      'E003',
+    TOKEN_DELETE:    'E004',
+    TOKEN_DB_DELETE: 'E005',
+  } as const;
+
   const toggleNotify = async () => {
-    if (!notifyEnabled) {
-      const granted = permission === 'granted' || await requestPermission();
-      if (granted) {
-        setNotifyEnabled(true);
-        localStorage.setItem('notifyEnabled', 'true');
-        try {
-          const sw = await navigator.serviceWorker.ready;
-          const token = await getToken(messaging, {
-            vapidKey: import.meta.env.VITE_FIREBASE_VAPID_KEY,
-            serviceWorkerRegistration: sw,
-          });
-          await savePushToken(token);
-        } catch (e) {
-          console.error('FCMトークン取得失敗:', e);
+    setNotifyToggling(true);
+    try {
+      if (!notifyEnabled) {
+        const granted = permission === 'granted' || await requestPermission();
+        if (granted) {
+          let sw: ServiceWorkerRegistration;
+          try {
+            sw = await navigator.serviceWorker.ready;
+          } catch (e) {
+            console.error('SW準備失敗:', e);
+            addToast(`通知の設定に失敗しました [${NOTIFY_ERROR_CODES.SW_NOT_READY}]`, 'error');
+            return;
+          }
+          let token: string;
+          try {
+            token = await getToken(messaging, {
+              vapidKey: import.meta.env.VITE_FIREBASE_VAPID_KEY,
+              serviceWorkerRegistration: sw,
+            });
+          } catch (e) {
+            console.error('FCMトークン取得失敗:', e);
+            addToast(`通知の設定に失敗しました [${NOTIFY_ERROR_CODES.TOKEN_FETCH}]`, 'error');
+            return;
+          }
+          try {
+            await savePushToken(token);
+          } catch (e) {
+            console.error('トークン保存失敗:', e);
+            addToast(`通知の設定に失敗しました [${NOTIFY_ERROR_CODES.TOKEN_SAVE}]`, 'error');
+            return;
+          }
+          setNotifyEnabled(true);
+          localStorage.setItem('notifyEnabled', 'true');
+          setTokenVersion(v => v + 1);
+          addToast('通知をオンにしました');
+        } else {
+          addToast('通知が許可されていません', 'warning');
         }
-        addToast('通知をオンにしました');
       } else {
-        addToast('通知が許可されませんでした');
+        setNotifyEnabled(false);
+        localStorage.setItem('notifyEnabled', 'false');
+        Object.values(scheduledRef.current).forEach(clearTimeout);
+        scheduledRef.current = {};
+        try {
+          await deleteToken(messaging);
+        } catch (e) {
+          console.error('FCMトークン削除失敗:', e);
+          addToast(`クリーンアップに失敗しました [${NOTIFY_ERROR_CODES.TOKEN_DELETE}]`, 'warning');
+        }
+        try {
+          await removePushToken();
+        } catch (e) {
+          console.error('Firestoreトークン削除失敗:', e);
+          addToast(`クリーンアップに失敗しました [${NOTIFY_ERROR_CODES.TOKEN_DB_DELETE}]`, 'warning');
+        }
+        addToast('通知をオフにしました');
       }
-    } else {
-      setNotifyEnabled(false);
-      localStorage.setItem('notifyEnabled', 'false');
-      Object.values(scheduledRef.current).forEach(clearTimeout);
-      scheduledRef.current = {};
-      await deleteToken(messaging);
-      await removePushToken();
-      addToast('通知をオフにしました');
+    } finally {
+      setNotifyToggling(false);
     }
   };
 
@@ -243,7 +285,7 @@ export const Timetable = () => {
     compute();
     const id = setInterval(compute, 60_000);
     return () => clearInterval(id);
-  }, [notifyEnabled, permission, events, periods, notifyBefore, currentUser]);
+  }, [notifyEnabled, permission, events, periods, notifyBefore, currentUser, tokenVersion]);
 
   useEffect(() => {
     Object.values(scheduledRef.current).forEach(clearTimeout);
@@ -376,7 +418,7 @@ export const Timetable = () => {
       {/* Toast */}
       <div className="tt-toast-container">
         {toasts.map(t => (
-          <div key={t.id} className="tt-toast">{t.msg}</div>
+          <div key={t.id} className={`tt-toast tt-toast--${t.type}`}>{t.msg}</div>
         ))}
       </div>
 
@@ -392,7 +434,7 @@ export const Timetable = () => {
           <div className="tt-controls">
             <div className="tt-notify">
               <span className="tt-notify-icon">{notifyEnabled ? '🔔' : '🔕'}</span>
-              <div onClick={toggleNotify} className="tt-toggle" style={{ background: notifyEnabled ? 'var(--tt-tab-active-bg)' : 'var(--tt-border)' }}>
+              <div onClick={notifyToggling ? undefined : toggleNotify} className="tt-toggle" style={{ background: notifyEnabled ? 'var(--tt-tab-active-bg)' : 'var(--tt-border)', opacity: notifyToggling ? 0.4 : 1, cursor: notifyToggling ? 'not-allowed' : 'pointer' }}>
                 <div className="tt-toggle-thumb" style={{ left: notifyEnabled ? 20 : 2, background: notifyEnabled ? 'var(--tt-tab-active-text)' : '#fff' }} />
               </div>
               <div onClick={() => setShowNotifyPicker(true)} className="tt-notify-picker-btn">

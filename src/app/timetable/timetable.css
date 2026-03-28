@@ -257,6 +257,10 @@
   white-space: nowrap;
 }
 
+.tt-toast--normal { background: #1a1a1a; color: #fff; }
+.tt-toast--error  { background: #dc2626; color: #fff; }
+.tt-toast--warning { background: #d97706; color: #fff; }
+
 .tt-notify-option {
   padding: 13px 16px;
   border-radius: 10px;
