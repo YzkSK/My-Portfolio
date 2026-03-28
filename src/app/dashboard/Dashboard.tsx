@@ -3,7 +3,6 @@ import { useNavigate, Link } from 'react-router-dom';
 import { User } from 'lucide-react';
 import '../shared/app.css';
 import { auth } from '../shared/firebase';
-import { useAuth } from '../auth/AuthContext';
 import { AppFooter } from '../shared/AppFooter';
 import { usePageTitle } from '../shared/usePageTitle';
 import { Button } from '@/components/ui/button';
@@ -15,7 +14,6 @@ const APPS = [
 ];
 
 export const Dashboard = () => {
-  const { currentUser, username } = useAuth();
   const navigate = useNavigate();
   usePageTitle('ホーム');
 
