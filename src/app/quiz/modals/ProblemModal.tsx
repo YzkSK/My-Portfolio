@@ -166,7 +166,7 @@ export const ProblemModal = ({ modal, problems, allProblems, answerFormat, uid, 
           try { return ref(storage, p.imageUrl).fullPath === existingPath; } catch { return false; }
         });
         if (!usedElsewhere) {
-          try { await deleteObject(ref(storage, existingImageUrl)); } catch {}
+          try { await deleteObject(ref(storage, existingImageUrl)); } catch (e) { console.warn('旧画像削除失敗:', e); }
         }
       }
       // 画像を選択した操作だった場合、孤立した画像をクリーンアップ
@@ -174,7 +174,7 @@ export const ProblemModal = ({ modal, problems, allProblems, answerFormat, uid, 
     } else {
       // 保存失敗: 新たにアップロードした画像のみ削除してロールバック
       if (newStoragePath) {
-        try { await deleteObject(ref(storage, newStoragePath)); } catch {}
+        try { await deleteObject(ref(storage, newStoragePath)); } catch (e) { console.warn('アップロードロールバック失敗:', e); }
       }
     }
   };

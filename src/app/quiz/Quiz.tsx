@@ -96,7 +96,7 @@ export const Quiz = () => {
           .filter(item => !usedPaths.has(item.fullPath))
           .map(item => deleteObject(item).catch(() => {})),
       );
-    } catch {}
+    } catch (e) { console.warn('ストレージクリーンアップ失敗:', e); }
   }, [currentUser]);
 
   const saveToFirestore = useCallback((data: ProblemSet[]) => {
@@ -158,7 +158,7 @@ export const Quiz = () => {
           if (!remainingPaths.has(path)) {
             deleteObject(ref(storage, p.imageUrl)).catch(() => {});
           }
-        } catch {}
+        } catch (e) { console.warn('Storage参照失敗:', e); }
       }
     }
 

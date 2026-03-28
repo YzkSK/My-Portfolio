@@ -3,17 +3,7 @@ import { verifyPasswordResetCode, confirmPasswordReset } from 'firebase/auth';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { auth } from '../shared/firebase';
 import '../shared/app.css';
-import { PASSWORD_RULES } from './passwordRules';
-
-type Strength = { score: number; label: string; color: string };
-
-const getStrength = (pw: string): Strength => {
-  const score = PASSWORD_RULES.filter(r => r.test(pw)).length;
-  if (score <= 1) return { score, label: '弱い', color: '#ef4444' };
-  if (score <= 2) return { score, label: '普通', color: '#f59e0b' };
-  if (score === 3) return { score, label: '強い', color: '#22c55e' };
-  return { score, label: 'とても強い', color: '#3b82f6' };
-};
+import { PASSWORD_RULES, getStrength } from './passwordRules';
 
 type State = 'loading' | 'form' | 'success' | 'invalid';
 

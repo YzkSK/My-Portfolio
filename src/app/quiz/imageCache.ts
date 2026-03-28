@@ -5,6 +5,14 @@ const memoryCache = new Map<string, string>();
 // セッション内で失敗した URL（次回呼び出し時に再取得を試みる）
 const failedUrls = new Set<string>();
 
+function storeBlobUrl(url: string, blob: Blob): string {
+  const existing = memoryCache.get(url);
+  if (existing) URL.revokeObjectURL(existing);
+  const blobUrl = URL.createObjectURL(blob);
+  memoryCache.set(url, blobUrl);
+  return blobUrl;
+}
+
 export async function getCachedImageUrl(url: string): Promise<string> {
   // 失敗済みでなければメモリキャッシュを返す
   if (!failedUrls.has(url) && memoryCache.has(url)) return memoryCache.get(url)!;
@@ -16,10 +24,7 @@ export async function getCachedImageUrl(url: string): Promise<string> {
     if (!failedUrls.has(url)) {
       const match = await cache.match(url);
       if (match) {
-        const blob = await match.blob();
-        const blobUrl = URL.createObjectURL(blob);
-        memoryCache.set(url, blobUrl);
-        return blobUrl;
+        return storeBlobUrl(url, await match.blob());
       }
     }
 
@@ -42,12 +47,17 @@ export async function getCachedImageUrl(url: string): Promise<string> {
     // 成功: キャッシュして返す
     failedUrls.delete(url);
     await cache.put(url, response.clone());
-    const blob = await response.blob();
-    const blobUrl = URL.createObjectURL(blob);
-    memoryCache.set(url, blobUrl);
-    return blobUrl;
+    return storeBlobUrl(url, await response.blob());
   }
 
   // Cache API 非対応の場合はそのまま返す
   return url;
+}
+
+export function clearImageCache(): void {
+  for (const blobUrl of memoryCache.values()) {
+    URL.revokeObjectURL(blobUrl);
+  }
+  memoryCache.clear();
+  failedUrls.clear();
 }

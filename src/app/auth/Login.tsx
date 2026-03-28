@@ -5,7 +5,7 @@ import { httpsCallable } from 'firebase/functions';
 import { useNavigate } from 'react-router-dom';
 import '../shared/app.css';
 import { auth, db, functions } from '../shared/firebase';
-import { PASSWORD_RULES } from './passwordRules';
+import { PASSWORD_RULES, getStrength } from './passwordRules';
 import { EMAIL_REGEX } from '../shared/validators';
 
 const FIREBASE_ERRORS: Record<string, string> = {
@@ -15,16 +15,6 @@ const FIREBASE_ERRORS: Record<string, string> = {
   'auth/email-already-in-use': 'このメールアドレスはすでに使用されています',
   'auth/too-many-requests': 'ログイン試行が多すぎます。しばらく待ってから再試行してください',
   'auth/network-request-failed': 'ネットワークエラーが発生しました',
-};
-
-type Strength = { score: number; label: string; color: string };
-
-const getStrength = (pw: string): Strength => {
-  const score = PASSWORD_RULES.filter(r => r.test(pw)).length;
-  if (score <= 1) return { score, label: '弱い', color: '#ef4444' };
-  if (score <= 2) return { score, label: '普通', color: '#f59e0b' };
-  if (score === 3) return { score, label: '強い', color: '#22c55e' };
-  return { score, label: 'とても強い', color: '#3b82f6' };
 };
 
 export const Login = () => {

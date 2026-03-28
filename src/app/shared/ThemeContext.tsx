@@ -25,7 +25,7 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
         setDarkMode(value);
         localStorage.setItem('tt-dark-mode', String(value));
       }
-    });
+    }).catch(() => {});
   }, [currentUser]);
 
   useEffect(() => {
