@@ -164,13 +164,6 @@ async function sendFcm(
               Urgency: 'high',
               TTL: '3600',
             },
-            notification: {
-              title,
-              body,
-            },
-            fcm_options: {
-              link: '/app/timetable',
-            },
           },
           apns: {
             payload: {

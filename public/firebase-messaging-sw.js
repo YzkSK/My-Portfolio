@@ -20,6 +20,19 @@ if (projectId) {
   messaging.onBackgroundMessage((payload) => {
     const title = payload.data?.title ?? payload.notification?.title ?? '時間割';
     const body = payload.data?.body ?? payload.notification?.body ?? '';
-    self.registration.showNotification(title, { body });
+    self.registration.showNotification(title, { body, data: { url: '/app/timetable' } });
   });
 }
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const url = event.notification.data?.url ?? '/app/timetable';
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
+      for (const client of windowClients) {
+        if (client.url.includes(url) && 'focus' in client) return client.focus();
+      }
+      if (clients.openWindow) return clients.openWindow(url);
+    })
+  );
+});
