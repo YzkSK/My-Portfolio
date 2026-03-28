@@ -143,6 +143,7 @@ export const GeminiPdfModal = ({ sets, uid, onImportNew, onImportExisting, onClo
   const [targetSetId, setTargetSetId] = useState(sets[0]?.id ?? '');
   const [nameError, setNameError]     = useState('');
   const [streamLog, setStreamLog]     = useState('');
+  const [failReason, setFailReason]   = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const logRef = useRef<HTMLPreElement>(null);
 
@@ -159,6 +160,7 @@ export const GeminiPdfModal = ({ sets, uid, onImportNew, onImportExisting, onClo
     if (!file) return;
     setError('');
     setStreamLog('');
+    setFailReason('');
     setStep('extracting');
     try {
       const [base64Data, arrayBuffer] = await Promise.all([
@@ -217,6 +219,7 @@ export const GeminiPdfModal = ({ sets, uid, onImportNew, onImportExisting, onClo
 
       if (extracted.length === 0) {
         setError('問題が見つかりませんでした。別のPDFをお試しください。');
+        setFailReason(text || '（Geminiからの応答が空でした）');
         setStep('upload');
         return;
       }
@@ -232,6 +235,7 @@ export const GeminiPdfModal = ({ sets, uid, onImportNew, onImportExisting, onClo
       } else {
         setError('抽出に失敗しました。APIキーや接続を確認してください。');
       }
+      setFailReason(msg);
       setStep('upload');
     }
   };
@@ -290,6 +294,14 @@ export const GeminiPdfModal = ({ sets, uid, onImportNew, onImportExisting, onClo
               onChange={handleFileChange}
             />
             {error && <p className="text-sm text-red-500 mt-1">{error}</p>}
+            {failReason && (
+              <details className="w-full mt-1">
+                <summary className="text-xs text-[#aaa] cursor-pointer select-none">詳細を見る</summary>
+                <pre className="mt-1 max-h-32 overflow-y-auto text-[10px] text-[#888] bg-[#f5f5f5] dark:bg-[#1a1a1a] rounded-[8px] p-2 font-mono whitespace-pre-wrap break-all">
+                  {failReason}
+                </pre>
+              </details>
+            )}
 
             <div className="flex gap-2 mt-3">
               <Button variant="outline" className="flex-1" onClick={onClose}>キャンセル</Button>
