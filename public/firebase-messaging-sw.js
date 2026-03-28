@@ -18,8 +18,10 @@ if (projectId) {
   const messaging = firebase.messaging();
 
   messaging.onBackgroundMessage((payload) => {
-    const title = payload.data?.title ?? payload.notification?.title ?? '時間割';
-    const body = payload.data?.body ?? payload.notification?.body ?? '';
+    // webpush.notificationがある場合はブラウザが自動表示するためスキップ（2重防止）
+    if (payload.notification) return;
+    const title = payload.data?.title ?? '時間割';
+    const body = payload.data?.body ?? '';
     self.registration.showNotification(title, { body, data: { url: '/app/timetable' } });
   });
 }
