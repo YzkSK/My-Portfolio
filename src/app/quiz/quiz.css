@@ -536,6 +536,7 @@
   font-size: 15px;
   font-weight: 700;
   color: var(--qz-text-strong);
+  text-align: left;
 }
 .qz-set-count {
   font-size: 12px;
