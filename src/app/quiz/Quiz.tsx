@@ -411,7 +411,6 @@ export const Quiz = () => {
       {modal?.type === 'gemini-pdf' && (
         <GeminiPdfModal
           sets={sets}
-          uid={currentUser?.uid ?? ''}
           onImportNew={handleImport}
           onImportExisting={handleImportToExisting}
           onClose={() => setModal(null)}
