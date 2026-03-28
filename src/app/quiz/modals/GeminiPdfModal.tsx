@@ -105,7 +105,7 @@ export const GeminiPdfModal = ({ sets, onImportNew, onImportExisting, onClose, a
       const base64Data = await fileToBase64(file);
 
       const apiKey = import.meta.env.VITE_GOOGLE_GEMINI_API_KEY as string;
-      const model = new GoogleGenerativeAI(apiKey).getGenerativeModel({ model: 'gemini-2.5-flash' });
+      const model = new GoogleGenerativeAI(apiKey).getGenerativeModel({ model: 'gemini-3.1-flash-lite-preview' });
 
       const stream = await model.generateContentStream([
         { inlineData: { mimeType: 'application/pdf', data: base64Data } },
