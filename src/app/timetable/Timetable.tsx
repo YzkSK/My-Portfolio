@@ -131,8 +131,10 @@ export const Timetable = () => {
     saveTimeoutRef.current = setTimeout(async () => {
       const ref = doc(db, firestorePaths.timetableData(currentUser.uid));
       await setDoc(ref, { events: eventsData, periods: periodsData, notifyBefore: notifyBeforeData });
+      // 保存完了後にSW側の次の予定チェックを再実行
+      setTokenVersion(v => v + 1);
     }, SAVE_DEBOUNCE_MS);
-  }, [currentUser]);
+  }, [currentUser, setTokenVersion]);
 
   // ── 通知 ────────────────────────────────────────────────
   const requestPermission = async () => {
@@ -248,17 +250,6 @@ export const Timetable = () => {
       return;
     }
     const compute = async () => {
-      // SWのpush subscriptionとFirestoreのFCMトークン両方を確認（通知テーブルへの登録チェック）
-      let pushReady = false;
-      try {
-        const reg = await navigator.serviceWorker.ready;
-        const sub = await reg.pushManager.getSubscription();
-        if (sub !== null && currentUser) {
-          const snap = await getDoc(doc(db, firestorePaths.pushToken(currentUser.uid)));
-          pushReady = snap.exists() && !!snap.data()?.token;
-        }
-      } catch { /* SW未対応環境 */ }
-
       const now = new Date();
       const nowMin = now.getHours() * 60 + now.getMinutes();
       const key = toKey(now);
@@ -268,6 +259,7 @@ export const Timetable = () => {
         return (pA ? timeToMin(pA.start) : 0) - (pB ? timeToMin(pB.start) : 0);
       });
 
+      // 次に通知されるイベントを探す
       let found: typeof nextNotify = null;
       for (const ev of sorted) {
         const p = periods[ev.periodIndex];
@@ -276,6 +268,18 @@ export const Timetable = () => {
         if (notifyAtMin > nowMin) {
           const hh = String(Math.floor(notifyAtMin / 60)).padStart(2, '0');
           const mm = String(notifyAtMin % 60).padStart(2, '0');
+
+          // 表示されたイベントに対してSWがプッシュ通知を送れるか確認
+          let pushReady = false;
+          try {
+            const reg = await navigator.serviceWorker.ready;
+            const sub = await reg.pushManager.getSubscription();
+            if (sub !== null && currentUser) {
+              const snap = await getDoc(doc(db, firestorePaths.pushToken(currentUser.uid)));
+              pushReady = snap.exists() && !!snap.data()?.token;
+            }
+          } catch { /* SW未対応環境 */ }
+
           found = { label: p.label, name: ev.name, start: p.start, notifyAt: `${hh}:${mm}`, pushReady };
           break;
         }
