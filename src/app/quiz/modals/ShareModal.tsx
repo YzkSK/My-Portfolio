@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { doc, setDoc } from 'firebase/firestore';
+import { doc, setDoc, Timestamp } from 'firebase/firestore';
 import { db } from '../../shared/firebase';
 import { type Problem, getCategories, filterProblems, genShareCode, firestorePaths } from '../constants';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -45,7 +45,7 @@ export const ShareModal = ({ problems, uid, defaultTitle = '', existingShareCode
         title: title.trim() || '問題集',
         createdBy: uid,
         createdAt: Date.now(),
-        expireAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+        expireAt: Timestamp.fromDate(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)),
       };
       await setDoc(doc(db, firestorePaths.sharedProblem(code)), payload);
       setShareCode(code);
