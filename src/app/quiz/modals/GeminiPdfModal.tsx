@@ -1,17 +1,9 @@
 import { useState, useRef } from 'react';
-import * as pdfjsLib from 'pdfjs-dist';
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { storage } from '../../shared/firebase';
 import { type Problem, type ProblemSet, newProblem } from '../constants';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-
-pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
-  'pdfjs-dist/build/pdf.worker.min.mjs',
-  import.meta.url,
-).toString();
 
 type Step = 'upload' | 'extracting' | 'review';
 type ImportMode = 'new' | 'existing';
@@ -20,19 +12,16 @@ type ExtractedItem = {
   id: string;
   question: string;
   answer: string;
-  imageUrl: string;
   checked: boolean;
 };
 
 type GeminiResult = {
   question: string;
   answer: string;
-  figure: { page: number; x1: number; y1: number; x2: number; y2: number } | null;
 };
 
 type Props = {
   sets: ProblemSet[];
-  uid: string;
   onImportNew: (problems: Problem[], title: string) => void;
   onImportExisting: (problems: Problem[], setId: string) => void;
   onClose: () => void;
@@ -83,57 +72,8 @@ const fileToBase64 = (file: File): Promise<string> =>
     reader.readAsDataURL(file);
   });
 
-const arrayBufferFromFile = (file: File): Promise<ArrayBuffer> =>
-  new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as ArrayBuffer);
-    reader.onerror = reject;
-    reader.readAsArrayBuffer(file);
-  });
 
-const uploadFigure = async (
-  pdfArrayBuffer: ArrayBuffer,
-  figure: { page: number; x1: number; y1: number; x2: number; y2: number },
-  uid: string,
-): Promise<string> => {
-  const pdf = await pdfjsLib.getDocument({ data: pdfArrayBuffer.slice(0) }).promise;
-  const page = await pdf.getPage(figure.page);
-  const scale = 2.0;
-  const viewport = page.getViewport({ scale });
-
-  const canvas = document.createElement('canvas');
-  canvas.width  = viewport.width;
-  canvas.height = viewport.height;
-  const ctx = canvas.getContext('2d');
-  if (!ctx) throw new Error('Failed to get canvas context');
-  await page.render({ canvasContext: ctx, viewport, canvas }).promise;
-
-  const PAD = 0.02; // 正規化座標で2%のパディング
-  const sx1 = Math.max(0, figure.x1 - PAD);
-  const sy1 = Math.max(0, figure.y1 - PAD);
-  const sx2 = Math.min(1, figure.x2 + PAD);
-  const sy2 = Math.min(1, figure.y2 + PAD);
-
-  const px1 = Math.floor(sx1 * viewport.width);
-  const py1 = Math.floor(sy1 * viewport.height);
-  const pw  = Math.ceil((sx2 - sx1) * viewport.width);
-  const ph  = Math.ceil((sy2 - sy1) * viewport.height);
-
-  const crop = document.createElement('canvas');
-  crop.width  = pw;
-  crop.height = ph;
-  crop.getContext('2d')!.drawImage(canvas, px1, py1, pw, ph, 0, 0, pw, ph);
-
-  const blob = await new Promise<Blob>(res => crop.toBlob(b => res(b!), 'image/png'));
-  const buffer = await blob.arrayBuffer();
-  const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
-  const hash = Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
-  const storageRef = ref(storage, `quiz-images/${uid}/${hash}.png`);
-  await uploadBytes(storageRef, blob);
-  return getDownloadURL(storageRef);
-};
-
-export const GeminiPdfModal = ({ sets, uid, onImportNew, onImportExisting, onClose, addToast }: Props) => {
+export const GeminiPdfModal = ({ sets, onImportNew, onImportExisting, onClose, addToast }: Props) => {
   const [step, setStep]               = useState<Step>('upload');
   const [file, setFile]               = useState<File | null>(null);
   const [error, setError]             = useState('');
@@ -163,10 +103,7 @@ export const GeminiPdfModal = ({ sets, uid, onImportNew, onImportExisting, onClo
     setFailReason('');
     setStep('extracting');
     try {
-      const [base64Data, arrayBuffer] = await Promise.all([
-        fileToBase64(file),
-        arrayBufferFromFile(file),
-      ]);
+      const base64Data = await fileToBase64(file);
 
       const apiKey = import.meta.env.VITE_GOOGLE_GEMINI_API_KEY as string;
       const model = new GoogleGenerativeAI(apiKey).getGenerativeModel({ model: 'gemini-2.5-flash' });
@@ -196,22 +133,13 @@ export const GeminiPdfModal = ({ sets, uid, onImportNew, onImportExisting, onClo
       const extracted: ExtractedItem[] = await Promise.all(
         parsed
           .filter(item => typeof item.question === 'string' && item.question.trim())
-          .map(async item => {
-            let imageUrl = '';
-            if (item.figure) {
-              try {
-                imageUrl = await uploadFigure(arrayBuffer, item.figure, uid);
-              } catch (e) {
-                console.warn('図のアップロードに失敗しました', e);
-              }
-            }
+          .map(item => {
             const q = normalizeText(item.question);
             const a = normalizeText(typeof item.answer === 'string' ? item.answer : '');
             return {
               id: crypto.randomUUID(),
               question: q,
               answer:   a === q ? '' : a,
-              imageUrl,
               checked: true,
             };
           })
