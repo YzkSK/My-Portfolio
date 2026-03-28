@@ -529,6 +529,8 @@
   display: flex;
   flex-direction: column;
   gap: 3px;
+  flex: 1;
+  min-width: 0;
 }
 .qz-set-name {
   font-size: 15px;
