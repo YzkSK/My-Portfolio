@@ -1,54 +1,56 @@
-# React + TypeScript + Vite
+# My Portfolio
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+佐藤康樹のポートフォリオ兼Webアプリケーション。
 
-Currently, two official plugins are available:
+## 概要
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+公開ポートフォリオと、認証が必要なプロダクティビティアプリ（クイズ・時間割）を組み合わせたフルスタックWebアプリ。
 
-## Expanding the ESLint configuration
+## 機能
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+- **ポートフォリオ** — プロフィール・学歴・職歴・スキルの公開ページ
+- **クイズアプリ** — 問題集の作成・管理・練習。GeminiによるPDFからの問題自動生成に対応
+- **時間割アプリ** — 授業スケジュールの管理
+- **プッシュ通知** — Firebase Cloud Messaging によるPWA通知（ブラウザ / iOS / Android対応）
 
-```js
-export default tseslint.config({
-  extends: [
-    // Remove ...tseslint.configs.recommended and replace with this
-    ...tseslint.configs.recommendedTypeChecked,
-    // Alternatively, use this for stricter rules
-    ...tseslint.configs.strictTypeChecked,
-    // Optionally, add this for stylistic rules
-    ...tseslint.configs.stylisticTypeChecked,
-  ],
-  languageOptions: {
-    // other options...
-    parserOptions: {
-      project: ['./tsconfig.node.json', './tsconfig.app.json'],
-      tsconfigRootDir: import.meta.dirname,
-    },
-  },
-})
+## 技術スタック
+
+| 分類 | 技術 |
+|------|------|
+| フロントエンド | React 19, TypeScript, Vite 6, TailwindCSS 4, Radix UI |
+| バックエンド | Firebase (Auth / Firestore / Storage / Cloud Functions) |
+| サーバーレス | Cloudflare Workers (通知用cronジョブ) |
+| AI | Google Generative AI (Gemini) |
+| メール | Resend |
+
+## セットアップ
+
+```bash
+npm install
+npm run dev
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## コマンド
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+```bash
+npm run dev       # 開発サーバー起動
+npm run build     # プロダクションビルド
+npm run lint      # ESLint実行
+npm run preview   # ビルド結果のプレビュー
+```
 
-export default tseslint.config({
-  plugins: {
-    // Add the react-x and react-dom plugins
-    'react-x': reactX,
-    'react-dom': reactDom,
-  },
-  rules: {
-    // other rules...
-    // Enable its recommended typescript rules
-    ...reactX.configs['recommended-typescript'].rules,
-    ...reactDom.configs.recommended.rules,
-  },
-})
+### Firebase Functions
+
+```bash
+cd firebase-functions
+npm install
+npm run serve     # ローカルエミュレーター起動
+npm run deploy    # デプロイ
+```
+
+### Cloudflare Worker
+
+```bash
+cd workers/notification-cron
+# Wrangler CLI を使用
 ```

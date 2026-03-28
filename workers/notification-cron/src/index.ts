@@ -138,6 +138,15 @@ function parseDoc(doc: Record<string, unknown>): Record<string, unknown> {
   return Object.fromEntries(Object.entries(fields).map(([k, v]) => [k, fsValue(v)]));
 }
 
+async function firestoreDelete(
+  projectId: string,
+  token: string,
+  path: string,
+): Promise<void> {
+  const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/${path}`;
+  await fetch(url, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
+}
+
 // ── FCM 送信 ──────────────────────────────────────────────
 
 async function sendFcm(
@@ -146,8 +155,8 @@ async function sendFcm(
   fcmToken: string,
   title: string,
   body: string,
-): Promise<void> {
-  await fetch(
+): Promise<'ok' | 'invalid-token' | 'error'> {
+  const resp = await fetch(
     `https://fcm.googleapis.com/v1/projects/${projectId}/messages:send`,
     {
       method: 'POST',
@@ -164,6 +173,13 @@ async function sendFcm(
               Urgency: 'high',
               TTL: '3600',
             },
+            notification: {
+              title,
+              body,
+            },
+            fcm_options: {
+              link: '/app/timetable',
+            },
           },
           apns: {
             payload: {
@@ -177,6 +193,13 @@ async function sendFcm(
       }),
     },
   );
+
+  if (resp.ok) return 'ok';
+  const err = await resp.text();
+  // 404 = トークン無効、登録解除済み
+  if (resp.status === 404) return 'invalid-token';
+  console.error(`FCM送信失敗 [${resp.status}]:`, err);
+  return 'error';
 }
 
 // ── 時刻ユーティリティ ────────────────────────────────────
@@ -243,7 +266,11 @@ export default {
         const notifyAt = timeToMin(period.start) - notifyBefore;
         if (nowMin === notifyAt) {
           const body = `${period.label} ${ev.name}${ev.room ? `（${ev.room}）` : ''} ${period.start}〜`;
-          await sendFcm(projectId, accessToken, fcmToken, `${notifyBefore}分後に授業があります`, body);
+          const result = await sendFcm(projectId, accessToken, fcmToken, `${notifyBefore}分後に授業があります`, body);
+          if (result === 'invalid-token') {
+            // 無効なトークンはFirestoreから削除
+            await firestoreDelete(projectId, accessToken, `users/${uid}/push/token`);
+          }
         }
       }
     }
