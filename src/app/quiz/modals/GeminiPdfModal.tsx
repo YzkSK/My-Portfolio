@@ -60,7 +60,7 @@ const normalizeText = (text: string): string =>
   text
     .replace(/[（(][ぁ-ん]+[）)]/g, '')
     .replace(/《[ぁ-ん]+》/g, '')
-    .replace(/[ \t　]+/g, ' ')
+    .replace(/[ \t\u3000]+/g, ' ')
     .trim();
 
 const fileToBase64 = (file: File): Promise<string> =>

@@ -25,14 +25,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setCurrentUser(user);
-      if (user) {
-        const snap = await getDoc(doc(db, 'users', user.uid, 'profile', 'data'));
-        setUsername(snap.exists() ? (snap.data().username as string) : null);
-      } else {
+      try {
+        if (user) {
+          const snap = await getDoc(doc(db, 'users', user.uid, 'profile', 'data'));
+          setUsername(snap.exists() ? (snap.data().username as string) : null);
+        } else {
+          setUsername(null);
+        }
+      } catch {
         setUsername(null);
+      } finally {
+        setLoading(false);
+        setGlobalLoading('auth', false);
       }
-      setLoading(false);
-      setGlobalLoading('auth', false);
     });
     return unsubscribe;
   }, [setGlobalLoading]);

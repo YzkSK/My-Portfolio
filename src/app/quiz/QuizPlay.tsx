@@ -11,7 +11,7 @@ import './quiz.css';
 import {
   SAVE_DEBOUNCE_MS, TOAST_DURATION_MS, EXAM_TIME_LIMIT_MS, EXAM_MAX_PROBLEMS, MASTER_THRESHOLD,
   shuffle, filterProblems, buildProblemChoices, isAnswerCorrect, isWeak, isExamSession, isInvalidProblem,
-  getCategories, parseProblem, parseProblemSet, parseRecentConfig, firestorePaths,
+  getCategories, newProblemSet, parseProblem, parseProblemSet, parseRecentConfig, firestorePaths,
   QUIZ_MODE_LABELS, formatRelativeTime, getInvalidCount,
   type Problem, type ProblemSet, type RecentConfig, type ActiveSession, type QuizSessionConfig,
   type OneByOneSession, type ExamSession, type QuizMode,
@@ -63,7 +63,6 @@ export const QuizPlay = () => {
           if (Array.isArray(data.sets)) {
             setSets((data.sets as Record<string, unknown>[]).map(parseProblemSet));
           } else if (Array.isArray(data.problems)) {
-            const { newProblemSet } = await import('./constants');
             const migrated = newProblemSet('問題集');
             migrated.problems = (data.problems as Record<string, unknown>[]).map(parseProblem);
             setSets([migrated]);

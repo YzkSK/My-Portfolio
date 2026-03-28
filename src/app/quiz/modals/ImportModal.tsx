@@ -42,6 +42,10 @@ export const ImportModal = ({ onImport, onClose, addToast, uid, allProblems }: P
         return;
       }
       const data = snap.data() as SharedData;
+      if (!Array.isArray(data?.problems)) {
+        setError('データの形式が正しくありません');
+        return;
+      }
       if (data.expireAt && data.expireAt.toDate() < new Date()) {
         setError('このシェアコードは期限切れです');
         return;
@@ -87,7 +91,7 @@ export const ImportModal = ({ onImport, onClose, addToast, uid, allProblems }: P
       const imported = await Promise.all(preview.problems.map(async p => {
         let imageUrl = '';
         if (p.imageUrl) {
-          try { imageUrl = await resolveImageUrl(p.imageUrl); } catch {}
+          try { imageUrl = await resolveImageUrl(p.imageUrl); } catch (e) { console.warn('画像の取得に失敗:', e); }
         }
         return newProblem(p.question, p.answer, p.category, p.answerFormat, p.wrongChoices, p.memo, imageUrl);
       }));

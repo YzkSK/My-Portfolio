@@ -228,7 +228,7 @@ function nowMinJst(): number {
 // ── メイン ────────────────────────────────────────────────
 
 export default {
-  async scheduled(_event: ScheduledEvent, env: Env, _ctx: ExecutionContext): Promise<void> {
+  async scheduled(_event: ScheduledEvent, env: Env): Promise<void> {
     const sa: ServiceAccount = JSON.parse(env.GOOGLE_SERVICE_ACCOUNT);
     const accessToken = await getAccessToken(sa);
     const projectId = env.FIREBASE_PROJECT_ID;

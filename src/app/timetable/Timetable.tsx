@@ -24,6 +24,14 @@ import { SettingsModal } from './modals/SettingsModal';
 import { AppMenu } from '../shared/AppMenu';
 import { usePageTitle } from '../shared/usePageTitle';
 
+const NOTIFY_ERROR_CODES = {
+  SW_NOT_READY:    'E001',
+  TOKEN_FETCH:     'E002',
+  TOKEN_SAVE:      'E003',
+  TOKEN_DELETE:    'E004',
+  TOKEN_DB_DELETE: 'E005',
+} as const;
+
 export const Timetable = () => {
   const { currentUser } = useAuth();
   const navigate = useNavigate();
@@ -158,14 +166,6 @@ export const Timetable = () => {
     const ref = doc(db, firestorePaths.pushToken(currentUser.uid));
     await deleteDoc(ref);
   };
-
-  const NOTIFY_ERROR_CODES = {
-    SW_NOT_READY:    'E001',
-    TOKEN_FETCH:     'E002',
-    TOKEN_SAVE:      'E003',
-    TOKEN_DELETE:    'E004',
-    TOKEN_DB_DELETE: 'E005',
-  } as const;
 
   const toggleNotify = async () => {
     setNotifyToggling(true);
@@ -342,7 +342,7 @@ export const Timetable = () => {
         : base.filter(e => e.periodIndex !== periodIndex);
       const newEv: TimetableEvent = {
         periodIndex, name: form.name.trim(), room: form.room.trim(),
-        note: form.note.trim(), colorIdx: form.colorIdx, eventId: Date.now(),
+        note: form.note.trim(), colorIdx: form.colorIdx, eventId: Date.now() + Math.random(),
       };
       const next = { ...prev, [dateKey]: [...filtered, newEv].sort((a, b) => a.periodIndex - b.periodIndex) };
       saveToFirestore(next, periods, notifyBefore);

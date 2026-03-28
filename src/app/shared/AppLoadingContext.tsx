@@ -19,7 +19,7 @@ export const AppLoadingProvider = ({
   const setLoading = useCallback((key: string, loading: boolean) => {
     setKeys(prev => {
       const next = new Set(prev);
-      loading ? next.add(key) : next.delete(key);
+      if (loading) next.add(key); else next.delete(key);
       return next;
     });
   }, []);
