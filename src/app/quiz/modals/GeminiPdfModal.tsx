@@ -31,26 +31,29 @@ type Props = {
 const PROMPT = `あなたはPDFから問題と答えを抽出するツールです。抽出のみを行い、問題・答えを一切生成・創作・推測しないでください。
 
 以下のJSONフォーマットのみで返答してください（説明や前置きは不要）：
-[
-  {
-    "question": "問題文",
-    "answer": "答え（不明な場合は空文字列）"
-  }
-]
+{
+  "items": [
+    {
+      "question": "問題文",
+      "answer": "答え（不明な場合は空文字列）"
+    }
+  ],
+  "reason": "問題が見つからなかった場合のみ、その理由を日本語で記載。見つかった場合は空文字列"
+}
 
 【絶対に守るルール】
 - PDFに書かれている文字をそのまま抽出する。問題文・答えをどちらも自分で考えて作ってはいけない
 - PDFに問題として明記されていないテキストを question にしてはいけない
 - PDFに答えとして明記されていないテキストを answer にしてはいけない
 - answer に question と同じ内容を入れてはいけない
-- 問題が見当たらない場合は空配列 [] を返す
+- 問題が見つからなかった場合は items を [] にし、reason に抽出できなかった理由を具体的に日本語で説明する
 - 答えが明記されていない問題は answer を "" にする
 
 【書式ルール】
 - 問題番号・記号は question に含めない
 - ふりがな（ルビ）は除外する（例：「漢字（かんじ）」→「漢字」）
 - マークダウン記法（\`\`\`json など）は使わず、純粋なJSONのみ返す
-- 「左図」「右図」「上図」「下図」「左の図」「右の図」など場所を指定した図の表現は「この図」に書き換える。それ以外の文言は一切書き換えない`;
+- 「左図」「右図」「上図」「下図」「左の図」「右の図」など場所を指定した図の表現は、場所を示す部分を取り除いて文脈に自然な表現に書き換える（例：「左図のように」→「図のように」）。それ以外の文言は一切書き換えない`;
 
 const normalizeText = (text: string): string =>
   text
@@ -122,27 +125,26 @@ export const GeminiPdfModal = ({ sets, onImportNew, onImportExisting, onClose, a
         text = text.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '');
       }
 
-      const parsed: GeminiResult[] = JSON.parse(text);
-      if (!Array.isArray(parsed)) throw new Error('Unexpected response format');
+      const parsed = JSON.parse(text) as { items: GeminiResult[]; reason?: string };
+      if (!parsed.items || !Array.isArray(parsed.items)) throw new Error('Unexpected response format');
 
-      const extracted: ExtractedItem[] = await Promise.all(
-        parsed
-          .filter(item => typeof item.question === 'string' && item.question.trim())
-          .map(item => {
-            const q = normalizeText(item.question);
-            const a = normalizeText(typeof item.answer === 'string' ? item.answer : '');
-            return {
-              id: crypto.randomUUID(),
-              question: q,
-              answer:   a === q ? '' : a,
-              checked: true,
-            };
-          })
-      );
+      const extracted: ExtractedItem[] = parsed.items
+        .filter(item => typeof item.question === 'string' && item.question.trim())
+        .map(item => {
+          const q = normalizeText(item.question);
+          const a = normalizeText(typeof item.answer === 'string' ? item.answer : '');
+          return {
+            id: crypto.randomUUID(),
+            question: q,
+            answer:   a === q ? '' : a,
+            checked: true,
+          };
+        });
 
       if (extracted.length === 0) {
-        setError('問題が見つかりませんでした。別のPDFをお試しください。');
-        setFailReason(text || '（Geminiからの応答が空でした）');
+        const reason = parsed.reason?.trim() || '（理由不明）';
+        setError(`問題が見つかりませんでした。${reason}`);
+        setFailReason(text);
         setStep('upload');
         return;
       }
