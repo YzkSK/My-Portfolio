@@ -277,9 +277,9 @@ export const Quiz = () => {
               <Button variant="outline" onClick={handleLogout}>ログアウト</Button>
             </div>
 
-            <div className="flex items-center justify-between mb-3">
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
               <div className="text-sm font-black text-[#1a1a1a] dark:text-[#e0e0e0]">マイ問題集 ({sets.length}件)</div>
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
                 <Button variant="outline" onClick={() => setModal({ type: 'import' })}>インポート</Button>
                 <Button variant="outline" onClick={() => setModal({ type: 'gemini-pdf' })}>PDF抽出</Button>
                 <Button variant="default" onClick={() => setModal({ type: 'set-create' })}>＋ 新規作成</Button>
