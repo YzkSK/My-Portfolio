@@ -540,6 +540,7 @@ export const Timetable = () => {
                 if (notifyEnabled && currentUser) {
                   const ref = doc(db, firestorePaths.pushToken(currentUser.uid));
                   await setDoc(ref, { notifyBefore: o.value }, { merge: true });
+                  setTokenVersion(v => v + 1);
                 }
               }}
                 className={`tt-notify-option${notifyBefore === o.value ? ' tt-notify-option--active' : ''}`}>
