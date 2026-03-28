@@ -170,7 +170,7 @@ export const EditProfile = () => {
           <div className="app-field">
             <input
               type="text"
-              placeholder="Username"
+              placeholder="ユーザー名"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
             />

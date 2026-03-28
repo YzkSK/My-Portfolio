@@ -23,6 +23,7 @@ import { EventModal } from './modals/EventModal';
 import { SettingsModal } from './modals/SettingsModal';
 import { AppMenu } from '../shared/AppMenu';
 import { usePageTitle } from '../shared/usePageTitle';
+import { Button } from '@/components/ui/button';
 
 const NOTIFY_ERROR_CODES = {
   SW_NOT_READY:    'E001',
@@ -459,8 +460,8 @@ export const Timetable = () => {
                 {notifyBefore}分前
               </div>
             </div>
-            <button onClick={openSettings} className="tt-btn">⚙️ 時間設定</button>
-            <button onClick={async () => { await signOut(auth); navigate('/app/login'); }} className="tt-btn">ログアウト</button>
+            <Button variant="outline" onClick={openSettings}>⚙️ 時間設定</Button>
+            <Button variant="outline" onClick={async () => { await signOut(auth); navigate('/app/login'); }}>ログアウト</Button>
           </div>
         </div>
 
@@ -495,7 +496,7 @@ export const Timetable = () => {
           <button onClick={() => moveCursor(-1)} className="tt-nav-btn">&lt;</button>
           <span className="tt-nav-title">{getTitle()}</span>
           <button onClick={() => moveCursor(1)} className="tt-nav-btn">&gt;</button>
-          <button onClick={() => setCursor(new Date(today))} className="tt-btn" style={{ marginLeft: 4 }}>今日</button>
+          <Button variant="outline" onClick={() => setCursor(new Date(today))} style={{ marginLeft: 4 }}>今日</Button>
         </div>
 
         {/* ビュー本体 */}
