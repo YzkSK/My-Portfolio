@@ -57,7 +57,8 @@ export const TOAST_DURATION_MS = 3500;
 
 export const firestorePaths = {
   timetableData: (uid: string) => `users/${uid}/timetable/data`,
-  pushToken: (uid: string) => `users/${uid}/push/token`,
+  pushTokenDoc: (uid: string, tokenId: string) => `users/${uid}/push/${tokenId}`,
+  pushTokenCol: (uid: string) => `users/${uid}/push`,
 };
 
 // ── ユーティリティ ──────────────────────────────────────────

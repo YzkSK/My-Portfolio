@@ -239,8 +239,9 @@ export default {
     // push サブコレクションを collectionGroup で直接取得
     const pushDocs = await firestoreQueryPushTokens(projectId, accessToken);
 
+    // uid ごとにトークンをまとめる
+    const byUid = new Map<string, { fcmToken: string; notifyBefore: number; docPath: string }[]>();
     for (const pushDoc of pushDocs) {
-      // users/{uid}/push/token のパスから uid を取得
       const name = pushDoc.name as string;
       const segments = name.split('/');
       const uid = segments[segments.indexOf('users') + 1];
@@ -249,8 +250,16 @@ export default {
       const push = parseDoc(pushDoc);
       const fcmToken = push.token as string;
       const notifyBefore = (push.notifyBefore as number) ?? 10;
+      // Firestore ドキュメントのフルパスから projects/.../documents/ 以降を取得
+      const docPath = name.replace(/^.*\/documents\//, '');
 
-      // 時間割データを取得
+      const tokens = byUid.get(uid) ?? [];
+      tokens.push({ fcmToken, notifyBefore, docPath });
+      byUid.set(uid, tokens);
+    }
+
+    for (const [uid, tokens] of byUid) {
+      // 時間割データをユーザーごとに1回だけ取得
       const timetableDoc = await firestoreGet(projectId, accessToken, `users/${uid}/timetable/data`);
       if (!timetableDoc) continue;
       const timetable = parseDoc(timetableDoc);
@@ -258,18 +267,21 @@ export default {
       const periods = (timetable.periods as Period[]) ?? [];
 
       const todayEvents = events[dateKey] ?? [];
-      for (const ev of todayEvents) {
-        const periodIdx = ev.periodIndex ?? ev.pi;
-        const period = periodIdx !== undefined ? periods[periodIdx] : undefined;
-        if (!period) continue;
 
-        const notifyAt = timeToMin(period.start) - notifyBefore;
-        if (nowMin === notifyAt) {
-          const body = `${period.label} ${ev.name}${ev.room ? `（${ev.room}）` : ''} ${period.start}〜`;
-          const result = await sendFcm(projectId, accessToken, fcmToken, `${notifyBefore}分後に授業があります`, body);
-          if (result === 'invalid-token') {
-            // 無効なトークンはFirestoreから削除
-            await firestoreDelete(projectId, accessToken, `users/${uid}/push/token`);
+      for (const { fcmToken, notifyBefore, docPath } of tokens) {
+        for (const ev of todayEvents) {
+          const periodIdx = ev.periodIndex ?? ev.pi;
+          const period = periodIdx !== undefined ? periods[periodIdx] : undefined;
+          if (!period) continue;
+
+          const notifyAt = timeToMin(period.start) - notifyBefore;
+          if (nowMin === notifyAt) {
+            const body = `${period.label} ${ev.name}${ev.room ? `（${ev.room}）` : ''} ${period.start}〜`;
+            const result = await sendFcm(projectId, accessToken, fcmToken, `${notifyBefore}分後に授業があります`, body);
+            if (result === 'invalid-token') {
+              // 無効なトークンはFirestoreから削除
+              await firestoreDelete(projectId, accessToken, docPath);
+            }
           }
         }
       }

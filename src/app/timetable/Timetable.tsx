@@ -71,6 +71,7 @@ export const Timetable = () => {
   const setGlobalLoading = useSetLoading();
   const scheduledRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const currentTokenRef = useRef<string>('');
 
   // ── Firestoreローディングをグローバルに通知 ──────────────
   useLayoutEffect(() => {
@@ -89,8 +90,18 @@ export const Timetable = () => {
       messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
       appId: import.meta.env.VITE_FIREBASE_APP_ID,
     });
-    navigator.serviceWorker.register(`/firebase-messaging-sw.js?${params}`).catch(console.error);
-  }, []);
+    navigator.serviceWorker.register(`/firebase-messaging-sw.js?${params}`).then(async (sw) => {
+      if (notifyEnabled) {
+        try {
+          const token = await getToken(messaging, {
+            vapidKey: import.meta.env.VITE_FIREBASE_VAPID_KEY,
+            serviceWorkerRegistration: sw,
+          });
+          currentTokenRef.current = token;
+        } catch { /* トークン取得失敗は無視 */ }
+      }
+    }).catch(console.error);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Firestore 読み込み ──────────────────────────────────
   useEffect(() => {
@@ -157,14 +168,16 @@ export const Timetable = () => {
 
   const savePushToken = async (token: string) => {
     if (!currentUser) return;
-    const ref = doc(db, firestorePaths.pushToken(currentUser.uid));
+    currentTokenRef.current = token;
+    const ref = doc(db, firestorePaths.pushTokenDoc(currentUser.uid, token));
     await setDoc(ref, { token, notifyBefore });
   };
 
   const removePushToken = async () => {
-    if (!currentUser) return;
-    const ref = doc(db, firestorePaths.pushToken(currentUser.uid));
+    if (!currentUser || !currentTokenRef.current) return;
+    const ref = doc(db, firestorePaths.pushTokenDoc(currentUser.uid, currentTokenRef.current));
     await deleteDoc(ref);
+    currentTokenRef.current = '';
   };
 
   const toggleNotify = async () => {
@@ -187,6 +200,7 @@ export const Timetable = () => {
               vapidKey: import.meta.env.VITE_FIREBASE_VAPID_KEY,
               serviceWorkerRegistration: sw,
             });
+            currentTokenRef.current = token;
           } catch (e) {
             console.error('FCMトークン取得失敗:', e);
             addToast(`通知の設定に失敗しました [${NOTIFY_ERROR_CODES.TOKEN_FETCH}]`, 'error');
@@ -274,9 +288,9 @@ export const Timetable = () => {
           try {
             const reg = await navigator.serviceWorker.ready;
             const sub = await reg.pushManager.getSubscription();
-            if (sub !== null && currentUser) {
-              const snap = await getDoc(doc(db, firestorePaths.pushToken(currentUser.uid)));
-              pushReady = snap.exists() && !!snap.data()?.token;
+            if (sub !== null && currentUser && currentTokenRef.current) {
+              const snap = await getDoc(doc(db, firestorePaths.pushTokenDoc(currentUser.uid, currentTokenRef.current)));
+              pushReady = snap.exists();
             }
           } catch { /* SW未対応環境 */ }
 
@@ -537,8 +551,8 @@ export const Timetable = () => {
                 setNotifyBefore(o.value);
                 setShowNotifyPicker(false);
                 saveToFirestore(events, periods, o.value);
-                if (notifyEnabled && currentUser) {
-                  const ref = doc(db, firestorePaths.pushToken(currentUser.uid));
+                if (notifyEnabled && currentUser && currentTokenRef.current) {
+                  const ref = doc(db, firestorePaths.pushTokenDoc(currentUser.uid, currentTokenRef.current));
                   await setDoc(ref, { notifyBefore: o.value }, { merge: true });
                   setTokenVersion(v => v + 1);
                 }
