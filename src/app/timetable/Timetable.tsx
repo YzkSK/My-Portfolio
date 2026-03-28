@@ -131,8 +131,10 @@ export const Timetable = () => {
     saveTimeoutRef.current = setTimeout(async () => {
       const ref = doc(db, firestorePaths.timetableData(currentUser.uid));
       await setDoc(ref, { events: eventsData, periods: periodsData, notifyBefore: notifyBeforeData });
+      // 保存完了後にSW側の次の予定チェックを再実行
+      setTokenVersion(v => v + 1);
     }, SAVE_DEBOUNCE_MS);
-  }, [currentUser]);
+  }, [currentUser, setTokenVersion]);
 
   // ── 通知 ────────────────────────────────────────────────
   const requestPermission = async () => {
