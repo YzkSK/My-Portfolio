@@ -11,7 +11,8 @@ interface ServiceAccount {
 }
 
 interface TimetableEvent {
-  pi: number;
+  periodIndex?: number;
+  pi?: number;       // 旧フィールド名（後方互換）
   name: string;
   room: string;
 }
@@ -163,13 +164,6 @@ async function sendFcm(
               Urgency: 'high',
               TTL: '3600',
             },
-            notification: {
-              title,
-              body,
-            },
-            fcm_options: {
-              link: '/app/timetable',
-            },
           },
           apns: {
             payload: {
@@ -242,7 +236,8 @@ export default {
 
       const todayEvents = events[dateKey] ?? [];
       for (const ev of todayEvents) {
-        const period = periods[ev.pi];
+        const periodIdx = ev.periodIndex ?? ev.pi;
+        const period = periodIdx !== undefined ? periods[periodIdx] : undefined;
         if (!period) continue;
 
         const notifyAt = timeToMin(period.start) - notifyBefore;

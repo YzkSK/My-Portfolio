@@ -10,7 +10,7 @@ import '../shared/app.css';
 import './quiz.css';
 import {
   SAVE_DEBOUNCE_MS, TOAST_DURATION_MS, EXAM_TIME_LIMIT_MS, EXAM_MAX_PROBLEMS, MASTER_THRESHOLD,
-  shuffle, filterProblems, buildProblemChoices, isAnswerCorrect, isWeak, isExamSession,
+  shuffle, filterProblems, buildProblemChoices, isAnswerCorrect, isWeak, isExamSession, isInvalidProblem,
   getCategories, parseProblem, parseProblemSet, parseRecentConfig, firestorePaths,
   QUIZ_MODE_LABELS, formatRelativeTime, getInvalidCount,
   type Problem, type ProblemSet, type RecentConfig, type ActiveSession, type QuizSessionConfig,
@@ -151,7 +151,7 @@ export const QuizPlay = () => {
   const targetCount = filterProblems(problems, categoryFilter).length;
 
   const startSession = (config: QuizSessionConfig) => {
-    const filtered = filterProblems(problems, config.categoryFilter);
+    const filtered = filterProblems(problems, config.categoryFilter).filter(p => !isInvalidProblem(p));
     if (filtered.length === 0) { addToast('対象の問題がありません'); return; }
 
     // 直近の記録を保存

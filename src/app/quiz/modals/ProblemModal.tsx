@@ -26,9 +26,29 @@ type Props = {
   onCleanupImages: (guardUrl: string) => void;
 };
 
-const hashFile = async (file: File): Promise<string> => {
-  const buffer = await file.arrayBuffer();
-  const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
+const MAX_PX = 250;
+
+const resizeToBlob = (file: File): Promise<Blob> =>
+  new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const scale = Math.min(1, MAX_PX / img.width, MAX_PX / img.height);
+      const w = Math.round(img.width  * scale);
+      const h = Math.round(img.height * scale);
+      const canvas = document.createElement('canvas');
+      canvas.width  = w;
+      canvas.height = h;
+      canvas.getContext('2d')!.drawImage(img, 0, 0, w, h);
+      canvas.toBlob(b => b ? resolve(b) : reject(new Error('toBlob failed')), 'image/png');
+    };
+    img.onerror = reject;
+    img.src = url;
+  });
+
+const hashBlob = async (blob: Blob): Promise<string> => {
+  const hashBuffer = await crypto.subtle.digest('SHA-256', await blob.arrayBuffer());
   return Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
 };
 
@@ -105,9 +125,9 @@ export const ProblemModal = ({ modal, problems, allProblems, answerFormat, uid, 
     if (imageFile) {
       setUploading(true);
       try {
-        const ext = imageFile.name.split('.').pop() ?? 'jpg';
-        const hash = await hashFile(imageFile);
-        const path = `quiz-images/${uid}/${hash}.${ext}`;
+        const blob = await resizeToBlob(imageFile);
+        const hash = await hashBlob(blob);
+        const path = `quiz-images/${uid}/${hash}.png`;
         const storageRef = ref(storage, path);
 
         // 既存の問題と同じファイル（パス一致）があれば、そのURLを再利用してトークンを保持
@@ -119,7 +139,7 @@ export const ProblemModal = ({ modal, problems, allProblems, answerFormat, uid, 
         if (reused) {
           imageUrl = reused.imageUrl;
         } else {
-          await uploadBytes(storageRef, imageFile);
+          await uploadBytes(storageRef, blob);
           imageUrl = await getDownloadURL(storageRef);
           newStoragePath = path;
         }

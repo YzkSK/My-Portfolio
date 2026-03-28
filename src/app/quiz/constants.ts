@@ -41,7 +41,8 @@ export type ShareModal     = { type: 'share' };
 export type ImportModal    = { type: 'import' };
 export type SetCreateModal = { type: 'set-create' };
 export type SetEditModal   = { type: 'set-edit'; setId: string };
-export type Modal = AddModal | EditModal | ShareModal | ImportModal | SetCreateModal | SetEditModal | null;
+export type GeminiPdfModal = { type: 'gemini-pdf' };
+export type Modal = AddModal | EditModal | ShareModal | ImportModal | SetCreateModal | SetEditModal | GeminiPdfModal | null;
 
 export type QuizMode = 'oneByOne' | 'exam';
 
@@ -152,6 +153,8 @@ export function isWeak(p: Problem): boolean {
 }
 
 export function isInvalidProblem(p: Problem): boolean {
+  if (!p.question.trim()) return true;
+  if (!p.answer.trim()) return true;
   if (p.answerFormat === 'choice4') {
     return p.wrongChoices.length < 3 || p.wrongChoices.some(w => !w.trim());
   }

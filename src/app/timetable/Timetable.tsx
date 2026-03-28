@@ -55,6 +55,9 @@ export const Timetable = () => {
   const [showNotifyPicker, setShowNotifyPicker] = useState(false);
   const [settingsPeriods, setSettingsPeriods] = useState<Period[]>(DEFAULT_PERIODS);
   const [loading, setLoading] = useState(true);
+  const [nextNotify, setNextNotify] = useState<{
+    label: string; name: string; start: string; notifyAt: string; pushReady: boolean;
+  } | null>(null);
   const setGlobalLoading = useSetLoading();
   const scheduledRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -196,6 +199,52 @@ export const Timetable = () => {
     return unsub;
   }, [permission]);
 
+  // ── 次の通知予定を計算（SWのpush subscriptionで配信可否も確認） ──
+  useEffect(() => {
+    if (!notifyEnabled || permission !== 'granted') {
+      setNextNotify(null);
+      return;
+    }
+    const compute = async () => {
+      // SWのpush subscriptionとFirestoreのFCMトークン両方を確認（通知テーブルへの登録チェック）
+      let pushReady = false;
+      try {
+        const reg = await navigator.serviceWorker.ready;
+        const sub = await reg.pushManager.getSubscription();
+        if (sub !== null && currentUser) {
+          const snap = await getDoc(doc(db, firestorePaths.pushToken(currentUser.uid)));
+          pushReady = snap.exists() && !!snap.data()?.token;
+        }
+      } catch { /* SW未対応環境 */ }
+
+      const now = new Date();
+      const nowMin = now.getHours() * 60 + now.getMinutes();
+      const key = toKey(now);
+      const sorted = [...(events[key] ?? [])].sort((a, b) => {
+        const pA = periods[a.periodIndex];
+        const pB = periods[b.periodIndex];
+        return (pA ? timeToMin(pA.start) : 0) - (pB ? timeToMin(pB.start) : 0);
+      });
+
+      let found: typeof nextNotify = null;
+      for (const ev of sorted) {
+        const p = periods[ev.periodIndex];
+        if (!p) continue;
+        const notifyAtMin = timeToMin(p.start) - notifyBefore;
+        if (notifyAtMin > nowMin) {
+          const hh = String(Math.floor(notifyAtMin / 60)).padStart(2, '0');
+          const mm = String(notifyAtMin % 60).padStart(2, '0');
+          found = { label: p.label, name: ev.name, start: p.start, notifyAt: `${hh}:${mm}`, pushReady };
+          break;
+        }
+      }
+      setNextNotify(found);
+    };
+    compute();
+    const id = setInterval(compute, 60_000);
+    return () => clearInterval(id);
+  }, [notifyEnabled, permission, events, periods, notifyBefore, currentUser]);
+
   useEffect(() => {
     Object.values(scheduledRef.current).forEach(clearTimeout);
     scheduledRef.current = {};
@@ -331,6 +380,7 @@ export const Timetable = () => {
         ))}
       </div>
 
+
       <div className="tt-inner">
 
         {/* ヘッダー */}
@@ -353,6 +403,22 @@ export const Timetable = () => {
             <button onClick={async () => { await signOut(auth); navigate('/app/login'); }} className="tt-btn">ログアウト</button>
           </div>
         </div>
+
+        {/* 次の通知予定 */}
+        {notifyEnabled && nextNotify && (
+          <div className="tt-next-notify">
+            <div className="tt-next-notify-row">
+              <span className="tt-next-notify-bell">🔔</span>
+              <span className="tt-next-notify-body">
+                次の予定: {nextNotify.label}「{nextNotify.name}」{nextNotify.start}〜
+              </span>
+              <span className="tt-next-notify-time">{nextNotify.notifyAt}に通知</span>
+            </div>
+            {!nextNotify.pushReady && (
+              <div className="tt-push-warn">⚠️ プッシュ未登録</div>
+            )}
+          </div>
+        )}
 
         {/* ビュー切り替えタブ */}
         <div className="tt-view-tabs">

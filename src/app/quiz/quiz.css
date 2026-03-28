@@ -529,15 +529,22 @@
   display: flex;
   flex-direction: column;
   gap: 3px;
+  flex: 1;
+  min-width: 0;
 }
 .qz-set-name {
   font-size: 15px;
   font-weight: 700;
   color: var(--qz-text-strong);
+  text-align: left;
 }
 .qz-set-count {
   font-size: 12px;
   color: var(--qz-text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: left;
 }
 .qz-set-actions {
   display: flex;
@@ -618,6 +625,11 @@
 
 @keyframes qz-spin {
   to { transform: rotate(360deg); }
+}
+
+@keyframes bounce {
+  0%, 100% { transform: translateY(0); opacity: 0.4; }
+  50% { transform: translateY(-6px); opacity: 1; }
 }
 
 .qz-img-spinner--side {
@@ -875,6 +887,8 @@
 /* ── チェックボックス付き問題集選択（QuizPlay）──────────── */
 .qz-set-item--check {
   cursor: pointer;
+  justify-content: flex-start;
+  gap: 12px;
 }
 .qz-set-item--check.qz-set-item--selected {
   border-color: var(--qz-active-bg);
