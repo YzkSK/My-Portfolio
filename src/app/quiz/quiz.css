@@ -529,8 +529,6 @@
   display: flex;
   flex-direction: column;
   gap: 3px;
-  flex: 1;
-  min-width: 0;
 }
 .qz-set-name {
   font-size: 15px;
@@ -877,6 +875,8 @@
 /* ── チェックボックス付き問題集選択（QuizPlay）──────────── */
 .qz-set-item--check {
   cursor: pointer;
+  justify-content: flex-start;
+  gap: 12px;
 }
 .qz-set-item--check.qz-set-item--selected {
   border-color: var(--qz-active-bg);
