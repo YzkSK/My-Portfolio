@@ -627,6 +627,11 @@
   to { transform: rotate(360deg); }
 }
 
+@keyframes bounce {
+  0%, 100% { transform: translateY(0); opacity: 0.4; }
+  50% { transform: translateY(-6px); opacity: 1; }
+}
+
 .qz-img-spinner--side {
   width: 110px;
   height: 110px;
