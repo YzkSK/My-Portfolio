@@ -1,4 +1,5 @@
 import { COLORS, type EventModal as EventModalType, type Form, type Period } from '../constants';
+import { Button } from '@/components/ui/button';
 
 const underlineInput: React.CSSProperties = {
   width: '100%', boxSizing: 'border-box',
@@ -73,10 +74,10 @@ export const EventModal = ({
 
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           {isEditing && (
-            <button onClick={onDelete} style={{ padding: '10px 12px', background: 'var(--tt-bg-card)', border: '1px solid #ffcccc', borderRadius: 8, color: '#ef4444', fontWeight: 700, fontSize: 13, cursor: 'pointer', whiteSpace: 'nowrap' }}>削除</button>
+            <Button variant="destructive" onClick={onDelete}>削除</Button>
           )}
-          <button onClick={onClose} style={{ flex: 1, padding: 10, background: 'var(--tt-bg-subtle)', border: 'none', borderRadius: 8, color: 'var(--tt-text-secondary)', fontWeight: 700, fontSize: 13, cursor: 'pointer', whiteSpace: 'nowrap' }}>キャンセル</button>
-          <button onClick={onSave} style={{ flex: 2, padding: 10, background: 'var(--tt-tab-active-bg)', border: 'none', borderRadius: 8, color: 'var(--tt-tab-active-text)', fontWeight: 800, fontSize: 14, cursor: 'pointer', whiteSpace: 'nowrap' }}>保存</button>
+          <Button variant="outline" className="flex-1" onClick={onClose}>キャンセル</Button>
+          <Button variant="default" className="flex-[2]" onClick={onSave}>保存</Button>
         </div>
       </div>
     </div>

@@ -124,7 +124,7 @@ export const Login = () => {
                 <div className="app-field">
                   <input
                     type="email"
-                    placeholder="Email"
+                    placeholder="メールアドレス"
                     value={email}
                     onChange={(e) => { setEmail(e.target.value); setErrors({}); }}
                     className={errors.email ? 'app-input-error' : ''}
@@ -146,14 +146,14 @@ export const Login = () => {
   return (
     <div className="app-login">
       <div className="app-login-card">
-        <h2>{isSignUp ? 'Sign Up' : 'Login'}</h2>
+        <h2>{isSignUp ? '新規登録' : 'ログイン'}</h2>
         {errors.form && <p className="app-error">{errors.form}</p>}
         <form onSubmit={handleSubmit} className="app-form" noValidate>
           {isSignUp && (
             <div className="app-field">
               <input
                 type="text"
-                placeholder="Username"
+                placeholder="ユーザー名"
                 value={username}
                 onChange={(e) => { setUsername(e.target.value); setErrors(p => ({ ...p, username: '' })); }}
                 className={errors.username ? 'app-input-error' : ''}
@@ -164,7 +164,7 @@ export const Login = () => {
           <div className="app-field">
             <input
               type="email"
-              placeholder="Email"
+              placeholder="メールアドレス"
               value={email}
               onChange={(e) => { setEmail(e.target.value); setErrors(p => ({ ...p, email: '' })); }}
               className={errors.email ? 'app-input-error' : ''}
@@ -174,7 +174,7 @@ export const Login = () => {
           <div className="app-field">
             <input
               type="password"
-              placeholder="Password"
+              placeholder="パスワード"
               value={password}
               onChange={(e) => { setPassword(e.target.value); setErrors(p => ({ ...p, password: '' })); }}
               className={errors.password ? 'app-input-error' : ''}
@@ -201,7 +201,7 @@ export const Login = () => {
             <div className="app-field">
               <input
                 type="password"
-                placeholder="Confirm Password"
+                placeholder="パスワード（確認）"
                 value={confirmPassword}
                 onChange={(e) => { setConfirmPassword(e.target.value); setErrors(p => ({ ...p, confirmPassword: '' })); }}
                 className={errors.confirmPassword ? 'app-input-error' : ''}
@@ -209,12 +209,12 @@ export const Login = () => {
               {errors.confirmPassword && <span className="app-field-error">{errors.confirmPassword}</span>}
             </div>
           )}
-          <button type="submit">{isSignUp ? 'Sign Up' : 'Login'}</button>
+          <button type="submit">{isSignUp ? '登録する' : 'ログイン'}</button>
         </form>
         <p className="app-toggle">
-          {isSignUp ? 'Already have an account?' : "Don't have an account?"}
+          {isSignUp ? 'すでにアカウントをお持ちの方は' : 'アカウントをお持ちでない方は'}
           <button onClick={switchMode}>
-            {isSignUp ? 'Login' : 'Sign Up'}
+            {isSignUp ? 'ログイン' : '新規登録'}
           </button>
         </p>
         {!isSignUp && (

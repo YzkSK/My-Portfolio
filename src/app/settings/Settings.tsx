@@ -13,7 +13,7 @@ export const Settings = () => {
   return (
     <div className="app-settings">
       <header className="app-header">
-        <h1>Settings</h1>
+        <h1>設定</h1>
         <button onClick={() => navigate('/app/dashboard')} className="app-logout-btn">
           戻る
         </button>

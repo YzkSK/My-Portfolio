@@ -346,6 +346,26 @@ html.dark {
   color: var(--app-text-muted);
 }
 
+.app-avatar-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--app-bg-subtle, var(--app-border));
+  color: var(--app-text-secondary);
+  border: 1px solid var(--app-border-input);
+  flex-shrink: 0;
+  transition: background 0.15s, color 0.15s;
+}
+
+.app-avatar-btn:hover {
+  background: var(--app-btn-bg);
+  color: var(--app-btn-text);
+  border-color: var(--app-btn-bg);
+}
+
 .app-logout-btn {
   padding: 0.35rem 0.9rem;
   background: transparent;

@@ -1,10 +1,12 @@
 import { signOut } from 'firebase/auth';
 import { useNavigate, Link } from 'react-router-dom';
+import { User } from 'lucide-react';
 import '../shared/app.css';
 import { auth } from '../shared/firebase';
 import { useAuth } from '../auth/AuthContext';
 import { AppFooter } from '../shared/AppFooter';
 import { usePageTitle } from '../shared/usePageTitle';
+import { Button } from '@/components/ui/button';
 
 
 const APPS = [
@@ -15,7 +17,7 @@ const APPS = [
 export const Dashboard = () => {
   const { currentUser, username } = useAuth();
   const navigate = useNavigate();
-  usePageTitle('Dashboard');
+  usePageTitle('ホーム');
 
   const handleLogout = async () => {
     await signOut(auth);
@@ -25,10 +27,12 @@ export const Dashboard = () => {
   return (
     <div className="app-dashboard">
       <header className="app-header">
-        <h1>Dashboard</h1>
+        <h1>ホーム</h1>
         <div className="app-user-info">
-          <Link to="/app/settings" className="app-username-link">{username ?? currentUser?.email}</Link>
-          <button onClick={handleLogout} className="app-logout-btn">Logout</button>
+          <Link to="/app/settings" className="app-avatar-btn" aria-label="設定">
+            <User size={18} />
+          </Link>
+          <Button variant="outline" onClick={handleLogout}>ログアウト</Button>
         </div>
       </header>
       <main className="app-main">

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 
 const MENU_ITEMS = [
-  { to: '/app/dashboard', label: 'Dashboard', icon: '🏠' },
+  { to: '/app/dashboard', label: 'ホーム', icon: '🏠' },
   { to: '/app/timetable', label: '時間割',    icon: '📅' },
   { to: '/app/quiz',      label: '問題集',    icon: '📚' },
   { to: '/app/settings',  label: '設定',      icon: '⚙️' },

@@ -1,4 +1,5 @@
 import { type Period } from '../constants';
+import { Button } from '@/components/ui/button';
 
 type Props = {
   settingsPeriods: Period[];
@@ -44,8 +45,7 @@ export const SettingsModal = ({ settingsPeriods, settingsError, onPeriodsChange,
                 <span style={{ fontSize: 11, color: 'var(--tt-text-muted)', fontWeight: 700, minWidth: 20 }}>#{i + 1}</span>
                 <input value={p.label} onChange={e => updatePeriod(i, { label: e.target.value })}
                   placeholder="例: 1限" style={{ flex: 1, background: 'var(--tt-bg-card)', border: '1px solid var(--tt-border)', borderRadius: 7, padding: '7px 10px', fontSize: 13, fontWeight: 700, outline: 'none', color: 'var(--tt-text)' }} />
-                <button onClick={() => removePeriod(i)}
-                  style={{ background: 'var(--tt-bg-card)', border: '1px solid #ffcccc', borderRadius: 7, color: '#ef4444', fontWeight: 700, fontSize: 12, cursor: 'pointer', padding: '6px 10px' }}>削除</button>
+                <Button variant="destructive" size="sm" onClick={() => removePeriod(i)}>削除</Button>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                 <span style={{ fontSize: 11, color: 'var(--tt-text-muted)' }}>開始</span>
@@ -60,14 +60,13 @@ export const SettingsModal = ({ settingsPeriods, settingsError, onPeriodsChange,
           ))}
         </div>
 
-        <button onClick={addPeriod}
-          style={{ width: '100%', padding: 10, background: 'var(--tt-bg-subtle)', border: '1.5px dashed var(--tt-border)', borderRadius: 8, color: 'var(--tt-text-secondary)', fontWeight: 700, fontSize: 13, cursor: 'pointer', marginBottom: 16 }}>
+        <Button variant="outline" className="w-full border-dashed mb-4" onClick={addPeriod}>
           ＋ 時限を追加
-        </button>
+        </Button>
 
         <div style={{ display: 'flex', gap: 8 }}>
-          <button onClick={onClose} style={{ flex: 1, padding: 11, background: 'var(--tt-bg-subtle)', border: 'none', borderRadius: 8, color: 'var(--tt-text-secondary)', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>キャンセル</button>
-          <button onClick={onSave} style={{ flex: 2, padding: 11, background: 'var(--tt-tab-active-bg)', border: 'none', borderRadius: 8, color: 'var(--tt-tab-active-text)', fontWeight: 800, fontSize: 14, cursor: 'pointer' }}>保存</button>
+          <Button variant="outline" className="flex-1" onClick={onClose}>キャンセル</Button>
+          <Button variant="default" className="flex-[2]" onClick={onSave}>保存</Button>
         </div>
       </div>
     </div>
