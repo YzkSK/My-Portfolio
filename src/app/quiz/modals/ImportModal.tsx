@@ -11,12 +11,13 @@ import { Label } from '@/components/ui/label';
 type SharedData = {
   problems: { question: string; answer: string; category: string; answerFormat?: AnswerFormat; wrongChoices?: string[]; memo?: string; imageUrl?: string }[];
   title: string;
+  setAnswerFormat?: AnswerFormat;
   createdAt: number;
   expireAt?: { toDate: () => Date } | null;
 };
 
 type Props = {
-  onImport: (problems: Problem[], title: string) => void;
+  onImport: (problems: Problem[], title: string, answerFormat?: AnswerFormat) => void;
   onClose: () => void;
   addToast: (msg: string) => void;
   uid: string;
@@ -95,7 +96,7 @@ export const ImportModal = ({ onImport, onClose, addToast, uid, allProblems }: P
         }
         return newProblem(p.question, p.answer, p.category, p.answerFormat, p.wrongChoices, p.memo, imageUrl);
       }));
-      onImport(imported, preview.title);
+      onImport(imported, preview.title, preview.setAnswerFormat);
       addToast(`${imported.length}件の問題をインポートしました`);
       onClose();
     } finally {

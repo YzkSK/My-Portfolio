@@ -239,8 +239,8 @@ export const Quiz = () => {
     updateActiveSetProblems(problems.map(p => p.id === id ? { ...p, bookmarked: !p.bookmarked } : p));
   };
 
-  const handleImport = (imported: Problem[], title: string) => {
-    const s = newProblemSet(title || 'インポートした問題集');
+  const handleImport = (imported: Problem[], title: string, answerFormat?: AnswerFormat) => {
+    const s = newProblemSet(title || 'インポートした問題集', answerFormat);
     s.problems = imported;
     const next = [...sets, s];
     setSets(next);
@@ -387,6 +387,7 @@ export const Quiz = () => {
         <ShareModal
           problems={problems}
           uid={currentUser.uid}
+          answerFormat={activeSet?.answerFormat ?? 'written'}
           defaultTitle={activeSet?.name}
           existingShareCode={activeSet?.shareCode}
           onShareCodeSaved={(code) => {

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { doc, setDoc, Timestamp } from 'firebase/firestore';
 import { db } from '../../shared/firebase';
-import { type Problem, getCategories, filterProblems, genShareCode, firestorePaths } from '../constants';
+import { type Problem, type AnswerFormat, getCategories, filterProblems, genShareCode, firestorePaths } from '../constants';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label';
 type Props = {
   problems: Problem[];
   uid: string;
+  answerFormat: AnswerFormat;
   defaultTitle?: string;
   existingShareCode?: string;
   onShareCodeSaved: (code: string) => void;
@@ -17,7 +18,7 @@ type Props = {
   addToast: (msg: string) => void;
 };
 
-export const ShareModal = ({ problems, uid, defaultTitle = '', existingShareCode, onShareCodeSaved, onClose, addToast }: Props) => {
+export const ShareModal = ({ problems, uid, answerFormat, defaultTitle = '', existingShareCode, onShareCodeSaved, onClose, addToast }: Props) => {
   const [title, setTitle]             = useState(defaultTitle);
   const [categoryFilter, setCategoryFilter] = useState('');
   const [includeMemo, setIncludeMemo]   = useState(false);
@@ -43,6 +44,7 @@ export const ShareModal = ({ problems, uid, defaultTitle = '', existingShareCode
           ...(p.imageUrl ? { imageUrl: p.imageUrl } : {}),
         })),
         title: title.trim() || '問題集',
+        setAnswerFormat: answerFormat,
         createdBy: uid,
         createdAt: Date.now(),
         expireAt: Timestamp.fromDate(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)),
