@@ -168,7 +168,7 @@ export const GeminiPdfModal = ({ sets, onImportNew, onImportExisting, onClose, a
   const handleCreate = () => {
     const selected = items.filter(i => i.checked);
     if (selected.length === 0) { setNameError('1件以上の問題を選択してください'); return; }
-    const problems = selected.map(i => newProblem(i.question, i.answer, '', 'written', [], '', i.imageUrl));
+    const problems = selected.map(i => newProblem(i.question, i.answer, '', 'written', [], ''));
 
     if (importMode === 'new') {
       if (!setName.trim()) { setNameError('問題集名を入力してください'); return; }
@@ -351,9 +351,6 @@ export const GeminiPdfModal = ({ sets, onImportNew, onImportExisting, onClose, a
                         onChange={e => updateItem(item.id, { answer: e.target.value })}
                         placeholder="答えなし"
                       />
-                      {item.imageUrl && (
-                        <span className="text-xs text-green-500 flex-shrink-0" title="図あり">🖼</span>
-                      )}
                     </div>
                   </div>
                 </div>
