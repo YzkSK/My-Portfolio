@@ -544,6 +544,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  text-align: left;
 }
 .qz-set-actions {
   display: flex;
