@@ -8,17 +8,18 @@ import { useSetLoading } from '../shared/AppLoadingContext';
 
 type AuthContextType = {
   currentUser: User | null;
-  username: string | null;
+  /** undefined = 未ロード、null = ロード済みだがユーザー名未設定、string = 設定済み */
+  username: string | null | undefined;
   loading: boolean;
 };
 
-const AuthContext = createContext<AuthContextType>({ currentUser: null, username: null, loading: true });
+const AuthContext = createContext<AuthContextType>({ currentUser: null, username: undefined, loading: true });
 
 export const useAuth = () => useContext(AuthContext);
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [username, setUsername] = useState<string | null>(null);
+  const [username, setUsername] = useState<string | null | undefined>(undefined);
   const [loading, setLoading] = useState(true);
   const setGlobalLoading = useSetLoading();
 
@@ -32,7 +33,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         } else {
           setUsername(null);
         }
-      } catch {
+      } catch (e) {
+        console.error('AuthContext: プロフィール取得失敗', e);
         setUsername(null);
       } finally {
         setLoading(false);

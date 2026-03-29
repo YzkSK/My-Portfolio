@@ -21,6 +21,7 @@ import { Button } from '@/components/ui/button';
 import { AppMenu } from '../shared/AppMenu';
 import { usePageTitle } from '../shared/usePageTitle';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { DbErrorBanner } from '../shared/DbErrorBanner';
 
 const MAX_RECENT = 10;
 const RECENT_INITIAL_SHOW = 3;
@@ -41,6 +42,7 @@ export const QuizPlay = () => {
   const [session, setSession]               = useState<ActiveSession | null>(null);
   const { toasts, addToast }                = useToast(TOAST_DURATION_MS);
   const [loading, setLoading]               = useState(true);
+  const [dbError, setDbError]               = useState(false);
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const setsRef = useRef<ProblemSet[]>([]);
   setsRef.current = sets;
@@ -74,6 +76,7 @@ export const QuizPlay = () => {
         }
       } catch (e) {
         console.error('QuizPlay Firestore読み込みエラー:', e);
+        setDbError(true);
       } finally {
         setLoading(false);
         setGlobalLoading('quizplay', false);
@@ -85,10 +88,14 @@ export const QuizPlay = () => {
     if (!currentUser) return;
     if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
     saveTimeoutRef.current = setTimeout(async () => {
-      const ref = doc(db, firestorePaths.quizData(currentUser.uid));
-      const payload: Record<string, unknown> = { sets: setsData };
-      if (recentsData !== undefined) payload.recentConfigs = recentsData;
-      await setDoc(ref, payload, { merge: true });
+      try {
+        const ref = doc(db, firestorePaths.quizData(currentUser.uid));
+        const payload: Record<string, unknown> = { sets: setsData };
+        if (recentsData !== undefined) payload.recentConfigs = recentsData;
+        await setDoc(ref, payload, { merge: true });
+      } catch (e) {
+        console.error('QuizPlay: Firestore保存失敗', e);
+      }
     }, SAVE_DEBOUNCE_MS);
   }, [currentUser]);
 
@@ -293,6 +300,7 @@ export const QuizPlay = () => {
 
   return (
     <div className="min-h-screen bg-[#f8f9fa] dark:bg-[#111] text-[#1a1a1a] dark:text-[#e0e0e0] px-[14px] pt-5 pb-[120px]">
+      {dbError && <DbErrorBanner />}
       <div className="qz-toast-container">
         {toasts.map(t => <div key={t.id} className="qz-toast">{t.msg}</div>)}
       </div>

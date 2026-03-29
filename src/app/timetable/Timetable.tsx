@@ -23,6 +23,7 @@ import { EventModal } from './modals/EventModal';
 import { SettingsModal } from './modals/SettingsModal';
 import { AppMenu } from '../shared/AppMenu';
 import { usePageTitle } from '../shared/usePageTitle';
+import { DbErrorBanner } from '../shared/DbErrorBanner';
 import { Button } from '@/components/ui/button';
 
 const NOTIFY_ERROR_CODES = {
@@ -64,6 +65,7 @@ export const Timetable = () => {
   const [showNotifyPicker, setShowNotifyPicker] = useState(false);
   const [settingsPeriods, setSettingsPeriods] = useState<Period[]>(DEFAULT_PERIODS);
   const [loading, setLoading] = useState(true);
+  const [dbError, setDbError] = useState(false);
   const [nextNotify, setNextNotify] = useState<{
     label: string; name: string; start: string; notifyAt: string; pushReady: boolean;
   } | null>(null);
@@ -133,6 +135,7 @@ export const Timetable = () => {
         }
       } catch (e) {
         console.error('Firestore読み込みエラー:', e);
+        setDbError(true);
       } finally {
         setLoading(false);
         setGlobalLoading('timetable', false);
@@ -149,10 +152,14 @@ export const Timetable = () => {
     if (!currentUser) return;
     if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
     saveTimeoutRef.current = setTimeout(async () => {
-      const ref = doc(db, firestorePaths.timetableData(currentUser.uid));
-      await setDoc(ref, { events: eventsData, periods: periodsData, notifyBefore: notifyBeforeData });
-      // 保存完了後にSW側の次の予定チェックを再実行
-      setTokenVersion(v => v + 1);
+      try {
+        const ref = doc(db, firestorePaths.timetableData(currentUser.uid));
+        await setDoc(ref, { events: eventsData, periods: periodsData, notifyBefore: notifyBeforeData });
+        // 保存完了後にSW側の次の予定チェックを再実行
+        setTokenVersion(v => v + 1);
+      } catch (e) {
+        console.error('Timetable: Firestore保存失敗', e);
+      }
     }, SAVE_DEBOUNCE_MS);
   }, [currentUser, setTokenVersion]);
 
@@ -433,6 +440,7 @@ export const Timetable = () => {
 
   return (
     <div className="tt-page">
+      {dbError && <DbErrorBanner />}
 
       {/* Toast */}
       <div className="tt-toast-container">
