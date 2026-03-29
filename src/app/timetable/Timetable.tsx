@@ -259,7 +259,7 @@ export const Timetable = () => {
       if (permission === 'granted') {
         navigator.serviceWorker.ready.then(reg => {
           reg.showNotification(title, { body });
-        }).catch(() => {});
+        }).catch((e) => { console.error('フォアグラウンド通知表示失敗:', e); });
       }
     });
     return unsub;

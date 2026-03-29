@@ -97,9 +97,9 @@ export const Quiz = () => {
       await Promise.all(
         items
           .filter(item => !usedPaths.has(item.fullPath))
-          .map(item => deleteObject(item).catch(() => {})),
+          .map(item => deleteObject(item).catch((e) => { console.error('Storage個別削除失敗:', e); })),
       );
-    } catch (e) { console.warn('ストレージクリーンアップ失敗:', e); }
+    } catch (e) { console.error('ストレージクリーンアップ失敗:', e); }
   }, [currentUser]);
 
   const saveToFirestore = useCallback((data: ProblemSet[]) => {
@@ -163,9 +163,9 @@ export const Quiz = () => {
         try {
           const path = ref(storage, p.imageUrl).fullPath;
           if (!remainingPaths.has(path)) {
-            deleteObject(ref(storage, p.imageUrl)).catch(() => {});
+            deleteObject(ref(storage, p.imageUrl)).catch((e) => { console.error('Storage削除失敗:', e); });
           }
-        } catch (e) { console.warn('Storage参照失敗:', e); }
+        } catch (e) { console.error('Storage参照失敗:', e); }
       }
     }
 
@@ -235,7 +235,7 @@ export const Quiz = () => {
         try { return ref(storage, p.imageUrl).fullPath === problemPath; } catch { return false; }
       });
       if (!usedElsewhere) {
-        deleteObject(ref(storage, problem.imageUrl)).catch(() => {});
+        deleteObject(ref(storage, problem.imageUrl)).catch((e) => { console.error('Storage削除失敗:', e); });
       }
     }
     updateActiveSetProblems(problems.filter(p => p.id !== id));
