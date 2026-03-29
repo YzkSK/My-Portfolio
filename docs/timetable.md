@@ -324,6 +324,59 @@ useLayoutEffect:
   Firestore 読み込み完了後: setGlobalLoading('timetable', false)
 ```
 
+## テスト
+
+### 単体テスト — `src/__tests__/unit/timetable/constants.test.ts`
+
+| テスト名 | 結果 |
+|---|---|
+| toKey — YYYY-MM-DD 形式に変換する | ✅ |
+| toKey — 月と日を2桁にゼロパディングする | ✅ |
+| addDays — 指定した日数を加算する | ✅ |
+| addDays — 負の値で日数を減算する | ✅ |
+| addDays — 元の Date オブジェクトを変更しない（immutable） | ✅ |
+| addDays — 月をまたいで正しく計算する | ✅ |
+| startOfWeek — 日曜始まりで週の最初の日（日曜）を返す | ✅ |
+| startOfWeek — 日曜日を渡すとその日を返す | ✅ |
+| startOfWeek — 元の Date オブジェクトを変更しない（immutable） | ✅ |
+| timeToMin — HH:MM を分に変換する | ✅ |
+| isEventModal — type が 'event' なら true | ✅ |
+| isEventModal — type が 'settings' なら false | ✅ |
+| isEventModal — null なら false | ✅ |
+
+### 単体テスト — `workers/notification-cron/__tests__/index.test.ts`（Cron Worker）
+
+| テスト名 | 結果 |
+|---|---|
+| base64url — 空の ArrayBuffer は空文字を返す | ✅ |
+| base64url — +, /, = を URL-safe な文字に置換する | ✅ |
+| base64url — 既知のバイト列を正しくエンコードする | ✅ |
+| encodeObj — JSON を base64url エンコードする | ✅ |
+| encodeObj — 空オブジェクトもエンコードできる | ✅ |
+| pemToArrayBuffer — PEM ヘッダー・フッター・空白を取り除いて ArrayBuffer を返す | ✅ |
+| fsValue — stringValue を文字列として返す | ✅ |
+| fsValue — integerValue を数値として返す | ✅ |
+| fsValue — doubleValue を数値として返す | ✅ |
+| fsValue — booleanValue を真偽値として返す | ✅ |
+| fsValue — mapValue をオブジェクトに変換する | ✅ |
+| fsValue — mapValue.fields がない場合は空オブジェクトを返す | ✅ |
+| fsValue — arrayValue を配列に変換する | ✅ |
+| fsValue — arrayValue.values がない場合は空配列を返す | ✅ |
+| fsValue — mapValue をネストして変換する | ✅ |
+| fsValue — 未知のフィールドは null を返す | ✅ |
+| parseDoc — Firestore ドキュメントのフィールドを JS オブジェクトに変換する | ✅ |
+| parseDoc — fields がない場合は空オブジェクトを返す | ✅ |
+| timeToMin — HH:MM を分に変換する | ✅ |
+| todayKey — UTC 15:00 は JST 翌 00:00 → 翌日の dateKey を返す | ✅ |
+| todayKey — UTC 00:00 は JST 09:00 → 同日の dateKey を返す | ✅ |
+| todayKey — 月と日を2桁でゼロパディングする | ✅ |
+| nowMinJst — UTC 00:00 は JST 09:00 → 540 分を返す | ✅ |
+| nowMinJst — UTC 00:30 は JST 09:30 → 570 分を返す | ✅ |
+| nowMinJst — UTC 15:00 は JST 翌 00:00 → 0 分を返す | ✅ |
+| nowMinJst — UTC 23:59 は JST 翌 08:59 → 539 分を返す | ✅ |
+
+---
+
 ## 遷移フロー
 
 ```

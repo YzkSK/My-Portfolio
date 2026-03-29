@@ -8,6 +8,7 @@
 - 各ページの詳細仕様は `docs/` に記載されている。実装前に必ず参照すること（`docs/README.md` が索引）
 - **フロントエンドは Cloudflare Pages でデプロイしている**（`wrangler` / Cloudflare ダッシュボードで管理）
 - **`.env` は開発環境専用の変数**。本番環境の変数は Cloudflare Pages のダッシュボードで別途管理しており、値が異なる。`.env` の値をそのまま本番に使わないこと
+- **純粋関数・ユーティリティ関数を追加・変更した場合は必ずテストコードを書くこと**（テストコマンド: ルート `npm test`、Worker `cd workers/notification-cron && npm test`）
 
 ## 禁止事項
 

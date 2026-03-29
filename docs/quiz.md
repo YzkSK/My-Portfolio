@@ -275,6 +275,35 @@ useLayoutEffect:
   Firestore 読み込み完了後: setGlobalLoading('quiz', false)
 ```
 
+## テスト
+
+### 単体テスト — `src/__tests__/unit/quiz/constants.test.ts`（データ操作系）
+
+| テスト名 | 結果 |
+|---|---|
+| isInvalidProblem — 正常な問題は false | ✅ |
+| isInvalidProblem — question が空なら true | ✅ |
+| isInvalidProblem — answer が空なら true | ✅ |
+| isInvalidProblem — choice4 で wrongChoices が3件未満なら true | ✅ |
+| isInvalidProblem — choice4 で wrongChoices に空文字があれば true | ✅ |
+| isInvalidProblem — choice4 で wrongChoices が3件すべて有効なら false | ✅ |
+| getCategories — カテゴリが重複なく返る | ✅ |
+| getCategories — 空カテゴリは除外される | ✅ |
+| getErrorCode — code プロパティを持つオブジェクトからコードを返す | ✅ |
+| getErrorCode — Error インスタンスはメッセージを返す | ✅ |
+| getErrorCode — その他は文字列化して返す | ✅ |
+| parseProblem — すべてのフィールドを正しくパースする | ✅ |
+| parseProblem — 欠損フィールドはデフォルト値で補完される | ✅ |
+| parseProblemSet — 正常なデータをパースする | ✅ |
+| parseProblemSet — shareCode がある場合はセットされる | ✅ |
+| parseProblemSet — shareCode がない場合はプロパティなし | ✅ |
+| newProblem — 指定した値で問題を生成する | ✅ |
+| newProblemSet — 指定した値でセットを生成する | ✅ |
+| buildProblemChoices — choice2 は常に ○/✗ の固定2択 | ✅ |
+| buildProblemChoices — choice4 は正解 + wrongChoices の計4択を含む | ✅ |
+
+---
+
 ## 遷移フロー
 
 ```

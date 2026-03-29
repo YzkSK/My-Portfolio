@@ -25,17 +25,17 @@ interface Period {
 
 // ── JWT / OAuth2 ─────────────────────────────────────────
 
-function base64url(buf: ArrayBuffer): string {
+export function base64url(buf: ArrayBuffer): string {
   return btoa(String.fromCharCode(...new Uint8Array(buf)))
     .replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
 }
 
-function encodeObj(obj: object): string {
+export function encodeObj(obj: object): string {
   return btoa(JSON.stringify(obj))
     .replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
 }
 
-function pemToArrayBuffer(pem: string): ArrayBuffer {
+export function pemToArrayBuffer(pem: string): ArrayBuffer {
   const b64 = pem
     .replace(/-----BEGIN PRIVATE KEY-----/, '')
     .replace(/-----END PRIVATE KEY-----/, '')
@@ -117,7 +117,7 @@ async function firestoreQueryPushTokens(
 }
 
 // Firestore の値フィールドを JS の値に変換
-function fsValue(v: Record<string, unknown>): unknown {
+export function fsValue(v: Record<string, unknown>): unknown {
   if ('stringValue' in v) return v.stringValue;
   if ('integerValue' in v) return Number(v.integerValue);
   if ('doubleValue' in v) return Number(v.doubleValue);
@@ -133,7 +133,7 @@ function fsValue(v: Record<string, unknown>): unknown {
   return null;
 }
 
-function parseDoc(doc: Record<string, unknown>): Record<string, unknown> {
+export function parseDoc(doc: Record<string, unknown>): Record<string, unknown> {
   const fields = (doc.fields as Record<string, Record<string, unknown>>) ?? {};
   return Object.fromEntries(Object.entries(fields).map(([k, v]) => [k, fsValue(v)]));
 }
@@ -204,12 +204,12 @@ async function sendFcm(
 
 // ── 時刻ユーティリティ ────────────────────────────────────
 
-function timeToMin(hhmm: string): number {
+export function timeToMin(hhmm: string): number {
   const [h, m] = hhmm.split(':').map(Number);
   return h * 60 + m;
 }
 
-function todayKey(): string {
+export function todayKey(): string {
   const now = new Date();
   // JST (UTC+9)
   const jst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
@@ -219,7 +219,7 @@ function todayKey(): string {
   return `${y}-${m}-${d}`;
 }
 
-function nowMinJst(): number {
+export function nowMinJst(): number {
   const now = new Date();
   const jst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
   return jst.getUTCHours() * 60 + jst.getUTCMinutes();

@@ -2,7 +2,6 @@ import { StrictMode, lazy, Suspense, useEffect } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
 import { App } from './portfolio/App'
-import { Test } from './Test.tsx'
 import { createBrowserRouter, RouterProvider, Route, Routes } from 'react-router-dom';
 import { AuthProvider } from './app/auth/AuthContext';
 import { ProtectedRoute } from './app/auth/ProtectedRoute';
@@ -74,8 +73,7 @@ const AppRoutes = () => (
 
 const router = createBrowserRouter([
   { path: '/',      element: <App /> },
-  { path: '/test',  element: <Test /> },
-  { path: '/app/*', element: <AppRoutes /> },
+{ path: '/app/*', element: <AppRoutes /> },
   { path: '*',      element: <NotFound /> },
 ]);
 

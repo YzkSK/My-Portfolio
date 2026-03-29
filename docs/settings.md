@@ -57,6 +57,23 @@ toggleDarkMode() (ThemeContext.tsx):
 | `null` | 「未設定」 |
 | `string` | そのままの文字列 |
 
+## テスト
+
+### 結合テスト — `src/__tests__/integration/shared/ThemeContext.test.tsx`
+
+| テスト名 | 結果 |
+|---|---|
+| localStorage に値なし → darkMode=false、app-theme-light クラスが付く | ✅ |
+| localStorage が "true" → darkMode=true、dark クラスが付く | ✅ |
+| toggleDarkMode → darkMode が反転し localStorage・HTML クラスに反映される | ✅ |
+| toggleDarkMode を 2 回 → 元の状態に戻る | ✅ |
+| ユーザーログイン時に Firestore からテーマを読み込む | ✅ |
+| Firestore に darkMode が未設定 → localStorage の値を維持する | ✅ |
+| ユーザーあり・toggleDarkMode → setDoc が呼ばれる | ✅ |
+| ユーザーなし・toggleDarkMode → setDoc は呼ばれない | ✅ |
+
+---
+
 ## 遷移フロー
 
 ```

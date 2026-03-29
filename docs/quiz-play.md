@@ -398,6 +398,53 @@ written/choice:
 | `RECENT_INITIAL_SHOW` | 3 | 直近の記録の初期表示件数 |
 | `SAVE_DEBOUNCE_MS` | 800 | Firestore 保存のデバウンス |
 
+## テスト
+
+### 単体テスト — `src/__tests__/unit/quiz/constants.test.ts`（セッション系）
+
+| テスト名 | 結果 |
+|---|---|
+| isAnswerCorrect — 完全一致 | ✅ |
+| isAnswerCorrect — 大文字・小文字を区別しない | ✅ |
+| isAnswerCorrect — 前後の空白を無視する | ✅ |
+| isAnswerCorrect — 連続する空白を1つに正規化する | ✅ |
+| isAnswerCorrect — 内容が異なれば false | ✅ |
+| filterProblems — '' → 全件返す | ✅ |
+| filterProblems — 'BOOKMARKED' → ブックマークのみ | ✅ |
+| filterProblems — 'WEAK' → 苦手問題のみ（attemptCount > 0 かつ consecutiveCorrect === 0） | ✅ |
+| filterProblems — カテゴリ名 → 該当カテゴリのみ | ✅ |
+| isWeak — 初回不正解（attemptCount=1, consecutiveWrong=1）は苦手 | ✅ |
+| isWeak — 2回連続不正解以上は苦手 | ✅ |
+| isWeak — 正解済みは苦手でない | ✅ |
+| isExamSession — exam モードは true | ✅ |
+| isExamSession — oneByOne モードは false | ✅ |
+| formatTime — ミリ秒をMM:SS形式に変換する | ✅ |
+| formatTime — 負値は 00:00 になる | ✅ |
+| formatTime — 1秒未満の端数は切り上げる | ✅ |
+| formatElapsed — ミリ秒を「X分Y秒」形式に変換する | ✅ |
+| formatRelativeTime — 1分未満 → たった今 | ✅ |
+| formatRelativeTime — 1〜59分前 | ✅ |
+| formatRelativeTime — 1〜23時間前 | ✅ |
+| formatRelativeTime — 1〜29日前 | ✅ |
+| formatRelativeTime — 30日以上前 → Xヶ月前 | ✅ |
+
+### 結合テスト — `src/__tests__/integration/quiz/quizSession.test.ts`
+
+| テスト名 | 結果 |
+|---|---|
+| 無効な問題が正しく検出される | ✅ |
+| カテゴリ一覧が重複なく取得できる | ✅ |
+| カテゴリフィルタで対象問題だけが返る | ✅ |
+| 全件フィルタ（空文字）は全問題を返す | ✅ |
+| written: 正規化して正誤判定できる | ✅ |
+| choice2: buildProblemChoices が ○/✗ の固定2択を返す | ✅ |
+| 初回不正解で苦手フラグが立ち、WEAK フィルタに引っかかる | ✅ |
+| 連続正解で苦手フラグが解除され、WEAK フィルタから外れる | ✅ |
+| ブックマーク登録・解除が BOOKMARKED フィルタに反映される | ✅ |
+| 有効な問題だけに絞ったうえでカテゴリフィルタを適用できる | ✅ |
+
+---
+
 ## 遷移フロー
 
 ```
