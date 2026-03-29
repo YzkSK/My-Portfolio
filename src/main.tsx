@@ -9,6 +9,8 @@ import { ProtectedRoute } from './app/auth/ProtectedRoute';
 import { AppIndex } from './app/shared/AppIndex';
 import { AppLoadingProvider } from './app/shared/AppLoadingContext';
 import { ThemeProvider } from './app/shared/ThemeContext';
+import { ErrorBoundary } from './app/shared/ErrorBoundary';
+import { NotFound } from './app/shared/NotFound';
 
 const Login = lazy(() => import('./app/auth/Login').then(m => ({ default: m.Login })));
 const ResetPassword = lazy(() => import('./app/auth/ResetPassword').then(m => ({ default: m.ResetPassword })));
@@ -47,36 +49,40 @@ createRoot(root!).render(
             <AppLoadingProvider initialKeys={['auth']}>
               <AuthProvider>
                 <ThemeProvider>
-                  <Suspense fallback={null}>
-                    <Routes>
-                      <Route path="" element={<AppIndex />} />
-                      <Route path="login" element={<Login />} />
-                      <Route path="reset-password" element={<ResetPassword />} />
-                      <Route path="dashboard" element={
-                        <ProtectedRoute><Dashboard /></ProtectedRoute>
-                      } />
-                      <Route path="timetable" element={
-                        <ProtectedRoute><Timetable /></ProtectedRoute>
-                      } />
-                      <Route path="quiz" element={
-                        <ProtectedRoute><Quiz /></ProtectedRoute>
-                      } />
-                      <Route path="quiz/play" element={
-                        <ProtectedRoute><QuizPlay /></ProtectedRoute>
-                      } />
-                      <Route path="settings" element={
-                        <ProtectedRoute><Settings /></ProtectedRoute>
-                      } />
-                      <Route path="settings/edit" element={
-                        <ProtectedRoute><EditProfile /></ProtectedRoute>
-                      } />
-                    </Routes>
-                  </Suspense>
+                  <ErrorBoundary>
+                    <Suspense fallback={null}>
+                      <Routes>
+                        <Route path="" element={<AppIndex />} />
+                        <Route path="login" element={<Login />} />
+                        <Route path="reset-password" element={<ResetPassword />} />
+                        <Route path="dashboard" element={
+                          <ProtectedRoute><Dashboard /></ProtectedRoute>
+                        } />
+                        <Route path="timetable" element={
+                          <ProtectedRoute><Timetable /></ProtectedRoute>
+                        } />
+                        <Route path="quiz" element={
+                          <ProtectedRoute><Quiz /></ProtectedRoute>
+                        } />
+                        <Route path="quiz/play" element={
+                          <ProtectedRoute><QuizPlay /></ProtectedRoute>
+                        } />
+                        <Route path="settings" element={
+                          <ProtectedRoute><Settings /></ProtectedRoute>
+                        } />
+                        <Route path="settings/edit" element={
+                          <ProtectedRoute><EditProfile /></ProtectedRoute>
+                        } />
+                        <Route path="*" element={<NotFound />} />
+                      </Routes>
+                    </Suspense>
+                  </ErrorBoundary>
                 </ThemeProvider>
               </AuthProvider>
             </AppLoadingProvider>
           </AppWrapper>
         } />
+        <Route path="*" element={<NotFound />} />
       </Routes>
     </BrowserRouter>
   </StrictMode>,
