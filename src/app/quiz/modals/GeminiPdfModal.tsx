@@ -214,19 +214,21 @@ export const GeminiPdfModal = ({ sets, onImportNew, onImportExisting, onClose, a
     if (!file || reExtractIds.size === 0) return;
     setReExtracting(true);
     try {
-      const targets = items.filter(i => reExtractIds.has(i.id));
-      const targetList = targets.map((t, i) => `${i + 1}. 誤って抽出された問題文: 「${t.question}」`).join('\n');
+      const allItems = items;
+      const targetIndices = allItems
+        .map((it, idx) => ({ idx, id: it.id }))
+        .filter(({ id }) => reExtractIds.has(id))
+        .map(({ idx }) => idx + 1);
       const reExtractPrompt = `${PROMPT}
 
 【重要：再抽出モード】
-以下の問題は前回の抽出で間違って抽出されたものです。PDFをよく見直して、正確に抽出し直してください。
-- 前回の抽出結果は信用しないでください。PDFの原文を必ず確認してください
-- 以下の「誤って抽出された問題文」はあくまで対応するPDF内の問題を見つけるための手がかりです。そのままコピーしてはいけません
-- PDFに含まれる全問題のうち、以下の問題のみを再抽出してください。他の問題は含めないでください
+PDFに含まれる全問題を先頭から順番に数えて、以下の番号の問題のみをPDFの原文から直接抽出してください。
+- 過去の抽出結果は一切参照しないでください。PDFだけを見て抽出してください
 - items の件数と順序は以下の番号順に合わせてください
+- 他の問題は含めないでください
 
-再抽出対象：
-${targetList}`;
+再抽出する問題番号（PDF内の出現順）: ${targetIndices.join(', ')}
+全問題数: ${allItems.length}`;
 
       const base64Data = await fileToBase64(file);
       const apiKey = import.meta.env.VITE_GOOGLE_GEMINI_API_KEY as string;
