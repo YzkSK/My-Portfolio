@@ -4,7 +4,7 @@ import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '../shared/firebase';
 import { useAuth } from '../auth/AuthContext';
 import { useSetLoading } from '../shared/AppLoadingContext';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams, useBlocker } from 'react-router-dom';
 import { AppFooter } from '../shared/AppFooter';
 import '../shared/app.css';
 import './quiz.css';
@@ -20,6 +20,7 @@ import { QuizSession } from './views/QuizSession';
 import { Button } from '@/components/ui/button';
 import { AppMenu } from '../shared/AppMenu';
 import { usePageTitle } from '../shared/usePageTitle';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 const MAX_RECENT = 10;
 const RECENT_INITIAL_SHOW = 3;
@@ -271,6 +272,23 @@ export const QuizPlay = () => {
   const handleInterrupt = () =>
     setSession(prev => prev && !isExamSession(prev) ? { ...prev, phase: 'finished' as OneByOneSession['phase'] } : prev);
 
+  // セッション進行中（answering / revealed）かどうか
+  const isSessionInProgress =
+    session !== null &&
+    session.phase !== 'finished' &&
+    session.phase !== 'reviewing';
+
+  // React Router のナビゲーションをブロック
+  const blocker = useBlocker(isSessionInProgress);
+
+  // ブラウザのリロード・タブ閉じをブロック
+  useEffect(() => {
+    if (!isSessionInProgress) return;
+    const handler = (e: BeforeUnloadEvent) => { e.preventDefault(); };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [isSessionInProgress]);
+
   if (loading) return null;
 
   return (
@@ -478,6 +496,28 @@ export const QuizPlay = () => {
       </div>
 
       <AppFooter />
+
+      {/* 離脱確認ダイアログ */}
+      {blocker.state === 'blocked' && (
+        <Dialog open={true} onOpenChange={() => blocker.reset?.()}>
+          <DialogContent aria-describedby={undefined}>
+            <DialogHeader>
+              <DialogTitle>問題を中断しますか？</DialogTitle>
+            </DialogHeader>
+            <p className="text-sm text-[#888] mb-4">
+              回答中のセッションが失われます。本当にページを離れますか？
+            </p>
+            <div className="flex gap-2">
+              <Button variant="outline" className="flex-1" onClick={() => blocker.reset?.()}>
+                続ける
+              </Button>
+              <Button variant="destructive" className="flex-1" onClick={() => blocker.proceed?.()}>
+                離れる
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 };
