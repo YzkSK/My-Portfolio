@@ -1,12 +1,13 @@
-import { Navigate, Link } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import type { ReactNode } from 'react';
 import { useAuth } from './AuthContext';
+import { Forbidden } from '../shared/NotFound';
 
 export const ProtectedRoute = ({ children }: { children: ReactNode }) => {
   const { currentUser, username, loading } = useAuth();
 
   if (loading) return null;
-  if (!currentUser) return <Navigate to="/app/login" replace />;
+  if (!currentUser) return <Forbidden />;
   return (
     <>
       {username === null && (
