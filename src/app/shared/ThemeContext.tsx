@@ -33,8 +33,10 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
     document.documentElement.classList.toggle('dark', darkMode);
   }, [darkMode]);
 
-  // iOS PWA: force CSS variable re-evaluation on app resume
+  // iOS PWA のみ: CSS 変数の再評価を強制（Android では display:none が解除されず白画面になるため除外）
   useEffect(() => {
+    const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+    if (!isIOS) return;
     const onVisibilityChange = () => {
       if (!document.hidden) {
         const el = document.documentElement;
