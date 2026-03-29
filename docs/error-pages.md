@@ -131,6 +131,27 @@ render():
 
 ---
 
+## テスト
+
+### 結合テスト — `src/__tests__/integration/shared/ErrorBoundary.test.tsx`
+
+| テスト名 | 結果 |
+|---|---|
+| エラーがなければ子要素をそのまま描画する | ✅ |
+| 通常のエラーが発生すると 500 エラーページを表示する | ✅ |
+| chunk load エラーが発生するとキャッシュクリア中の UI を表示する | ✅ |
+
+### 結合テスト — `src/__tests__/integration/auth/ProtectedRoute.test.tsx`
+
+| テスト名 | 結果 |
+|---|---|
+| loading 中は何も描画しない | ✅ |
+| 未認証は 403 Forbidden を表示する | ✅ |
+| 認証済み・username あり → 子要素を描画する | ✅ |
+| 認証済み・username=null → 子要素 + ユーザー名未設定バナーを描画する | ✅ |
+
+---
+
 ## ダークモード対応
 
 全エラーページは TailwindCSS のダークモードクラスに対応:

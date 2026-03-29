@@ -1,0 +1,126 @@
+// @vitest-environment jsdom
+import { describe, it, expect, vi, afterEach } from 'vitest';
+import { render, screen, waitFor, cleanup } from '@testing-library/react';
+import { AuthProvider, useAuth } from '@/app/auth/AuthContext';
+import { AppLoadingProvider } from '@/app/shared/AppLoadingContext';
+
+// vi.mock はホイストされるため、参照する変数も vi.hoisted で先に作る
+const { mockOnAuthStateChanged, mockDoc, mockGetDoc } = vi.hoisted(() => ({
+  mockOnAuthStateChanged: vi.fn(),
+  mockDoc: vi.fn(),
+  mockGetDoc: vi.fn(),
+}));
+
+vi.mock('@/app/shared/firebase', () => ({ auth: {}, db: {} }));
+vi.mock('firebase/auth', () => ({ onAuthStateChanged: mockOnAuthStateChanged }));
+vi.mock('firebase/firestore', () => ({
+  doc: mockDoc,
+  getDoc: mockGetDoc,
+}));
+
+afterEach(() => {
+  cleanup();
+  vi.clearAllMocks();
+});
+
+// useAuth の値を画面に出すテスト用コンポーネント
+const AuthDisplay = () => {
+  const { currentUser, username, loading } = useAuth();
+  return (
+    <div>
+      <span data-testid="loading">{String(loading)}</span>
+      <span data-testid="uid">{currentUser?.uid ?? 'null'}</span>
+      <span data-testid="username">
+        {username === undefined ? 'undefined' : username === null ? 'null' : username}
+      </span>
+    </div>
+  );
+};
+
+const renderAuth = () =>
+  render(
+    <AppLoadingProvider initialKeys={['auth']}>
+      <AuthProvider>
+        <AuthDisplay />
+      </AuthProvider>
+    </AppLoadingProvider>,
+  );
+
+describe('AuthContext (結合テスト)', () => {
+  it('ユーザーなし → loading=false, username=null', async () => {
+    mockOnAuthStateChanged.mockImplementation((_: unknown, cb: (u: null) => void) => {
+      cb(null);
+      return () => {};
+    });
+
+    renderAuth();
+
+    await waitFor(() =>
+      expect(screen.getByTestId('loading').textContent).toBe('false'),
+    );
+    expect(screen.getByTestId('uid').textContent).toBe('null');
+    expect(screen.getByTestId('username').textContent).toBe('null');
+  });
+
+  it('ユーザーあり・プロフィールあり → username が設定される', async () => {
+    mockOnAuthStateChanged.mockImplementation((_: unknown, cb: (u: { uid: string }) => void) => {
+      cb({ uid: 'user-123' });
+      return () => {};
+    });
+    mockGetDoc.mockResolvedValue({
+      exists: () => true,
+      data: () => ({ username: 'tanaka' }),
+    });
+
+    renderAuth();
+
+    await waitFor(() =>
+      expect(screen.getByTestId('username').textContent).toBe('tanaka'),
+    );
+    expect(screen.getByTestId('uid').textContent).toBe('user-123');
+    expect(screen.getByTestId('loading').textContent).toBe('false');
+  });
+
+  it('ユーザーあり・プロフィールなし → username=null', async () => {
+    mockOnAuthStateChanged.mockImplementation((_: unknown, cb: (u: { uid: string }) => void) => {
+      cb({ uid: 'user-456' });
+      return () => {};
+    });
+    mockGetDoc.mockResolvedValue({ exists: () => false });
+
+    renderAuth();
+
+    await waitFor(() =>
+      expect(screen.getByTestId('loading').textContent).toBe('false'),
+    );
+    expect(screen.getByTestId('username').textContent).toBe('null');
+  });
+
+  it('Firestore エラー → username=null に fallback する', async () => {
+    mockOnAuthStateChanged.mockImplementation((_: unknown, cb: (u: { uid: string }) => void) => {
+      cb({ uid: 'user-789' });
+      return () => {};
+    });
+    mockGetDoc.mockRejectedValue(new Error('Firestore unavailable'));
+
+    renderAuth();
+
+    await waitFor(() =>
+      expect(screen.getByTestId('loading').textContent).toBe('false'),
+    );
+    expect(screen.getByTestId('username').textContent).toBe('null');
+  });
+
+  it('onAuthStateChanged の unsubscribe がアンマウント時に呼ばれる', () => {
+    const unsubscribe = vi.fn();
+    mockOnAuthStateChanged.mockImplementation((_: unknown, cb: (u: null) => void) => {
+      cb(null);
+      return unsubscribe;
+    });
+
+    const { unmount } = renderAuth();
+    unmount();
+
+    expect(unsubscribe).toHaveBeenCalledTimes(1);
+  });
+});

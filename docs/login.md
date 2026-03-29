@@ -131,6 +131,31 @@ switchMode() が呼ばれたとき:
   errors = {}
 ```
 
+## テスト
+
+### 単体テスト — `src/__tests__/unit/auth/passwordRules.test.ts`
+
+| テスト名 | 結果 |
+|---|---|
+| PASSWORD_RULES — 8文字以上のルール | ✅ |
+| PASSWORD_RULES — 大文字を含むルール | ✅ |
+| PASSWORD_RULES — 小文字を含むルール | ✅ |
+| PASSWORD_RULES — 数字を含むルール | ✅ |
+| getStrength — ルールを0〜1つしか満たさない → 弱い | ✅ |
+| getStrength — ルールを2つ満たす → 普通 | ✅ |
+| getStrength — ルールを3つ満たす → 強い | ✅ |
+| getStrength — ルールを4つすべて満たす → とても強い | ✅ |
+| getStrength — スコアが score フィールドに反映される | ✅ |
+
+### 単体テスト — `src/__tests__/unit/shared/validators.test.ts`
+
+| テスト名 | 結果 |
+|---|---|
+| EMAIL_REGEX — 有効なメールアドレスにマッチする | ✅ |
+| EMAIL_REGEX — 無効なメールアドレスにはマッチしない | ✅ |
+
+---
+
 ## 遷移フロー
 
 ```
