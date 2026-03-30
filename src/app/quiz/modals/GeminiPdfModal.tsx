@@ -5,7 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 
-type Step = 'upload' | 'extracting' | 'review';
+type Step = 'upload' | 'extracting' | 'review' | 'verify' | 'fix';
 type ImportMode = 'new' | 'existing';
 
 type ExtractedItem = {
@@ -13,13 +13,11 @@ type ExtractedItem = {
   question: string;
   answer: string;
   checked: boolean;
-  needsReview: boolean;
 };
 
 type GeminiResult = {
   question: string;
   answer: string;
-  needsReview?: boolean;
 };
 
 type Props = {
@@ -35,14 +33,14 @@ const PROMPT = `あなたはPDFから問題と答えを一字一句正確に抽�
 
 ## 出力形式
 純粋なJSONのみを返してください（\`\`\`json などのマークダウン記法は使わない）：
-{"items":[{"question":"問題文","answer":"答え（不明は空文字）","needsReview":true}],"reason":"問題が見つからなかった場合のみ日本語で理由を記載、それ以外は空文字"}
+{"items":[{"question":"問題文","answer":"答え（不明は空文字）"}],"reason":"問題が見つからなかった場合のみ日本語で理由を記載、それ以外は空文字"}
 
 ## 抽出手順（必ずこの順で実行）
 1. PDFを最初から最後まで通読し、ページ構成・問題の並び・解答ページの有無を把握する
 2. 問題番号・レイアウト・区切り線を手がかりに、各問題の範囲を確定する
 3. 各問題の question と answer を、PDFの原文から1文字ずつ丁寧に写し取る
 4. すべて写し取ったあと、PDFを再度見て各フィールドを1文字ずつ照合し、誤りがあれば修正する
-5. needsReview を設定してからJSONを出力する（JSONは1回だけ出力すること）
+5. JSONを出力する（JSONは1回だけ出力すること）
 
 ## 抽出ルール
 - 番号付きの問題（○×・穴埋め・記述など形式問わず）はすべて抽出する
@@ -59,13 +57,6 @@ const PROMPT = `あなたはPDFから問題と答えを一字一句正確に抽�
 - 文字が明瞭で読み取りに不安がない
 上記を1つでも満たさない場合は answer を "" にする
 
-## needsReview の判定
-**デフォルトは true**。以下をすべて満たす場合のみ false にする：
-- 全文字をPDFの原文と照合して完全に一致していると確信できる
-- 問題の区切りが明確で他の問題との混同がない
-- 答えの対応が番号・位置から間違いなく確定できる
-0.01%でも不安があれば true のままにする
-
 ## 書式ルール
 - 問題番号・記号は question に含めない（例：「1.」「(1)」「①」は除く）
 - ふりがな（ルビ）は除外する（例：「漢字（かんじ）」→「漢字」）
@@ -73,7 +64,7 @@ const PROMPT = `あなたはPDFから問題と答えを一字一句正確に抽�
 - それ以外の文言は一切書き換えない
 - 問題が見つからない場合は items を [] にして reason に理由を記載する`;
 
-const normalizeText = (text: string): string =>
+export const normalizeText = (text: string): string =>
   text
     .replace(/[（(][ぁ-ん]+[）)]/g, '')
     .replace(/《[ぁ-ん]+》/g, '')
@@ -103,10 +94,13 @@ export const GeminiPdfModal = ({ sets, onImportNew, onImportExisting, onClose, a
   const [nameError, setNameError]     = useState('');
   const [streamLog, setStreamLog]     = useState('');
   const [failReason, setFailReason]   = useState('');
-  const [reExtractIds, setReExtractIds] = useState<Set<string>>(new Set());
-  const [reExtracting, setReExtracting] = useState(false);
+  const [verifyIndex, setVerifyIndex]   = useState(0);
+  const [verifyFlags, setVerifyFlags]   = useState<Set<string>>(new Set());
+  const [swipeDelta, setSwipeDelta]     = useState(0);
+  const [isAnimating, setIsAnimating]   = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const logRef = useRef<HTMLPreElement>(null);
+  const dragStartX = useRef<number | null>(null);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
@@ -161,7 +155,6 @@ export const GeminiPdfModal = ({ sets, onImportNew, onImportExisting, onClose, a
             question: q,
             answer:   a === q ? '' : a,
             checked: true,
-            needsReview: item.needsReview === true,
           };
         });
 
@@ -192,82 +185,6 @@ export const GeminiPdfModal = ({ sets, onImportNew, onImportExisting, onClose, a
   const updateItem = (id: string, patch: Partial<ExtractedItem>) =>
     setItems(prev => prev.map(it => it.id === id ? { ...it, ...patch } : it));
 
-  const toggleReExtract = (id: string) =>
-    setReExtractIds(prev => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id); else next.add(id);
-      return next;
-    });
-
-  const handleReExtract = async () => {
-    if (!file || reExtractIds.size === 0) return;
-    setReExtracting(true);
-    try {
-      const allItems = items;
-      const targetIndices = allItems
-        .map((it, idx) => ({ idx, id: it.id }))
-        .filter(({ id }) => reExtractIds.has(id))
-        .map(({ idx }) => idx + 1);
-      const reExtractPrompt = `${PROMPT}
-
-【重要：再抽出モード】
-PDFに含まれる全問題を先頭から順番に数えて、以下の番号の問題のみをPDFの原文から直接抽出してください。
-- 過去の抽出結果は一切参照しないでください。PDFだけを見て抽出してください
-- items の件数と順序は以下の番号順に合わせてください
-- 他の問題は含めないでください
-
-再抽出する問題番号（PDF内の出現順）: ${targetIndices.join(', ')}
-全問題数: ${allItems.length}`;
-
-      const base64Data = await fileToBase64(file);
-      const apiKey = import.meta.env.VITE_GOOGLE_GEMINI_API_KEY as string;
-      const model = new GoogleGenerativeAI(apiKey).getGenerativeModel({ model: 'gemini-3.1-flash-lite-preview' });
-
-      const stream = await model.generateContentStream([
-        { inlineData: { mimeType: 'application/pdf', data: base64Data } },
-        { text: reExtractPrompt },
-      ]);
-
-      let text = '';
-      for await (const chunk of stream.stream) { text += chunk.text(); }
-      text = text.trim();
-      if (text.startsWith('```')) {
-        text = text.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '');
-      }
-
-      const parsed = JSON.parse(text) as { items: GeminiResult[] };
-      if (!parsed.items || !Array.isArray(parsed.items)) throw new Error('Unexpected response format');
-
-      const reExtracted = parsed.items
-        .filter(item => typeof item.question === 'string' && item.question.trim())
-        .map(item => {
-          const q = normalizeText(item.question);
-          const a = normalizeText(typeof item.answer === 'string' ? item.answer : '');
-          return { q, a: a === q ? '' : a, needsReview: item.needsReview === true };
-        });
-
-      const orderedIds = items.filter(i => reExtractIds.has(i.id)).map(i => i.id);
-      setItems(prev => {
-        const next = [...prev];
-        orderedIds.forEach((id, idx) => {
-          const re = reExtracted[idx];
-          if (!re) return;
-          const pos = next.findIndex(i => i.id === id);
-          if (pos === -1) return;
-          next[pos] = { ...next[pos], question: re.q, answer: re.a, needsReview: re.needsReview };
-        });
-        return next;
-      });
-      setReExtractIds(new Set());
-      addToast(`${Math.min(reExtracted.length, orderedIds.length)}件を再抽出しました`);
-    } catch (e) {
-      console.error(e);
-      addToast('再抽出に失敗しました');
-    } finally {
-      setReExtracting(false);
-    }
-  };
-
   const handleCreate = () => {
     const selected = items.filter(i => i.checked);
     if (selected.length === 0) { setNameError('1件以上の問題を選択してください'); return; }
@@ -286,6 +203,62 @@ PDFに含まれる全問題を先頭から順番に数えて、以下の番号�
 
   const allChecked   = items.length > 0 && items.every(i => i.checked);
   const checkedCount = items.filter(i => i.checked).length;
+
+  const startVerify = () => {
+    setVerifyIndex(0);
+    setVerifyFlags(new Set());
+    setSwipeDelta(0);
+    setIsAnimating(false);
+    setStep('verify');
+  };
+
+  const handleVerifyDecision = (ok: boolean) => {
+    if (isAnimating) return;
+    const currentItem = items[verifyIndex];
+    const exitDelta = ok ? 400 : -400;
+
+    setSwipeDelta(exitDelta);
+    setIsAnimating(true);
+
+    setTimeout(() => {
+      const newFlags = ok ? verifyFlags : new Set([...verifyFlags, currentItem.id]);
+
+      const nextIndex = verifyIndex + 1;
+      setVerifyFlags(newFlags);
+      setSwipeDelta(0);
+      setIsAnimating(false);
+
+      if (nextIndex >= items.length) {
+        if (newFlags.size > 0) {
+          setStep('fix');
+        } else {
+          addToast('すべて確認しました');
+          setStep('review');
+        }
+      } else {
+        setVerifyIndex(nextIndex);
+      }
+    }, 200);
+  };
+
+  const handleDragStart = (clientX: number) => {
+    if (isAnimating) return;
+    dragStartX.current = clientX;
+  };
+
+  const handleDragMove = (clientX: number) => {
+    if (dragStartX.current === null || isAnimating) return;
+    setSwipeDelta(clientX - dragStartX.current);
+  };
+
+  const handleDragEnd = (clientX: number) => {
+    if (dragStartX.current === null || isAnimating) return;
+    const delta = clientX - dragStartX.current;
+    dragStartX.current = null;
+    if (delta > 80) handleVerifyDecision(true);
+    else if (delta < -80) handleVerifyDecision(false);
+    else setSwipeDelta(0);
+  };
 
   return (
     <Dialog open={true} onOpenChange={(open) => { if (!open) onClose(); }}>
@@ -417,15 +390,13 @@ PDFに含まれる全問題を先頭から順番に数えて、以下の番号�
                 {checkedCount} / {items.length} 件を選択
               </span>
               <div className="flex items-center gap-3">
-                {reExtractIds.size > 0 && (
-                  <button
-                    className="text-xs font-bold text-amber-600 dark:text-amber-400 flex items-center gap-1 disabled:opacity-50"
-                    onClick={handleReExtract}
-                    disabled={reExtracting}
-                  >
-                    {reExtracting ? '再抽出中...' : `↺ ${reExtractIds.size}件を再抽出`}
-                  </button>
-                )}
+                <button
+                  className="text-xs text-[#888] font-bold hover:text-[#555]"
+                  onClick={startVerify}
+                  disabled={items.length === 0}
+                >
+                  カードで確認
+                </button>
                 <button
                   className="text-xs text-blue-500 font-bold"
                   onClick={() => setItems(prev => prev.map(it => ({ ...it, checked: !allChecked })))}
@@ -440,7 +411,7 @@ PDFに含まれる全問題を先頭から順番に数えて、以下の番号�
               {items.map((item, idx) => (
                 <div
                   key={item.id}
-                  className={`flex items-start gap-2 px-3 py-2.5 border-b border-[#f0f0f0] dark:border-[#333] last:border-b-0 ${item.needsReview ? 'bg-amber-50 dark:bg-amber-950/20' : ''}`}
+                  className="flex items-start gap-2 px-3 py-2.5 border-b border-[#f0f0f0] dark:border-[#333] last:border-b-0"
                 >
                   <input
                     type="checkbox"
@@ -451,26 +422,12 @@ PDFに含まれる全問題を先頭から順番に数えて、以下の番号�
                   <div className="flex-1 min-w-0 flex flex-col gap-1">
                     <div className="flex items-center gap-1.5">
                       <span className="text-[10px] text-[#aaa] font-bold w-5 flex-shrink-0">{idx + 1}</span>
-                      {item.needsReview && (
-                        <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/40 px-1.5 py-0.5 rounded flex-shrink-0">要確認</span>
-                      )}
                       <input
                         className="flex-1 text-[13px] border border-[#e8e8e8] dark:border-[#444] rounded-[6px] px-2 py-0.5 font-semibold bg-white dark:bg-[#1a1a1a] text-[#1a1a1a] dark:text-[#e0e0e0] outline-none"
                         value={item.question}
                         onChange={e => updateItem(item.id, { question: e.target.value })}
                         placeholder="問題文"
                       />
-                      <button
-                        className={`flex-shrink-0 text-[13px] w-6 h-6 rounded flex items-center justify-center transition-colors ${
-                          reExtractIds.has(item.id)
-                            ? 'bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400'
-                            : 'text-[#bbb] hover:text-[#888]'
-                        }`}
-                        title="再抽出対象に追加"
-                        onClick={() => toggleReExtract(item.id)}
-                      >
-                        ↺
-                      </button>
                     </div>
                     <div className="flex items-center gap-1.5 ml-[26px]">
                       <input
@@ -498,8 +455,146 @@ PDFに含まれる全問題を先頭から順番に数えて、以下の番号�
                   : `追加（${checkedCount}件）`}
               </Button>
             </div>
+            <p className="text-[11px] text-[#aaa] text-center mt-2 leading-relaxed">
+              AIによる抽出のため、問題文・答えが正確でない場合があります。「カードで確認」から内容をご確認ください。
+            </p>
           </>
         )}
+        {/* ── Step: verify ── */}
+        {step === 'verify' && (
+          <>
+            <div className="flex items-center justify-between mb-3">
+              <button
+                className="text-sm text-[#888] hover:text-[#555]"
+                onClick={() => { setSwipeDelta(0); dragStartX.current = null; setStep('review'); }}
+              >
+                ← 戻る
+              </button>
+              <span className="text-sm font-semibold text-[#888]">
+                {verifyIndex + 1} / {items.length}
+              </span>
+            </div>
+
+            <div className="w-full h-1.5 bg-[#f0f0f0] dark:bg-[#333] rounded-full mb-4 overflow-hidden">
+              <div
+                className="h-full bg-[#1a1a1a] dark:bg-[#e0e0e0] rounded-full"
+                style={{ width: `${(verifyIndex / items.length) * 100}%`, transition: 'width 0.2s' }}
+              />
+            </div>
+
+            <div
+              className="select-none cursor-grab active:cursor-grabbing"
+              onMouseDown={e => handleDragStart(e.clientX)}
+              onMouseMove={e => { if (dragStartX.current !== null) handleDragMove(e.clientX); }}
+              onMouseUp={e => handleDragEnd(e.clientX)}
+              onMouseLeave={() => { if (dragStartX.current !== null) { dragStartX.current = null; setSwipeDelta(0); } }}
+              onTouchStart={e => handleDragStart(e.touches[0].clientX)}
+              onTouchMove={e => { e.preventDefault(); handleDragMove(e.touches[0].clientX); }}
+              onTouchEnd={e => handleDragEnd(e.changedTouches[0].clientX)}
+            >
+              <div
+                className="border border-[#e8e8e8] dark:border-[#333] rounded-[12px] p-5 min-h-[160px] flex flex-col gap-3"
+                style={{
+                  transform: `translateX(${swipeDelta}px) rotate(${swipeDelta * 0.02}deg)`,
+                  opacity: Math.max(0.3, 1 - Math.abs(swipeDelta) / 400),
+                  transition: isAnimating ? 'transform 0.2s, opacity 0.2s' : 'none',
+                  backgroundColor: swipeDelta > 30
+                    ? 'rgba(34,197,94,0.07)'
+                    : swipeDelta < -30
+                      ? 'rgba(239,68,68,0.07)'
+                      : undefined,
+                }}
+              >
+                <div>
+                  <p className="text-[11px] text-[#aaa] font-bold mb-1">問題</p>
+                  <p className="text-[15px] font-semibold text-[#1a1a1a] dark:text-[#e0e0e0] leading-relaxed">
+                    {items[verifyIndex]?.question || '（問題文なし）'}
+                  </p>
+                </div>
+                <div className="border-t border-[#f0f0f0] dark:border-[#333] pt-3">
+                  <p className="text-[11px] text-[#aaa] font-bold mb-1">答え</p>
+                  <p className="text-[14px] text-[#555] dark:text-[#aaa] leading-relaxed">
+                    {items[verifyIndex]?.answer || '（答えなし）'}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <p className="text-[11px] text-center text-[#bbb] mt-2 mb-3">
+              スワイプまたはボタンで操作
+            </p>
+
+            <div className="flex gap-3">
+              <Button
+                variant="outline"
+                className="flex-1 border-red-300 text-red-500 hover:bg-red-50 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-950/30"
+                onClick={() => handleVerifyDecision(false)}
+                disabled={isAnimating}
+              >
+                ← 要修正
+              </Button>
+              <Button
+                variant="outline"
+                className="flex-1 border-green-300 text-green-600 hover:bg-green-50 dark:border-green-800 dark:text-green-400 dark:hover:bg-green-950/30"
+                onClick={() => handleVerifyDecision(true)}
+                disabled={isAnimating}
+              >
+                OK →
+              </Button>
+            </div>
+          </>
+        )}
+
+        {/* ── Step: fix ── */}
+        {step === 'fix' && (
+          <>
+            <p className="text-sm font-semibold text-[#888] mb-3">
+              要修正の問題（{verifyFlags.size}件）
+            </p>
+
+            <div className="border border-[#e8e8e8] dark:border-[#333] rounded-[10px] overflow-hidden max-h-[45vh] overflow-y-auto mb-4">
+              {items
+                .filter(item => verifyFlags.has(item.id))
+                .map(item => {
+                  const originalIdx = items.findIndex(i => i.id === item.id);
+                  return (
+                    <div
+                      key={item.id}
+                      className="px-3 py-3 border-b border-[#f0f0f0] dark:border-[#333] last:border-b-0"
+                    >
+                      <div className="flex items-center gap-1.5 mb-2">
+                        <span className="text-[10px] text-[#aaa] font-bold w-5 flex-shrink-0">{originalIdx + 1}</span>
+                        <input
+                          className="flex-1 text-[13px] border border-[#e8e8e8] dark:border-[#444] rounded-[6px] px-2 py-1 font-semibold bg-white dark:bg-[#1a1a1a] text-[#1a1a1a] dark:text-[#e0e0e0] outline-none focus:border-[#999]"
+                          value={item.question}
+                          onChange={e => updateItem(item.id, { question: e.target.value })}
+                          placeholder="問題文"
+                        />
+                      </div>
+                      <div className="ml-[26px]">
+                        <input
+                          className="w-full text-[13px] border border-[#e8e8e8] dark:border-[#444] rounded-[6px] px-2 py-1 text-[#555] dark:text-[#aaa] bg-white dark:bg-[#1a1a1a] outline-none focus:border-[#999]"
+                          value={item.answer}
+                          onChange={e => updateItem(item.id, { answer: e.target.value })}
+                          placeholder="答えなし"
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+            </div>
+
+            <div className="flex gap-2">
+              <Button variant="outline" className="flex-1" onClick={() => setStep('verify')}>
+                ← 戻る
+              </Button>
+              <Button variant="default" className="flex-[2]" onClick={() => setStep('review')}>
+                確認完了
+              </Button>
+            </div>
+          </>
+        )}
+
       </DialogContent>
     </Dialog>
   );
