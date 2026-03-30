@@ -253,7 +253,7 @@ handleExamPrev():
   currentIndex = Math.max(0, currentIndex - 1)
 
 handleJumpTo(index):
-  currentIndex = index  (問題シートから直接ジャンプ)
+  currentIndex = index  (回答進捗から直接ジャンプ)
 ```
 
 ### 提出・時間切れ
@@ -326,7 +326,7 @@ beforeunload イベント:
 
 ```
 プログレスバー: currentIndex / queue.length
-問題シート: 全問のチェックリスト (回答済み/未回答)
+回答進捗: 全問のチェックリスト (回答済み/未回答)
 カテゴリバッジ + ブックマークトグル
 問題文 + 画像 (imageUrl がある場合)
 
@@ -371,7 +371,7 @@ written/choice:
 プログレスバー + タイマー (残り時間表示)
 問題番号ナビゲーション (← / →)
 問題文 + 回答エリア (written or choice)
-問題シート (クリックで handleJumpTo)
+回答進捗 (クリックで handleJumpTo)
 「提出する」ボタン
   → 未回答あり: 警告ダイアログ (「N問未回答です。提出しますか？」)
   → 全回答済み or 強制提出: handleSubmitExam

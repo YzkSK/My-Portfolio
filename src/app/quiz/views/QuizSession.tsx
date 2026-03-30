@@ -48,6 +48,7 @@ export const QuizSession = ({
   const [editingMemoId, setEditingMemoId] = useState<string | null>(null);
   const [memoInput, setMemoInput]         = useState('');
   const [showSubmitConfirm, setShowSubmitConfirm] = useState(false);
+  const [showSheet, setShowSheet] = useState(true);
   const timeUpFired = useRef(false);
 
   const isExam = isExamSession(session);
@@ -132,28 +133,34 @@ export const QuizSession = ({
 
     return (
       <div className="qz-sheet">
-        <div className="qz-sheet-inner">
-          {session.queue.map((p, i) => {
-            let cls = 'qz-sheet-cell';
-            if (i === session.currentIndex) cls += ' qz-sheet-cell--current';
-            else if (!isExam) {
-              const results = (session as OneByOneSession).results;
-              if (i < results.length) {
-                cls += results[i] ? ' qz-sheet-cell--correct' : ' qz-sheet-cell--wrong';
+        <button className="qz-sheet-header" onClick={() => setShowSheet(v => !v)}>
+          <span className="qz-sheet-title">回答進捗</span>
+          <span className="qz-sheet-toggle-icon">{showSheet ? '▼' : '▲'}</span>
+        </button>
+        {showSheet && (
+          <div className="qz-sheet-inner">
+            {session.queue.map((p, i) => {
+              let cls = 'qz-sheet-cell';
+              if (i === session.currentIndex) cls += ' qz-sheet-cell--current';
+              else if (!isExam) {
+                const results = (session as OneByOneSession).results;
+                if (i < results.length) {
+                  cls += results[i] ? ' qz-sheet-cell--correct' : ' qz-sheet-cell--wrong';
+                }
+              } else {
+                if ((session as ExamSession).answers[i]) cls += ' qz-sheet-cell--answered';
               }
-            } else {
-              if ((session as ExamSession).answers[i]) cls += ' qz-sheet-cell--answered';
-            }
-            if (isExam) cls += ' qz-sheet-cell--clickable';
-            const bm = getBookmarked(p.id);
-            return (
-              <div key={p.id} className={cls} onClick={isExam ? () => onJumpTo(i) : undefined}>
-                {i + 1}
-                {bm && <span className="qz-sheet-bm">★</span>}
-              </div>
-            );
-          })}
-        </div>
+              if (isExam) cls += ' qz-sheet-cell--clickable';
+              const bm = getBookmarked(p.id);
+              return (
+                <div key={p.id} className={cls} onClick={isExam ? () => onJumpTo(i) : undefined}>
+                  {i + 1}
+                  {bm && <span className="qz-sheet-bm">★</span>}
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
     );
   };
