@@ -4,6 +4,8 @@ const CACHE_NAME = 'quiz-img-v1';
 const memoryCache = new Map<string, string>();
 // セッション内で失敗した URL（次回呼び出し時に再取得を試みる）
 const failedUrls = new Set<string>();
+// 同じ URL への並列呼び出しで blob URL が二重生成・revoke されるのを防ぐ
+const inFlight = new Map<string, Promise<string>>();
 
 function storeBlobUrl(url: string, blob: Blob): string {
   const existing = memoryCache.get(url);
@@ -13,10 +15,19 @@ function storeBlobUrl(url: string, blob: Blob): string {
   return blobUrl;
 }
 
-export async function getCachedImageUrl(url: string): Promise<string> {
+export function getCachedImageUrl(url: string): Promise<string> {
   // 失敗済みでなければメモリキャッシュを返す
-  if (!failedUrls.has(url) && memoryCache.has(url)) return memoryCache.get(url)!;
+  if (!failedUrls.has(url) && memoryCache.has(url)) return Promise.resolve(memoryCache.get(url)!);
 
+  // 同じ URL が並列で処理中なら同じ Promise を返す
+  if (inFlight.has(url)) return inFlight.get(url)!;
+
+  const promise = fetchAndCache(url).finally(() => inFlight.delete(url));
+  inFlight.set(url, promise);
+  return promise;
+}
+
+async function fetchAndCache(url: string): Promise<string> {
   if ('caches' in window) {
     const cache = await caches.open(CACHE_NAME);
 
@@ -60,4 +71,5 @@ export function clearImageCache(): void {
   }
   memoryCache.clear();
   failedUrls.clear();
+  inFlight.clear();
 }
