@@ -52,7 +52,7 @@ export const ProblemList = ({ problems, onAdd, onEdit, onShare, onToggleBookmark
           return (
             <div
               key={p.id}
-              className={`qz-problem-item flex items-start gap-2 transition-opacity ${isDragging ? 'opacity-40' : 'opacity-100'} ${isDragOver ? 'border-t-2 border-blue-400' : ''}`}
+              className={`qz-problem-item flex items-stretch gap-0 transition-opacity ${isDragging ? 'opacity-40' : 'opacity-100'} ${isDragOver ? 'border-t-2 border-blue-400' : ''}`}
               draggable
               onDragStart={e => {
                 didDragRef.current = false;
@@ -76,7 +76,9 @@ export const ProblemList = ({ problems, onAdd, onEdit, onShare, onToggleBookmark
               }}
               onClick={() => { if (!didDragRef.current) onEdit(p.id); didDragRef.current = false; }}
             >
-              <span className="text-[16px] text-[#ccc] leading-none cursor-grab select-none flex-shrink-0 mt-0.5">⠿</span>
+              <div className="-ml-4 -my-[14px] mr-3 flex items-center px-2.5 border-r border-[#ececec] dark:border-[#2a2a2a] rounded-l-[11px] flex-shrink-0">
+                <span className="text-[16px] text-[#ccc] cursor-grab select-none">⠿</span>
+              </div>
 
               <div className="qz-problem-qa flex-1 min-w-0">
                 {/* 左: 問題側 */}
