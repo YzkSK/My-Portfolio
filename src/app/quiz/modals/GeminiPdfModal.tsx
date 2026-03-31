@@ -80,8 +80,12 @@ const PROMPT_IMAGE = `あなたは画像から問題と答えを一字一句正�
 純粋なJSONのみを返してください（\`\`\`json などのマークダウン記法は使わない）：
 {"items":[{"question":"問題文","answer":"答え（不明は空文字）"}],"reason":"問題が見つからなかった場合のみ日本語で理由を記載、それ以外は空文字"}
 
+## 複数画像の場合
+複数の画像が提供された場合は、同一ドキュメントの複数ページとして扱う。
+すべての画像を通じて問題を統合して抽出し、重複する問題は1つにまとめる。
+
 ## 抽出手順（必ずこの順で実行）
-1. 画像全体を観察し、問題・解答・選択肢の配置を把握する
+1. すべての画像を通観し、問題・解答・選択肢の配置を把握する
 2. 問題番号・レイアウト・区切り線を手がかりに、各問題の範囲を確定する
 3. 各問題の question と answer を、画像の文字から1文字ずつ丁寧に写し取る（手書きも含む）
 4. すべて写し取ったあと、画像を再度見て各フィールドを1文字ずつ照合し、誤りがあれば修正する
@@ -102,6 +106,8 @@ const PROMPT_IMAGE = `あなたは画像から問題と答えを一字一句正�
 - 図の位置を示す語は削除する（例：「左図のように」→「図のように」）
 - それ以外の文言は一切書き換えない
 - 問題が見つからない場合は items を [] にして reason に理由を記載する`;
+
+const isImageFile = (f: File) => (ACCEPTED_IMAGE_TYPES as readonly string[]).includes(f.type);
 
 export const normalizeText = (text: string): string =>
   text
@@ -124,7 +130,7 @@ const fileToBase64 = (file: File): Promise<string> =>
 
 export const GeminiPdfModal = ({ sets, onImportNew, onImportExisting, onClose, addToast }: Props) => {
   const [step, setStep]               = useState<Step>('upload');
-  const [file, setFile]               = useState<File | null>(null);
+  const [files, setFiles]             = useState<File[]>([]);
   const [error, setError]             = useState('');
   const [items, setItems]             = useState<ExtractedItem[]>([]);
   const [importMode, setImportMode]   = useState<ImportMode>('new');
@@ -142,31 +148,43 @@ export const GeminiPdfModal = ({ sets, onImportNew, onImportExisting, onClose, a
   const dragStartX = useRef<number | null>(null);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const f = e.target.files?.[0];
-    if (!f) return;
-    const isAccepted = f.type === 'application/pdf' || (ACCEPTED_IMAGE_TYPES as readonly string[]).includes(f.type);
-    if (!isAccepted) { setError('PDF または画像ファイル（JPEG・PNG・WEBP・GIF・HEIC）を選択してください'); return; }
-    if (f.size > 20 * 1024 * 1024) { setError('ファイルサイズは20MB以下にしてください'); return; }
+    const selected = Array.from(e.target.files ?? []);
+    if (selected.length === 0) return;
+    e.target.value = '';
+
+    const hasPdf   = selected.some(f => f.type === 'application/pdf');
+    const hasImage = selected.some(isImageFile);
+    if (hasPdf && hasImage) { setError('PDFと画像を混在させることはできません'); return; }
+    if (hasPdf && selected.length > 1) { setError('PDFは1ファイルのみ選択できます'); return; }
+    const invalid = selected.find(f => f.type !== 'application/pdf' && !isImageFile(f));
+    if (invalid) { setError('PDF または画像ファイル（JPEG・PNG・WEBP・GIF・HEIC）を選択してください'); return; }
+    const oversized = selected.find(f => f.size > 20 * 1024 * 1024);
+    if (oversized) { setError(`${oversized.name} が20MBを超えています`); return; }
     setError('');
-    setFile(f);
+    setFiles(selected);
   };
 
+  const removeFile = (index: number) => setFiles(prev => prev.filter((_, i) => i !== index));
+
   const handleExtract = async () => {
-    if (!file) return;
+    if (files.length === 0) return;
     setError('');
     setStreamLog('');
     setFailReason('');
     setStep('extracting');
     try {
-      const base64Data = await fileToBase64(file);
+      const inlineParts = await Promise.all(
+        files.map(async f => ({
+          inlineData: { mimeType: f.type, data: await fileToBase64(f) },
+        }))
+      );
 
       const apiKey = import.meta.env.VITE_GOOGLE_GEMINI_API_KEY as string;
       const model = new GoogleGenerativeAI(apiKey).getGenerativeModel({ model: 'gemini-3.1-flash-lite-preview' });
-      const isImage = (ACCEPTED_IMAGE_TYPES as readonly string[]).includes(file.type);
-      const prompt = isImage ? PROMPT_IMAGE : PROMPT_PDF;
+      const prompt = files.every(isImageFile) ? PROMPT_IMAGE : PROMPT_PDF;
 
       const stream = await model.generateContentStream([
-        { inlineData: { mimeType: file.type, data: base64Data } },
+        ...inlineParts,
         { text: prompt },
       ]);
 
@@ -208,7 +226,7 @@ export const GeminiPdfModal = ({ sets, onImportNew, onImportExisting, onClose, a
         return;
       }
 
-      setSetName(file.name.replace(/\.[^.]+$/, ''));
+      setSetName(files[0]!.name.replace(/\.[^.]+$/, ''));
       setItems(extracted);
       setStep('review');
     } catch (e) {
@@ -313,28 +331,43 @@ export const GeminiPdfModal = ({ sets, onImportNew, onImportExisting, onClose, a
         {step === 'upload' && (
           <>
             <button
-              className="w-full border-2 border-dashed border-[#ddd] dark:border-[#444] rounded-[10px] py-8 flex flex-col items-center gap-2 text-[#888] hover:border-[#aaa] transition-colors cursor-pointer"
+              className="w-full border-2 border-dashed border-[#ddd] dark:border-[#444] rounded-[10px] py-6 flex flex-col items-center gap-2 text-[#888] hover:border-[#aaa] transition-colors cursor-pointer"
               onClick={() => fileInputRef.current?.click()}
             >
               <span className="text-3xl">
-                {file && (ACCEPTED_IMAGE_TYPES as readonly string[]).includes(file.type) ? '🖼️' : '📄'}
+                {files.length > 0 && files.every(isImageFile) ? '🖼️' : '📄'}
               </span>
               <span className="text-sm font-semibold">
-                {file ? file.name : 'PDF / 画像を選択（最大20MB）'}
+                {files.length === 0 ? 'PDF / 画像を選択（最大20MB）' : 'クリックして選択し直す'}
               </span>
-              {!file && (
-                <span className="text-xs text-[#bbb]">JPEG・PNG・WEBP・GIF・HEIC対応</span>
-              )}
-              {file && (
-                <span className="text-xs text-[#aaa]">
-                  {(file.size / 1024 / 1024).toFixed(1)} MB
-                </span>
-              )}
+              <span className="text-xs text-[#bbb]">
+                {files.length === 0 ? '画像は複数選択可・JPEG・PNG・WEBP・GIF・HEIC対応' : `${files.length}ファイル選択中`}
+              </span>
             </button>
+            {files.length > 0 && (
+              <div className="flex flex-col gap-1 mt-2">
+                {files.map((f, i) => (
+                  <div key={i} className="flex items-center justify-between px-3 py-1.5 bg-[#f5f5f5] dark:bg-[#222] rounded-[8px]">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="text-sm flex-shrink-0">{isImageFile(f) ? '🖼️' : '📄'}</span>
+                      <span className="text-[12px] text-[#555] dark:text-[#ccc] truncate">{f.name}</span>
+                      <span className="text-[11px] text-[#aaa] flex-shrink-0">{(f.size / 1024 / 1024).toFixed(1)}MB</span>
+                    </div>
+                    <button
+                      className="text-[#bbb] hover:text-red-400 ml-2 flex-shrink-0 text-lg leading-none"
+                      onClick={e => { e.stopPropagation(); removeFile(i); }}
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
             <input
               ref={fileInputRef}
               type="file"
               accept={`application/pdf,${ACCEPTED_IMAGE_TYPES.join(',')}`}
+              multiple
               className="hidden"
               onChange={handleFileChange}
             />
@@ -350,7 +383,7 @@ export const GeminiPdfModal = ({ sets, onImportNew, onImportExisting, onClose, a
 
             <div className="flex gap-2 mt-3">
               <Button variant="outline" className="flex-1" onClick={onClose}>キャンセル</Button>
-              <Button variant="default" className="flex-[2]" onClick={handleExtract} disabled={!file}>
+              <Button variant="default" className="flex-[2]" onClick={handleExtract} disabled={files.length === 0}>
                 抽出する
               </Button>
             </div>
@@ -370,7 +403,9 @@ export const GeminiPdfModal = ({ sets, onImportNew, onImportExisting, onClose, a
               ))}
             </div>
             <p className="text-sm text-[#888] font-semibold">Geminiで解析中...</p>
-            <p className="text-xs text-[#aaa]">{file?.name}</p>
+            <p className="text-xs text-[#aaa]">
+              {files.length === 1 ? files[0]!.name : `${files.length}ファイル`}
+            </p>
             {streamLog && (
               <pre
                 ref={logRef}
