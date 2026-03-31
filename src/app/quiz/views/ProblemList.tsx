@@ -29,13 +29,6 @@ export const ProblemList = ({ problems, onAdd, onEdit, onShare, onToggleBookmark
     return b.createdAt - a.createdAt;
   });
 
-  const move = (fromIdx: number, toIdx: number) => {
-    const next = [...sorted];
-    const [item] = next.splice(fromIdx, 1);
-    next.splice(toIdx, 0, item!);
-    onReorder(next.map(p => p.id));
-  };
-
   return (
     <>
       <div className="flex items-center justify-between mb-3">
@@ -73,28 +66,17 @@ export const ProblemList = ({ problems, onAdd, onEdit, onShare, onToggleBookmark
                 e.preventDefault();
                 if (!dragId || dragId === p.id) return;
                 didDragRef.current = true;
-                const fromIdx = sorted.findIndex(x => x.id === dragId);
-                const toIdx = i;
-                move(fromIdx, toIdx);
+                const next = [...sorted];
+                const fromIdx = next.findIndex(x => x.id === dragId);
+                const [item] = next.splice(fromIdx, 1);
+                next.splice(i, 0, item!);
+                onReorder(next.map(x => x.id));
                 setDragId(null);
                 setDragOverId(null);
               }}
-              onClick={() => { if (!didDragRef.current) onEdit(p.id); }}
+              onClick={() => { if (!didDragRef.current) onEdit(p.id); didDragRef.current = false; }}
             >
-              {/* ▲▼ ボタン + ドラッグハンドル */}
-              <div className="flex flex-col items-center justify-center gap-0.5 mr-1.5 flex-shrink-0 cursor-default" onClick={e => e.stopPropagation()}>
-                <button
-                  className="text-[10px] text-[#bbb] hover:text-[#555] dark:hover:text-[#ccc] leading-none disabled:opacity-20 disabled:cursor-not-allowed"
-                  disabled={i === 0}
-                  onClick={() => move(i, i - 1)}
-                >▲</button>
-                <span className="text-[12px] text-[#ccc] leading-none cursor-grab select-none">⠿</span>
-                <button
-                  className="text-[10px] text-[#bbb] hover:text-[#555] dark:hover:text-[#ccc] leading-none disabled:opacity-20 disabled:cursor-not-allowed"
-                  disabled={i === sorted.length - 1}
-                  onClick={() => move(i, i + 1)}
-                >▼</button>
-              </div>
+              <span className="text-[14px] text-[#ccc] leading-none cursor-grab select-none mr-1.5 flex-shrink-0">⠿</span>
 
               <div className="qz-problem-qa">
                 {/* 左: 問題側 */}

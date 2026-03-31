@@ -379,29 +379,9 @@ export const Quiz = () => {
                     setDragSetId(null);
                     setDragOverSetId(null);
                   }}
-                  onClick={() => { if (!didDragSetRef.current) setActiveSetId(s.id); }}
+                  onClick={() => { if (!didDragSetRef.current) setActiveSetId(s.id); didDragSetRef.current = false; }}
                 >
-                  <div className="flex flex-col items-center justify-center gap-0.5 mr-1.5 flex-shrink-0 cursor-default" onClick={e => e.stopPropagation()}>
-                    <button
-                      className="text-[10px] text-[#bbb] hover:text-[#555] dark:hover:text-[#ccc] leading-none disabled:opacity-20 disabled:cursor-not-allowed"
-                      disabled={i === 0}
-                      onClick={() => {
-                        const next = [...sets];
-                        [next[i], next[i - 1]] = [next[i - 1]!, next[i]!];
-                        handleReorderSets(next.map(x => x.id));
-                      }}
-                    >▲</button>
-                    <span className="text-[12px] text-[#ccc] leading-none cursor-grab select-none">⠿</span>
-                    <button
-                      className="text-[10px] text-[#bbb] hover:text-[#555] dark:hover:text-[#ccc] leading-none disabled:opacity-20 disabled:cursor-not-allowed"
-                      disabled={i === sets.length - 1}
-                      onClick={() => {
-                        const next = [...sets];
-                        [next[i], next[i + 1]] = [next[i + 1]!, next[i]!];
-                        handleReorderSets(next.map(x => x.id));
-                      }}
-                    >▼</button>
-                  </div>
+                  <span className="text-[14px] text-[#ccc] leading-none cursor-grab select-none mr-1.5 flex-shrink-0">⠿</span>
                   <div className="qz-set-info">
                     <div className="qz-set-name">{s.name}</div>
                     <div className="qz-set-count">
