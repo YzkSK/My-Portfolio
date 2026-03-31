@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import { useBlocker } from 'react-router-dom';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { type Problem, type ProblemSet, newProblem } from '../constants';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -187,7 +188,14 @@ export const GeminiPdfModal = ({ sets, onImportNew, onImportExisting, onClose, a
 
   const [showCloseConfirm, setShowCloseConfirm] = useState(false);
   const [showExitVerifyConfirm, setShowExitVerifyConfirm] = useState(false);
+  const [pendingSession, setPendingSession] = useState<ReturnType<typeof parseGeminiSession> | null>(null);
   const hasData = step === 'extracting' || step === 'review' || step === 'verify' || step === 'fix';
+
+  const blocker = useBlocker(hasData);
+
+  useEffect(() => {
+    if (blocker.state === 'blocked') setShowCloseConfirm(true);
+  }, [blocker.state]);
 
   const clearSession = () => localStorage.removeItem(geminiSessionKey(uid));
 
@@ -203,7 +211,16 @@ export const GeminiPdfModal = ({ sets, onImportNew, onImportExisting, onClose, a
   const handleConfirmClose = () => {
     clearSession();
     setShowCloseConfirm(false);
-    onClose();
+    if (blocker.state === 'blocked') {
+      blocker.proceed();
+    } else {
+      onClose();
+    }
+  };
+
+  const handleCancelClose = () => {
+    setShowCloseConfirm(false);
+    if (blocker.state === 'blocked') blocker.reset();
   };
 
   // セッション復元（マウント時）
@@ -216,15 +233,26 @@ export const GeminiPdfModal = ({ sets, onImportNew, onImportExisting, onClose, a
       localStorage.removeItem(geminiSessionKey(uid));
       return;
     }
-    setStep(parsed.step);
-    setItems(parsed.items);
-    setImportMode(parsed.importMode);
-    setSetName(parsed.setName);
-    setTargetSetId(parsed.resolvedTargetId);
-    setVerifyIndex(parsed.verifyIndex);
-    setVerifyFlags(new Set(parsed.verifyFlags));
+    setPendingSession(parsed);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const handleRestoreSession = () => {
+    if (!pendingSession) return;
+    setStep(pendingSession.step);
+    setItems(pendingSession.items);
+    setImportMode(pendingSession.importMode);
+    setSetName(pendingSession.setName);
+    setTargetSetId(pendingSession.resolvedTargetId);
+    setVerifyIndex(pendingSession.verifyIndex);
+    setVerifyFlags(new Set(pendingSession.verifyFlags));
+    setPendingSession(null);
+  };
+
+  const handleDiscardSession = () => {
+    clearSession();
+    setPendingSession(null);
+  };
 
   // セッション保存（review/verify/fix 中）
   useEffect(() => {
@@ -801,6 +829,24 @@ export const GeminiPdfModal = ({ sets, onImportNew, onImportExisting, onClose, a
           </>
         )}
 
+        {/* セッション復元確認オーバーレイ */}
+        {pendingSession && (
+          <div className="absolute inset-0 bg-black/60 flex items-center justify-center rounded-[inherit] z-10">
+            <div className="bg-white dark:bg-[#1a1a1a] rounded-[12px] p-5 mx-4 max-w-[280px] w-full shadow-xl">
+              <p className="text-sm font-semibold text-[#1a1a1a] dark:text-[#e0e0e0] mb-1">前回の作業が残っています</p>
+              <p className="text-[12px] text-[#888] mb-4">抽出済みの問題（{pendingSession.items.length}件）を復元しますか？</p>
+              <div className="flex gap-2">
+                <Button variant="outline" className="flex-1" onClick={handleDiscardSession}>
+                  削除
+                </Button>
+                <Button variant="default" className="flex-1" onClick={handleRestoreSession}>
+                  復元
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* カード確認終了オーバーレイ */}
         {showExitVerifyConfirm && (
           <div className="absolute inset-0 bg-black/60 flex items-center justify-center rounded-[inherit] z-10">
@@ -831,7 +877,7 @@ export const GeminiPdfModal = ({ sets, onImportNew, onImportExisting, onClose, a
               <p className="text-sm font-semibold text-[#1a1a1a] dark:text-[#e0e0e0] mb-1">作業中の内容が失われます</p>
               <p className="text-[12px] text-[#888] mb-4">閉じると抽出した問題が消えます。本当に閉じますか？</p>
               <div className="flex gap-2">
-                <Button variant="outline" className="flex-1" onClick={() => setShowCloseConfirm(false)}>
+                <Button variant="outline" className="flex-1" onClick={handleCancelClose}>
                   続ける
                 </Button>
                 <Button variant="default" className="flex-1" onClick={handleConfirmClose}>
