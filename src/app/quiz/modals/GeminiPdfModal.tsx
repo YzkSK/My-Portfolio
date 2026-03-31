@@ -186,7 +186,8 @@ export const GeminiPdfModal = ({ sets, onImportNew, onImportExisting, onClose, a
   const dragStartX = useRef<number | null>(null);
 
   const [showCloseConfirm, setShowCloseConfirm] = useState(false);
-  const hasData = step === 'review' || step === 'verify' || step === 'fix';
+  const [showExitVerifyConfirm, setShowExitVerifyConfirm] = useState(false);
+  const hasData = step === 'extracting' || step === 'review' || step === 'verify' || step === 'fix';
 
   const clearSession = () => localStorage.removeItem(geminiSessionKey(uid));
 
@@ -244,9 +245,9 @@ export const GeminiPdfModal = ({ sets, onImportNew, onImportExisting, onClose, a
     }
   }, [step, items, importMode, setName, targetSetId, verifyIndex, verifyFlags, uid]);
 
-  // 離脱防止（review/verify/fix 中）
+  // 離脱防止（extracting/review/verify/fix 中）
   useEffect(() => {
-    if (step !== 'review' && step !== 'verify' && step !== 'fix') return;
+    if (step !== 'extracting' && step !== 'review' && step !== 'verify' && step !== 'fix') return;
     const handler = (e: BeforeUnloadEvent) => { e.preventDefault(); };
     window.addEventListener('beforeunload', handler);
     return () => window.removeEventListener('beforeunload', handler);
@@ -653,14 +654,31 @@ export const GeminiPdfModal = ({ sets, onImportNew, onImportExisting, onClose, a
           <>
             <div className="flex items-center justify-between mb-3">
               <button
-                className="text-sm text-[#888] hover:text-[#555]"
-                onClick={() => { setSwipeDelta(0); dragStartX.current = null; setStep('review'); }}
+                className="text-sm text-[#888] hover:text-[#555] disabled:opacity-30 disabled:cursor-not-allowed"
+                disabled={verifyIndex === 0}
+                onClick={() => {
+                  if (verifyIndex === 0) return;
+                  const prevItem = items[verifyIndex - 1];
+                  if (prevItem) {
+                    setVerifyFlags(prev => { const next = new Set(prev); next.delete(prevItem.id); return next; });
+                  }
+                  setSwipeDelta(0);
+                  setIsAnimating(false);
+                  dragStartX.current = null;
+                  setVerifyIndex(verifyIndex - 1);
+                }}
               >
-                ← 戻る
+                ← 前へ
               </button>
               <span className="text-sm font-semibold text-[#888]">
                 {verifyIndex + 1} / {items.length}
               </span>
+              <button
+                className="text-sm text-[#888] hover:text-[#555]"
+                onClick={() => setShowExitVerifyConfirm(true)}
+              >
+                終了
+              </button>
             </div>
 
             <div className="w-full h-1.5 bg-[#f0f0f0] dark:bg-[#333] rounded-full mb-4 overflow-hidden">
@@ -781,6 +799,29 @@ export const GeminiPdfModal = ({ sets, onImportNew, onImportExisting, onClose, a
               </Button>
             </div>
           </>
+        )}
+
+        {/* カード確認終了オーバーレイ */}
+        {showExitVerifyConfirm && (
+          <div className="absolute inset-0 bg-black/60 flex items-center justify-center rounded-[inherit] z-10">
+            <div className="bg-white dark:bg-[#1a1a1a] rounded-[12px] p-5 mx-4 max-w-[280px] w-full shadow-xl">
+              <p className="text-sm font-semibold text-[#1a1a1a] dark:text-[#e0e0e0] mb-1">確認を終了しますか？</p>
+              <p className="text-[12px] text-[#888] mb-4">一覧画面に戻ります。確認の進捗はリセットされます。</p>
+              <div className="flex gap-2">
+                <Button variant="outline" className="flex-1" onClick={() => setShowExitVerifyConfirm(false)}>
+                  続ける
+                </Button>
+                <Button variant="default" className="flex-1" onClick={() => {
+                  setShowExitVerifyConfirm(false);
+                  setSwipeDelta(0);
+                  dragStartX.current = null;
+                  setStep('review');
+                }}>
+                  終了
+                </Button>
+              </div>
+            </div>
+          </div>
         )}
 
         {/* 閉じる確認オーバーレイ */}
