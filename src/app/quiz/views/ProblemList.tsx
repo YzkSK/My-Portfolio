@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 const ANSWER_INLINE_LIMIT = 5;
+const SHIFT_PX = 14;
 
 type Props = {
   problems: Problem[];
@@ -23,10 +24,11 @@ const getItemIdFromPoint = (x: number, y: number): string | null => {
 
 export const ProblemList = ({ problems, onAdd, onEdit, onShare, onToggleBookmark, onReorder }: Props) => {
   const [answerDialog, setAnswerDialog] = useState<{ question: string; answer: string } | null>(null);
-  const [dragId, setDragId] = useState<string | null>(null);
+  const [dragId, setDragId]       = useState<string | null>(null);
   const [dragOverId, setDragOverId] = useState<string | null>(null);
-  const didDragRef    = useRef(false);
-  const touchDragIdRef = useRef<string | null>(null);
+  const didDragRef        = useRef(false);
+  const touchDragIdRef    = useRef<string | null>(null);
+  const prevDragOverIdRef = useRef<string | null>(null);
 
   const sorted = [...problems].sort((a, b) => {
     if (a.index && b.index) return a.index - b.index;
@@ -34,6 +36,24 @@ export const ProblemList = ({ problems, onAdd, onEdit, onShare, onToggleBookmark
     if (b.index) return 1;
     return b.createdAt - a.createdAt;
   });
+
+  const dragFromIdx = dragId     ? sorted.findIndex(p => p.id === dragId)     : -1;
+  const dragToIdx   = dragOverId ? sorted.findIndex(p => p.id === dragOverId) : -1;
+
+  const getShift = (i: number): number => {
+    if (dragFromIdx === -1 || dragToIdx === -1 || dragFromIdx === dragToIdx) return 0;
+    if (dragFromIdx < dragToIdx && i > dragFromIdx && i <= dragToIdx) return -SHIFT_PX;
+    if (dragFromIdx > dragToIdx && i >= dragToIdx && i < dragFromIdx) return  SHIFT_PX;
+    return 0;
+  };
+
+  const updateDragOver = (id: string | null) => {
+    if (id !== null && id !== prevDragOverIdRef.current) {
+      navigator.vibrate?.(30);
+    }
+    prevDragOverIdRef.current = id;
+    setDragOverId(id);
+  };
 
   const applyReorder = (fromId: string, toId: string) => {
     const next = [...sorted];
@@ -61,31 +81,34 @@ export const ProblemList = ({ problems, onAdd, onEdit, onShare, onToggleBookmark
           ＋ボタンで問題を追加しましょう
         </p>
       ) : (
-        sorted.map((p) => {
-          const isLong    = p.answer.length > ANSWER_INLINE_LIMIT;
+        sorted.map((p, i) => {
+          const isLong     = p.answer.length > ANSWER_INLINE_LIMIT;
           const isDragging = dragId === p.id;
           const isDragOver = dragOverId === p.id && dragId !== p.id;
+          const shift      = getShift(i);
           return (
             <div
               key={p.id}
               data-item-id={p.id}
-              className={`qz-problem-item flex items-stretch gap-0 transition-opacity ${isDragging ? 'opacity-40' : 'opacity-100'} ${isDragOver ? 'border-t-2 border-blue-400' : ''}`}
+              style={{ transform: `translateY(${shift}px)` }}
+              className={`qz-problem-item flex items-stretch gap-0 transition-[transform,opacity] duration-150 ${isDragging ? 'opacity-40' : 'opacity-100'} ${isDragOver ? 'border-t-2 border-blue-400' : ''}`}
               draggable
               onDragStart={e => {
                 didDragRef.current = false;
                 setDragId(p.id);
                 e.dataTransfer.effectAllowed = 'move';
               }}
-              onDragEnter={() => setDragOverId(p.id)}
+              onDragEnter={() => updateDragOver(p.id)}
               onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; }}
-              onDragEnd={() => { setDragId(null); setDragOverId(null); }}
+              onDragEnd={() => { setDragId(null); updateDragOver(null); prevDragOverIdRef.current = null; }}
               onDrop={e => {
                 e.preventDefault();
                 if (!dragId || dragId === p.id) return;
                 didDragRef.current = true;
                 applyReorder(dragId, p.id);
                 setDragId(null);
-                setDragOverId(null);
+                updateDragOver(null);
+                prevDragOverIdRef.current = null;
               }}
               onClick={() => { if (!didDragRef.current) onEdit(p.id); didDragRef.current = false; }}
             >
@@ -103,7 +126,7 @@ export const ProblemList = ({ problems, onAdd, onEdit, onShare, onToggleBookmark
                   const touch = e.touches[0];
                   if (!touch) return;
                   const overId = getItemIdFromPoint(touch.clientX, touch.clientY);
-                  setDragOverId(overId !== touchDragIdRef.current ? overId : null);
+                  updateDragOver(overId !== touchDragIdRef.current ? overId : null);
                 }}
                 onTouchEnd={e => {
                   e.preventDefault();
@@ -117,7 +140,8 @@ export const ProblemList = ({ problems, onAdd, onEdit, onShare, onToggleBookmark
                   }
                   touchDragIdRef.current = null;
                   setDragId(null);
-                  setDragOverId(null);
+                  updateDragOver(null);
+                  prevDragOverIdRef.current = null;
                 }}
               >
                 <span className="text-[16px] text-[#ccc] cursor-grab select-none">⠿</span>

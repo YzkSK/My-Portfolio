@@ -38,8 +38,9 @@ export const Quiz = () => {
   const [modal, setModal]             = useState<Modal>(null);
   const [dragSetId, setDragSetId]         = useState<string | null>(null);
   const [dragOverSetId, setDragOverSetId] = useState<string | null>(null);
-  const didDragSetRef    = useRef(false);
-  const touchDragSetIdRef = useRef<string | null>(null);
+  const didDragSetRef        = useRef(false);
+  const touchDragSetIdRef    = useRef<string | null>(null);
+  const prevDragOverSetIdRef = useRef<string | null>(null);
   const { toasts, addToast }          = useToast(TOAST_DURATION_MS);
   const [loading, setLoading]         = useState(true);
   const [dbError, setDbError]         = useState(false);
@@ -236,6 +237,21 @@ export const Quiz = () => {
     saveToFirestore(next);
   };
 
+  const SET_SHIFT_PX = 14;
+  const dragFromSetIdx = dragSetId     ? sets.findIndex(s => s.id === dragSetId)     : -1;
+  const dragToSetIdx   = dragOverSetId ? sets.findIndex(s => s.id === dragOverSetId) : -1;
+  const getSetShift = (i: number): number => {
+    if (dragFromSetIdx === -1 || dragToSetIdx === -1 || dragFromSetIdx === dragToSetIdx) return 0;
+    if (dragFromSetIdx < dragToSetIdx && i > dragFromSetIdx && i <= dragToSetIdx) return -SET_SHIFT_PX;
+    if (dragFromSetIdx > dragToSetIdx && i >= dragToSetIdx && i < dragFromSetIdx) return  SET_SHIFT_PX;
+    return 0;
+  };
+  const updateDragOverSet = (id: string | null) => {
+    if (id !== null && id !== prevDragOverSetIdRef.current) navigator.vibrate?.(30);
+    prevDragOverSetIdRef.current = id;
+    setDragOverSetId(id);
+  };
+
   const openAdd  = () => { setFormError(''); setModal({ type: 'add' }); };
   const openEdit = (id: string) => { setFormError(''); setModal({ type: 'edit', problemId: id }); };
 
@@ -354,20 +370,22 @@ export const Quiz = () => {
                 const invalidCount = getInvalidCount(s.problems);
                 const isDragging = dragSetId === s.id;
                 const isDragOver = dragOverSetId === s.id && dragSetId !== s.id;
+                const shift      = getSetShift(i);
                 return (
                 <div
                   key={s.id}
                   data-item-id={s.id}
-                  className={`qz-set-item transition-opacity ${isDragging ? 'opacity-40' : 'opacity-100'} ${isDragOver ? 'border-t-2 border-blue-400' : ''}`}
+                  style={{ transform: `translateY(${shift}px)` }}
+                  className={`qz-set-item transition-[transform,opacity] duration-150 ${isDragging ? 'opacity-40' : 'opacity-100'} ${isDragOver ? 'border-t-2 border-blue-400' : ''}`}
                   draggable
                   onDragStart={e => {
                     didDragSetRef.current = false;
                     setDragSetId(s.id);
                     e.dataTransfer.effectAllowed = 'move';
                   }}
-                  onDragEnter={() => setDragOverSetId(s.id)}
+                  onDragEnter={() => updateDragOverSet(s.id)}
                   onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; }}
-                  onDragEnd={() => { setDragSetId(null); setDragOverSetId(null); }}
+                  onDragEnd={() => { setDragSetId(null); updateDragOverSet(null); prevDragOverSetIdRef.current = null; }}
                   onDrop={e => {
                     e.preventDefault();
                     if (!dragSetId || dragSetId === s.id) return;
@@ -379,7 +397,8 @@ export const Quiz = () => {
                     next.splice(toIdx, 0, moved!);
                     handleReorderSets(next.map(x => x.id));
                     setDragSetId(null);
-                    setDragOverSetId(null);
+                    updateDragOverSet(null);
+                    prevDragOverSetIdRef.current = null;
                   }}
                   onClick={() => { if (!didDragSetRef.current) setActiveSetId(s.id); didDragSetRef.current = false; }}
                 >
@@ -397,7 +416,7 @@ export const Quiz = () => {
                       if (!touch) return;
                       const el = document.elementFromPoint(touch.clientX, touch.clientY);
                       const overId = (el?.closest('[data-item-id]') as HTMLElement | null)?.dataset.itemId ?? null;
-                      setDragOverSetId(overId !== touchDragSetIdRef.current ? overId : null);
+                      updateDragOverSet(overId !== touchDragSetIdRef.current ? overId : null);
                     }}
                     onTouchEnd={e => {
                       e.preventDefault();
@@ -417,7 +436,8 @@ export const Quiz = () => {
                       }
                       touchDragSetIdRef.current = null;
                       setDragSetId(null);
-                      setDragOverSetId(null);
+                      updateDragOverSet(null);
+                      prevDragOverSetIdRef.current = null;
                     }}
                   >⠿</span>
                   <div className="qz-set-info">

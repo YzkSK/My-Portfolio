@@ -460,6 +460,8 @@
   display: flex;
   flex-wrap: wrap;
   gap: 5px;
+  max-height: 127px; /* 4行分 (28px × 4 + gap 5px × 3) */
+  overflow-y: auto;
 }
 
 .qz-sheet-cell {
