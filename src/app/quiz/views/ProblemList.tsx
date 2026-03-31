@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { type Problem, isWeak, isInvalidProblem } from '../constants';
 import { ImageWithLoader } from './ImageWithLoader';
 import { Button } from '@/components/ui/button';
@@ -13,16 +13,28 @@ type Props = {
   onEdit: (id: string) => void;
   onShare: () => void;
   onToggleBookmark: (id: string) => void;
+  onReorder: (orderedIds: string[]) => void;
 };
 
-export const ProblemList = ({ problems, onAdd, onEdit, onShare, onToggleBookmark }: Props) => {
+export const ProblemList = ({ problems, onAdd, onEdit, onShare, onToggleBookmark, onReorder }: Props) => {
   const [answerDialog, setAnswerDialog] = useState<{ question: string; answer: string } | null>(null);
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [dragOverId, setDragOverId] = useState<string | null>(null);
+  const didDragRef = useRef(false);
+
   const sorted = [...problems].sort((a, b) => {
     if (a.index && b.index) return a.index - b.index;
     if (a.index) return -1;
     if (b.index) return 1;
     return b.createdAt - a.createdAt;
   });
+
+  const move = (fromIdx: number, toIdx: number) => {
+    const next = [...sorted];
+    const [item] = next.splice(fromIdx, 1);
+    next.splice(toIdx, 0, item!);
+    onReorder(next.map(p => p.id));
+  };
 
   return (
     <>
@@ -40,10 +52,50 @@ export const ProblemList = ({ problems, onAdd, onEdit, onShare, onToggleBookmark
           ＋ボタンで問題を追加しましょう
         </p>
       ) : (
-        sorted.map(p => {
+        sorted.map((p, i) => {
           const isLong = p.answer.length > ANSWER_INLINE_LIMIT;
+          const isDragging = dragId === p.id;
+          const isDragOver = dragOverId === p.id && dragId !== p.id;
           return (
-            <div key={p.id} className="qz-problem-item" onClick={() => onEdit(p.id)}>
+            <div
+              key={p.id}
+              className={`qz-problem-item transition-opacity ${isDragging ? 'opacity-40' : 'opacity-100'} ${isDragOver ? 'border-t-2 border-blue-400' : ''}`}
+              draggable
+              onDragStart={e => {
+                didDragRef.current = false;
+                setDragId(p.id);
+                e.dataTransfer.effectAllowed = 'move';
+              }}
+              onDragEnter={() => setDragOverId(p.id)}
+              onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; }}
+              onDragEnd={() => { setDragId(null); setDragOverId(null); }}
+              onDrop={e => {
+                e.preventDefault();
+                if (!dragId || dragId === p.id) return;
+                didDragRef.current = true;
+                const fromIdx = sorted.findIndex(x => x.id === dragId);
+                const toIdx = i;
+                move(fromIdx, toIdx);
+                setDragId(null);
+                setDragOverId(null);
+              }}
+              onClick={() => { if (!didDragRef.current) onEdit(p.id); }}
+            >
+              {/* ▲▼ ボタン + ドラッグハンドル */}
+              <div className="flex flex-col items-center justify-center gap-0.5 mr-1.5 flex-shrink-0 cursor-default" onClick={e => e.stopPropagation()}>
+                <button
+                  className="text-[10px] text-[#bbb] hover:text-[#555] dark:hover:text-[#ccc] leading-none disabled:opacity-20 disabled:cursor-not-allowed"
+                  disabled={i === 0}
+                  onClick={() => move(i, i - 1)}
+                >▲</button>
+                <span className="text-[12px] text-[#ccc] leading-none cursor-grab select-none">⠿</span>
+                <button
+                  className="text-[10px] text-[#bbb] hover:text-[#555] dark:hover:text-[#ccc] leading-none disabled:opacity-20 disabled:cursor-not-allowed"
+                  disabled={i === sorted.length - 1}
+                  onClick={() => move(i, i + 1)}
+                >▼</button>
+              </div>
+
               <div className="qz-problem-qa">
                 {/* 左: 問題側 */}
                 <div className="qz-problem-q">

@@ -36,6 +36,9 @@ export const Quiz = () => {
   const [sets, setSets]               = useState<ProblemSet[]>([]);
   const [activeSetId, setActiveSetId] = useState<string | null>(null);
   const [modal, setModal]             = useState<Modal>(null);
+  const [dragSetId, setDragSetId]         = useState<string | null>(null);
+  const [dragOverSetId, setDragOverSetId] = useState<string | null>(null);
+  const didDragSetRef = useRef(false);
   const { toasts, addToast }          = useToast(TOAST_DURATION_MS);
   const [loading, setLoading]         = useState(true);
   const [dbError, setDbError]         = useState(false);
@@ -57,7 +60,17 @@ export const Quiz = () => {
         if (snap.exists()) {
           const data = snap.data();
           if (Array.isArray(data.sets)) {
-            setSets((data.sets as Record<string, unknown>[]).map(parseProblemSet));
+            const loaded = (data.sets as Record<string, unknown>[]).map(parseProblemSet);
+            const needsReindex = loaded.some(s => s.problems.some(p => p.index === 0));
+            const finalSets = needsReindex
+              ? loaded.map(s =>
+                  s.problems.some(p => p.index === 0)
+                    ? { ...s, problems: s.problems.map((p, i) => ({ ...p, index: i + 1 })) }
+                    : s
+                )
+              : loaded;
+            setSets(finalSets);
+            if (needsReindex) saveToFirestore(finalSets);
           } else if (Array.isArray(data.problems)) {
             // 旧データ移行: problems → デフォルトセット
             const migrated = newProblemSet('問題集');
@@ -211,6 +224,17 @@ export const Quiz = () => {
     saveToFirestore(next);
   };
 
+  const handleReorder = (orderedIds: string[]) => {
+    const reordered = orderedIds.map(id => problems.find(p => p.id === id)!).filter(Boolean);
+    updateActiveSetProblems(reordered.map((p, i) => ({ ...p, index: i + 1 })));
+  };
+
+  const handleReorderSets = (orderedIds: string[]) => {
+    const next = orderedIds.map(id => sets.find(s => s.id === id)!).filter(Boolean);
+    setSets(next);
+    saveToFirestore(next);
+  };
+
   const openAdd  = () => { setFormError(''); setModal({ type: 'add' }); };
   const openEdit = (id: string) => { setFormError(''); setModal({ type: 'edit', problemId: id }); };
 
@@ -325,10 +349,59 @@ export const Quiz = () => {
                 </span>
               </p>
             ) : (
-              sets.map(s => {
+              sets.map((s, i) => {
                 const invalidCount = getInvalidCount(s.problems);
+                const isDragging = dragSetId === s.id;
+                const isDragOver = dragOverSetId === s.id && dragSetId !== s.id;
                 return (
-                <div key={s.id} className="qz-set-item" onClick={() => setActiveSetId(s.id)}>
+                <div
+                  key={s.id}
+                  className={`qz-set-item transition-opacity ${isDragging ? 'opacity-40' : 'opacity-100'} ${isDragOver ? 'border-t-2 border-blue-400' : ''}`}
+                  draggable
+                  onDragStart={e => {
+                    didDragSetRef.current = false;
+                    setDragSetId(s.id);
+                    e.dataTransfer.effectAllowed = 'move';
+                  }}
+                  onDragEnter={() => setDragOverSetId(s.id)}
+                  onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; }}
+                  onDragEnd={() => { setDragSetId(null); setDragOverSetId(null); }}
+                  onDrop={e => {
+                    e.preventDefault();
+                    if (!dragSetId || dragSetId === s.id) return;
+                    didDragSetRef.current = true;
+                    const next = [...sets];
+                    const fromIdx = next.findIndex(x => x.id === dragSetId);
+                    const toIdx = i;
+                    const [moved] = next.splice(fromIdx, 1);
+                    next.splice(toIdx, 0, moved!);
+                    handleReorderSets(next.map(x => x.id));
+                    setDragSetId(null);
+                    setDragOverSetId(null);
+                  }}
+                  onClick={() => { if (!didDragSetRef.current) setActiveSetId(s.id); }}
+                >
+                  <div className="flex flex-col items-center justify-center gap-0.5 mr-1.5 flex-shrink-0 cursor-default" onClick={e => e.stopPropagation()}>
+                    <button
+                      className="text-[10px] text-[#bbb] hover:text-[#555] dark:hover:text-[#ccc] leading-none disabled:opacity-20 disabled:cursor-not-allowed"
+                      disabled={i === 0}
+                      onClick={() => {
+                        const next = [...sets];
+                        [next[i], next[i - 1]] = [next[i - 1]!, next[i]!];
+                        handleReorderSets(next.map(x => x.id));
+                      }}
+                    >▲</button>
+                    <span className="text-[12px] text-[#ccc] leading-none cursor-grab select-none">⠿</span>
+                    <button
+                      className="text-[10px] text-[#bbb] hover:text-[#555] dark:hover:text-[#ccc] leading-none disabled:opacity-20 disabled:cursor-not-allowed"
+                      disabled={i === sets.length - 1}
+                      onClick={() => {
+                        const next = [...sets];
+                        [next[i], next[i + 1]] = [next[i + 1]!, next[i]!];
+                        handleReorderSets(next.map(x => x.id));
+                      }}
+                    >▼</button>
+                  </div>
                   <div className="qz-set-info">
                     <div className="qz-set-name">{s.name}</div>
                     <div className="qz-set-count">
@@ -376,6 +449,7 @@ export const Quiz = () => {
               onEdit={openEdit}
               onShare={() => setModal({ type: 'share' })}
               onToggleBookmark={toggleBookmark}
+              onReorder={handleReorder}
             />
           </>
         )}
