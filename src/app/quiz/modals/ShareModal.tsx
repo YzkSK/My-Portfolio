@@ -38,7 +38,7 @@ export const ShareModal = ({ problems, uid, answerFormat, defaultTitle = '', exi
       const code = existingShareCode ?? genShareCode();
       const payload = {
         problems: targetProblems.map(p => ({
-          question: p.question, answer: p.answer, category: p.category,
+          index: p.index, question: p.question, answer: p.answer, category: p.category,
           answerFormat: p.answerFormat, wrongChoices: p.wrongChoices,
           ...(includeMemo && p.memo ? { memo: p.memo } : {}),
           ...(p.imageUrl ? { imageUrl: p.imageUrl } : {}),

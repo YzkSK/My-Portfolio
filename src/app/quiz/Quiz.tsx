@@ -228,7 +228,8 @@ export const Quiz = () => {
     }
     let next: Problem[];
     if (modal?.type === 'add') {
-      next = [...problems, newProblem(question.trim(), answer.trim(), category.trim(), fmt, wrongChoices, memo, imageUrl)];
+      const maxIndex = problems.reduce((m, p) => Math.max(m, p.index), 0);
+      next = [...problems, newProblem(question.trim(), answer.trim(), category.trim(), fmt, wrongChoices, memo, imageUrl, maxIndex + 1)];
     } else if (modal?.type === 'edit') {
       next = problems.map(p =>
         p.id === modal.problemId
@@ -255,7 +256,7 @@ export const Quiz = () => {
         deleteObject(ref(storage, problem.imageUrl)).catch((e) => { console.error('Storage削除失敗:', e); });
       }
     }
-    updateActiveSetProblems(problems.filter(p => p.id !== id));
+    updateActiveSetProblems(problems.filter(p => p.id !== id).map((p, i) => ({ ...p, index: i + 1 })));
     setModal(null);
   };
 
@@ -265,7 +266,7 @@ export const Quiz = () => {
 
   const handleImport = (imported: Problem[], title: string, answerFormat?: AnswerFormat) => {
     const s = newProblemSet(title || 'インポートした問題集', answerFormat);
-    s.problems = imported;
+    s.problems = imported.map((p, i) => ({ ...p, index: i + 1 }));
     const next = [...sets, s];
     setSets(next);
     saveToFirestore(next);
@@ -274,7 +275,9 @@ export const Quiz = () => {
 
   const handleImportToExisting = (imported: Problem[], setId: string) => {
     const next = sets.map(s =>
-      s.id === setId ? { ...s, problems: [...s.problems, ...imported] } : s
+      s.id === setId
+        ? { ...s, problems: [...s.problems, ...imported.map((p, i) => ({ ...p, index: s.problems.reduce((m, q) => Math.max(m, q.index), 0) + i + 1 }))] }
+        : s
     );
     setSets(next);
     saveToFirestore(next);

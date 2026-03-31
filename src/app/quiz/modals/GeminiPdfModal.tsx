@@ -11,6 +11,7 @@ type ImportMode = 'new' | 'existing';
 
 type ExtractedItem = {
   id: string;
+  index: number;
   question: string;
   answer: string;
   checked: boolean;
@@ -341,11 +342,12 @@ export const GeminiPdfModal = ({ sets, onImportNew, onImportExisting, onClose, a
 
       const extracted: ExtractedItem[] = parsed.items
         .filter(item => typeof item.question === 'string' && item.question.trim())
-        .map(item => {
+        .map((item, i) => {
           const q = normalizeText(item.question);
           const a = normalizeText(typeof item.answer === 'string' ? item.answer : '');
           return {
             id: crypto.randomUUID(),
+            index: i + 1,
             question: q,
             answer:   a === q ? '' : a,
             checked: true,
@@ -625,7 +627,7 @@ export const GeminiPdfModal = ({ sets, onImportNew, onImportExisting, onClose, a
 
             {/* 問題リスト */}
             <div className="border border-[#e8e8e8] dark:border-[#333] rounded-[10px] overflow-hidden max-h-[38vh] overflow-y-auto mb-3">
-              {items.map((item, idx) => (
+              {items.map((item) => (
                 <div
                   key={item.id}
                   className="flex items-start gap-2 px-3 py-2.5 border-b border-[#f0f0f0] dark:border-[#333] last:border-b-0"
@@ -638,7 +640,7 @@ export const GeminiPdfModal = ({ sets, onImportNew, onImportExisting, onClose, a
                   />
                   <div className="flex-1 min-w-0 flex flex-col gap-1">
                     <div className="flex items-center gap-1.5">
-                      <span className="text-[10px] text-[#aaa] font-bold w-5 flex-shrink-0">{idx + 1}</span>
+                      <span className="text-[10px] text-[#aaa] font-bold w-5 flex-shrink-0">{item.index}</span>
                       <input
                         className="flex-1 text-[13px] border border-[#e8e8e8] dark:border-[#444] rounded-[6px] px-2 py-0.5 font-semibold bg-white dark:bg-[#1a1a1a] text-[#1a1a1a] dark:text-[#e0e0e0] outline-none"
                         value={item.question}
@@ -740,7 +742,9 @@ export const GeminiPdfModal = ({ sets, onImportNew, onImportExisting, onClose, a
                 }}
               >
                 <div>
-                  <p className="text-[11px] text-[#aaa] font-bold mb-1">問題</p>
+                  <p className="text-[11px] text-[#aaa] font-bold mb-1">
+                    問題 <span className="font-normal">#{items[verifyIndex]?.index}</span>
+                  </p>
                   <p className="text-[15px] font-semibold text-[#1a1a1a] dark:text-[#e0e0e0] leading-relaxed">
                     {items[verifyIndex]?.question || '（問題文なし）'}
                   </p>
@@ -790,14 +794,13 @@ export const GeminiPdfModal = ({ sets, onImportNew, onImportExisting, onClose, a
               {items
                 .filter(item => verifyFlags.has(item.id))
                 .map(item => {
-                  const originalIdx = items.findIndex(i => i.id === item.id);
                   return (
                     <div
                       key={item.id}
                       className="px-3 py-3 border-b border-[#f0f0f0] dark:border-[#333] last:border-b-0"
                     >
                       <div className="flex items-center gap-1.5 mb-2">
-                        <span className="text-[10px] text-[#aaa] font-bold w-5 flex-shrink-0">{originalIdx + 1}</span>
+                        <span className="text-[10px] text-[#aaa] font-bold w-5 flex-shrink-0">{item.index}</span>
                         <input
                           className="flex-1 text-[13px] border border-[#e8e8e8] dark:border-[#444] rounded-[6px] px-2 py-1 font-semibold bg-white dark:bg-[#1a1a1a] text-[#1a1a1a] dark:text-[#e0e0e0] outline-none focus:border-[#999]"
                           value={item.question}

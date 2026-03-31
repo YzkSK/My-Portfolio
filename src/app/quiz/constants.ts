@@ -11,6 +11,7 @@ export type AnswerFormat = 'flashcard' | 'written' | 'choice2' | 'choice4';
 
 export type Problem = {
   id: string;
+  index: number;            // 問題集内での順番（1始まり、0は未設定）
   question: string;
   answer: string;
   wrongChoices: string[];   // 不正解の選択肢 (choice2: 1件, choice4: 3件)
@@ -242,9 +243,11 @@ export function newProblem(
   wrongChoices: string[] = [],
   memo: string = '',
   imageUrl: string = '',
+  index: number = 0,
 ): Problem {
   return {
     id: crypto.randomUUID(),
+    index,
     question, answer, wrongChoices, answerFormat, category, memo, imageUrl,
     createdAt: Date.now(),
     bookmarked: false, consecutiveCorrect: 0, consecutiveWrong: 0, correctCount: 0, attemptCount: 0,
@@ -255,6 +258,7 @@ export function newProblem(
 export function parseProblem(p: Record<string, unknown>): Problem {
   return {
     id: (p.id as string) ?? '',
+    index: (p.index as number) ?? 0,
     question: (p.question as string) ?? '',
     answer: (p.answer as string) ?? '',
     wrongChoices: Array.isArray(p.wrongChoices) ? (p.wrongChoices as string[]) : [],

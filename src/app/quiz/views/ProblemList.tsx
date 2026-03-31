@@ -17,7 +17,12 @@ type Props = {
 
 export const ProblemList = ({ problems, onAdd, onEdit, onShare, onToggleBookmark }: Props) => {
   const [answerDialog, setAnswerDialog] = useState<{ question: string; answer: string } | null>(null);
-  const sorted = [...problems].sort((a, b) => b.createdAt - a.createdAt);
+  const sorted = [...problems].sort((a, b) => {
+    if (a.index && b.index) return a.index - b.index;
+    if (a.index) return -1;
+    if (b.index) return 1;
+    return b.createdAt - a.createdAt;
+  });
 
   return (
     <>
@@ -50,6 +55,7 @@ export const ProblemList = ({ problems, onAdd, onEdit, onShare, onToggleBookmark
                     >
                       {p.bookmarked ? '★' : '☆'}
                     </button>
+                    {p.index > 0 && <span className="text-[10px] text-[#aaa] font-bold flex-shrink-0">#{p.index}</span>}
                     {p.imageUrl && <ImageWithLoader src={p.imageUrl} className="qz-problem-thumb" spinnerClassName="qz-img-spinner--thumb" />}
                     <div className="qz-problem-question">{p.question}</div>
                   </div>
