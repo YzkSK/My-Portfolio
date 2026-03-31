@@ -89,10 +89,15 @@ export const ImportModal = ({ onImport, onClose, addToast, uid, allProblems }: P
     if (!preview) return;
     setLoading(true);
     try {
+      // 同じ imageUrl への並列fetch を避けるため、URL ごとに Promise を共有する
+      const urlCache = new Map<string, Promise<string>>();
       const imported = await Promise.all(preview.problems.map(async p => {
         let imageUrl = '';
         if (p.imageUrl) {
-          try { imageUrl = await resolveImageUrl(p.imageUrl); } catch (e) { console.warn('画像の取得に失敗:', e); }
+          if (!urlCache.has(p.imageUrl)) {
+            urlCache.set(p.imageUrl, resolveImageUrl(p.imageUrl));
+          }
+          try { imageUrl = await urlCache.get(p.imageUrl)!; } catch (e) { console.warn('画像の取得に失敗:', e); }
         }
         return newProblem(p.question, p.answer, p.category, p.answerFormat, p.wrongChoices, p.memo, imageUrl);
       }));
