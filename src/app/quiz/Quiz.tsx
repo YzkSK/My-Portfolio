@@ -77,6 +77,23 @@ export const Quiz = () => {
 
   useEffect(() => { setsRef.current = sets; }, [sets]);
 
+  // ローディング完了後、保存済みGeminiセッションがあれば自動復元
+  useEffect(() => {
+    if (loading || !currentUser) return;
+    const raw = localStorage.getItem(`gemini-session-${currentUser.uid}`);
+    if (!raw) return;
+    try {
+      const s = JSON.parse(raw) as { step?: string };
+      if (s.step === 'review' || s.step === 'verify' || s.step === 'fix') {
+        setModal({ type: 'gemini-pdf' });
+      } else {
+        localStorage.removeItem(`gemini-session-${currentUser.uid}`);
+      }
+    } catch {
+      localStorage.removeItem(`gemini-session-${currentUser.uid}`);
+    }
+  }, [loading, currentUser]);
+
   const cleanupImages = useCallback(async (guardUrl: string) => {
     if (!currentUser) return;
     // Firebase 自身の ref() でパスを取得（自前の URL パースより確実）
@@ -289,7 +306,7 @@ export const Quiz = () => {
               <div className="text-sm font-black text-[#1a1a1a] dark:text-[#e0e0e0]">マイ問題集 ({sets.length}件)</div>
               <div className="flex flex-wrap gap-2">
                 <Button variant="outline" onClick={() => setModal({ type: 'import' })}>インポート</Button>
-                <Button variant="outline" onClick={() => setModal({ type: 'gemini-pdf' })}>PDF抽出</Button>
+                <Button variant="outline" onClick={() => setModal({ type: 'gemini-pdf' })}>AI問題抽出</Button>
                 <Button variant="default" onClick={() => setModal({ type: 'set-create' })}>＋ 新規作成</Button>
               </div>
             </div>
@@ -424,6 +441,7 @@ export const Quiz = () => {
           onImportExisting={handleImportToExisting}
           onClose={() => setModal(null)}
           addToast={addToast}
+          uid={currentUser?.uid ?? ''}
         />
       )}
 

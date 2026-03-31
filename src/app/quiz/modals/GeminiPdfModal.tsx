@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { type Problem, type ProblemSet, newProblem } from '../constants';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -26,6 +26,7 @@ type Props = {
   onImportExisting: (problems: Problem[], setId: string) => void;
   onClose: () => void;
   addToast: (msg: string) => void;
+  uid: string;
 };
 
 const ACCEPTED_IMAGE_TYPES = [
@@ -109,6 +110,41 @@ const PROMPT_IMAGE = `あなたは画像から問題と答えを一字一句正�
 
 const isImageFile = (f: File) => (ACCEPTED_IMAGE_TYPES as readonly string[]).includes(f.type);
 
+const geminiSessionKey = (uid: string) => `gemini-session-${uid}`;
+
+type SavedSession = {
+  step: 'review' | 'verify' | 'fix';
+  items: ExtractedItem[];
+  importMode: ImportMode;
+  setName: string;
+  targetSetId: string;
+  verifyIndex: number;
+  verifyFlags: string[];
+};
+
+/** セッションJSONを検証・パースする純粋関数。無効な場合は null を返す */
+export const parseGeminiSession = (
+  raw: string,
+  sets: ProblemSet[],
+): (SavedSession & { resolvedTargetId: string }) | null => {
+  try {
+    const s = JSON.parse(raw) as SavedSession;
+    if (s.step !== 'review' && s.step !== 'verify' && s.step !== 'fix') return null;
+    if (!Array.isArray(s.items)) return null;
+    const resolvedTargetId = sets.some(st => st.id === s.targetSetId)
+      ? s.targetSetId
+      : (sets[0]?.id ?? '');
+    return {
+      ...s,
+      verifyIndex: s.verifyIndex ?? 0,
+      verifyFlags: Array.isArray(s.verifyFlags) ? s.verifyFlags : [],
+      resolvedTargetId,
+    };
+  } catch {
+    return null;
+  }
+};
+
 export const normalizeText = (text: string): string =>
   text
     .replace(/[（(][ぁ-ん]+[）)]/g, '')
@@ -128,7 +164,7 @@ const fileToBase64 = (file: File): Promise<string> =>
   });
 
 
-export const GeminiPdfModal = ({ sets, onImportNew, onImportExisting, onClose, addToast }: Props) => {
+export const GeminiPdfModal = ({ sets, onImportNew, onImportExisting, onClose, addToast, uid }: Props) => {
   const [step, setStep]               = useState<Step>('upload');
   const [files, setFiles]             = useState<File[]>([]);
   const [error, setError]             = useState('');
@@ -146,6 +182,73 @@ export const GeminiPdfModal = ({ sets, onImportNew, onImportExisting, onClose, a
   const fileInputRef = useRef<HTMLInputElement>(null);
   const logRef = useRef<HTMLPreElement>(null);
   const dragStartX = useRef<number | null>(null);
+
+  const [showCloseConfirm, setShowCloseConfirm] = useState(false);
+  const hasData = step === 'review' || step === 'verify' || step === 'fix';
+
+  const clearSession = () => localStorage.removeItem(geminiSessionKey(uid));
+
+  const handleCloseRequest = () => {
+    if (hasData) {
+      setShowCloseConfirm(true);
+    } else {
+      clearSession();
+      onClose();
+    }
+  };
+
+  const handleConfirmClose = () => {
+    clearSession();
+    setShowCloseConfirm(false);
+    onClose();
+  };
+
+  // セッション復元（マウント時）
+  useEffect(() => {
+    const raw = localStorage.getItem(geminiSessionKey(uid));
+    if (!raw) return;
+    const parsed = parseGeminiSession(raw, sets);
+    if (!parsed) {
+      console.error('Geminiセッション復元失敗: 無効なデータ');
+      localStorage.removeItem(geminiSessionKey(uid));
+      return;
+    }
+    setStep(parsed.step);
+    setItems(parsed.items);
+    setImportMode(parsed.importMode);
+    setSetName(parsed.setName);
+    setTargetSetId(parsed.resolvedTargetId);
+    setVerifyIndex(parsed.verifyIndex);
+    setVerifyFlags(new Set(parsed.verifyFlags));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // セッション保存（review/verify/fix 中）
+  useEffect(() => {
+    if (step !== 'review' && step !== 'verify' && step !== 'fix') return;
+    const session: SavedSession = {
+      step,
+      items,
+      importMode,
+      setName,
+      targetSetId,
+      verifyIndex,
+      verifyFlags: [...verifyFlags],
+    };
+    try {
+      localStorage.setItem(geminiSessionKey(uid), JSON.stringify(session));
+    } catch (e) {
+      console.error('Geminiセッション保存失敗:', e);
+    }
+  }, [step, items, importMode, setName, targetSetId, verifyIndex, verifyFlags, uid]);
+
+  // 離脱防止（review/verify/fix 中）
+  useEffect(() => {
+    if (step !== 'review' && step !== 'verify' && step !== 'fix') return;
+    const handler = (e: BeforeUnloadEvent) => { e.preventDefault(); };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [step]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = Array.from(e.target.files ?? []);
@@ -258,6 +361,7 @@ export const GeminiPdfModal = ({ sets, onImportNew, onImportExisting, onClose, a
       onImportExisting(problems, targetSetId);
     }
     addToast(`${problems.length}件の問題を追加しました`);
+    clearSession();
     onClose();
   };
 
@@ -321,7 +425,7 @@ export const GeminiPdfModal = ({ sets, onImportNew, onImportExisting, onClose, a
   };
 
   return (
-    <Dialog open={true} onOpenChange={(open) => { if (!open) onClose(); }}>
+    <Dialog open={true} onOpenChange={(open) => { if (!open) handleCloseRequest(); }}>
       <DialogContent className="max-w-[500px]" aria-describedby={undefined}>
         <DialogHeader>
           <DialogTitle>AI問題抽出</DialogTitle>
@@ -382,7 +486,7 @@ export const GeminiPdfModal = ({ sets, onImportNew, onImportExisting, onClose, a
             )}
 
             <div className="flex gap-2 mt-3">
-              <Button variant="outline" className="flex-1" onClick={onClose}>キャンセル</Button>
+              <Button variant="outline" className="flex-1" onClick={handleCloseRequest}>キャンセル</Button>
               <Button variant="default" className="flex-[2]" onClick={handleExtract} disabled={files.length === 0}>
                 抽出する
               </Button>
@@ -525,7 +629,7 @@ export const GeminiPdfModal = ({ sets, onImportNew, onImportExisting, onClose, a
             </div>
 
             <div className="flex gap-2">
-              <Button variant="outline" className="flex-1" onClick={onClose}>キャンセル</Button>
+              <Button variant="outline" className="flex-1" onClick={handleCloseRequest}>キャンセル</Button>
               <Button
                 variant="default"
                 className="flex-[2]"
@@ -677,6 +781,23 @@ export const GeminiPdfModal = ({ sets, onImportNew, onImportExisting, onClose, a
           </>
         )}
 
+        {/* 閉じる確認オーバーレイ */}
+        {showCloseConfirm && (
+          <div className="absolute inset-0 bg-black/60 flex items-center justify-center rounded-[inherit] z-10">
+            <div className="bg-white dark:bg-[#1a1a1a] rounded-[12px] p-5 mx-4 max-w-[280px] w-full shadow-xl">
+              <p className="text-sm font-semibold text-[#1a1a1a] dark:text-[#e0e0e0] mb-1">作業中の内容が失われます</p>
+              <p className="text-[12px] text-[#888] mb-4">閉じると抽出した問題が消えます。本当に閉じますか？</p>
+              <div className="flex gap-2">
+                <Button variant="outline" className="flex-1" onClick={() => setShowCloseConfirm(false)}>
+                  続ける
+                </Button>
+                <Button variant="default" className="flex-1" onClick={handleConfirmClose}>
+                  閉じる
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   );
