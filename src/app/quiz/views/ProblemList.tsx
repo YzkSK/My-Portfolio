@@ -16,11 +16,17 @@ type Props = {
   onReorder: (orderedIds: string[]) => void;
 };
 
+const getItemIdFromPoint = (x: number, y: number): string | null => {
+  const el = document.elementFromPoint(x, y);
+  return (el?.closest('[data-item-id]') as HTMLElement | null)?.dataset.itemId ?? null;
+};
+
 export const ProblemList = ({ problems, onAdd, onEdit, onShare, onToggleBookmark, onReorder }: Props) => {
   const [answerDialog, setAnswerDialog] = useState<{ question: string; answer: string } | null>(null);
   const [dragId, setDragId] = useState<string | null>(null);
   const [dragOverId, setDragOverId] = useState<string | null>(null);
-  const didDragRef = useRef(false);
+  const didDragRef    = useRef(false);
+  const touchDragIdRef = useRef<string | null>(null);
 
   const sorted = [...problems].sort((a, b) => {
     if (a.index && b.index) return a.index - b.index;
@@ -28,6 +34,16 @@ export const ProblemList = ({ problems, onAdd, onEdit, onShare, onToggleBookmark
     if (b.index) return 1;
     return b.createdAt - a.createdAt;
   });
+
+  const applyReorder = (fromId: string, toId: string) => {
+    const next = [...sorted];
+    const fromIdx = next.findIndex(x => x.id === fromId);
+    const toIdx   = next.findIndex(x => x.id === toId);
+    if (fromIdx === -1 || toIdx === -1 || fromIdx === toIdx) return;
+    const [item] = next.splice(fromIdx, 1);
+    next.splice(toIdx, 0, item!);
+    onReorder(next.map(x => x.id));
+  };
 
   return (
     <>
@@ -45,13 +61,14 @@ export const ProblemList = ({ problems, onAdd, onEdit, onShare, onToggleBookmark
           ＋ボタンで問題を追加しましょう
         </p>
       ) : (
-        sorted.map((p, i) => {
-          const isLong = p.answer.length > ANSWER_INLINE_LIMIT;
+        sorted.map((p) => {
+          const isLong    = p.answer.length > ANSWER_INLINE_LIMIT;
           const isDragging = dragId === p.id;
           const isDragOver = dragOverId === p.id && dragId !== p.id;
           return (
             <div
               key={p.id}
+              data-item-id={p.id}
               className={`qz-problem-item flex items-stretch gap-0 transition-opacity ${isDragging ? 'opacity-40' : 'opacity-100'} ${isDragOver ? 'border-t-2 border-blue-400' : ''}`}
               draggable
               onDragStart={e => {
@@ -66,17 +83,43 @@ export const ProblemList = ({ problems, onAdd, onEdit, onShare, onToggleBookmark
                 e.preventDefault();
                 if (!dragId || dragId === p.id) return;
                 didDragRef.current = true;
-                const next = [...sorted];
-                const fromIdx = next.findIndex(x => x.id === dragId);
-                const [item] = next.splice(fromIdx, 1);
-                next.splice(i, 0, item!);
-                onReorder(next.map(x => x.id));
+                applyReorder(dragId, p.id);
                 setDragId(null);
                 setDragOverId(null);
               }}
               onClick={() => { if (!didDragRef.current) onEdit(p.id); didDragRef.current = false; }}
             >
-              <div className="-ml-4 -my-[14px] mr-3 flex items-center px-2.5 border-r border-[#ececec] dark:border-[#2a2a2a] rounded-l-[11px] flex-shrink-0">
+              {/* ドラッグハンドル */}
+              <div
+                className="-ml-4 -my-[14px] mr-3 flex items-center px-2.5 border-r border-[#ececec] dark:border-[#2a2a2a] rounded-l-[11px] flex-shrink-0 touch-none"
+                onTouchStart={e => {
+                  e.preventDefault();
+                  touchDragIdRef.current = p.id;
+                  setDragId(p.id);
+                  didDragRef.current = false;
+                }}
+                onTouchMove={e => {
+                  e.preventDefault();
+                  const touch = e.touches[0];
+                  if (!touch) return;
+                  const overId = getItemIdFromPoint(touch.clientX, touch.clientY);
+                  setDragOverId(overId !== touchDragIdRef.current ? overId : null);
+                }}
+                onTouchEnd={e => {
+                  e.preventDefault();
+                  const touch = e.changedTouches[0];
+                  if (touch && touchDragIdRef.current) {
+                    const toId = getItemIdFromPoint(touch.clientX, touch.clientY);
+                    if (toId && toId !== touchDragIdRef.current) {
+                      didDragRef.current = true;
+                      applyReorder(touchDragIdRef.current, toId);
+                    }
+                  }
+                  touchDragIdRef.current = null;
+                  setDragId(null);
+                  setDragOverId(null);
+                }}
+              >
                 <span className="text-[16px] text-[#ccc] cursor-grab select-none">⠿</span>
               </div>
 
