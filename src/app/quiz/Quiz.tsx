@@ -1,21 +1,21 @@
-import { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useToast } from '../shared/useToast';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
 import { ref, deleteObject, listAll } from 'firebase/storage';
-import { auth, db, storage } from '../shared/firebase';
+import { auth, storage } from '../shared/firebase';
 import { useAuth } from '../auth/AuthContext';
-import { useSetLoading } from '../shared/AppLoadingContext';
 import { useNavigate } from 'react-router-dom';
 import { AppFooter } from '../shared/AppFooter';
 import '../shared/app.css';
 import './quiz.css';
 import {
-  SAVE_DEBOUNCE_MS, TOAST_DURATION_MS,
+  TOAST_DURATION_MS,
   newProblem, newProblemSet, parseProblem, parseProblemSet, firestorePaths, WRONG_CHOICES_COUNT,
   getInvalidCount,
   type Problem, type ProblemSet, type Modal, type AddModal, type EditModal, type AnswerFormat,
 } from './constants';
+import { useFirestoreData } from '../shared/useFirestoreData';
+import { useFirestoreSave } from '../shared/useFirestoreSave';
 import { ProblemList } from './views/ProblemList';
 import { ProblemModal } from './modals/ProblemModal';
 import { ProblemSetModal } from './modals/ProblemSetModal';
@@ -30,10 +30,8 @@ import { DbErrorBanner } from '../shared/DbErrorBanner';
 export const Quiz = () => {
   const { currentUser } = useAuth();
   const navigate = useNavigate();
-  const setGlobalLoading = useSetLoading();
   usePageTitle('問題集');
 
-  const [sets, setSets]               = useState<ProblemSet[]>([]);
   const [activeSetId, setActiveSetId] = useState<string | null>(null);
   const [modal, setModal]             = useState<Modal>(null);
   const [dragSetId, setDragSetId]         = useState<string | null>(null);
@@ -42,53 +40,48 @@ export const Quiz = () => {
   const touchDragSetIdRef    = useRef<string | null>(null);
   const prevDragOverSetIdRef = useRef<string | null>(null);
   const { toasts, addToast }          = useToast(TOAST_DURATION_MS);
-  const [loading, setLoading]         = useState(true);
-  const [dbError, setDbError]         = useState(false);
   const [formError, setFormError]     = useState('');
-  const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const setsRef = useRef<ProblemSet[]>([]);
 
-  useLayoutEffect(() => {
-    setGlobalLoading('quiz', true);
-    return () => setGlobalLoading('quiz', false);
-  }, [setGlobalLoading]);
+  // saveToFirestore を先に定義して onAfterLoad から参照できるようにする
+  const saveToFirestore = useFirestoreSave<{ sets: ProblemSet[] }>({
+    currentUser,
+    path: firestorePaths.quizData(currentUser?.uid ?? ''),
+  });
 
-  useEffect(() => {
-    if (!currentUser) return;
-    (async () => {
-      try {
-        const ref = doc(db, firestorePaths.quizData(currentUser.uid));
-        const snap = await getDoc(ref);
-        if (snap.exists()) {
-          const data = snap.data();
-          if (Array.isArray(data.sets)) {
-            const loaded = (data.sets as Record<string, unknown>[]).map(parseProblemSet);
-            const needsReindex = loaded.some(s => s.problems.some(p => p.index === 0));
-            const finalSets = needsReindex
-              ? loaded.map(s =>
-                  s.problems.some(p => p.index === 0)
-                    ? { ...s, problems: s.problems.map((p, i) => ({ ...p, index: i + 1 })) }
-                    : s
-                )
-              : loaded;
-            setSets(finalSets);
-            if (needsReindex) saveToFirestore(finalSets);
-          } else if (Array.isArray(data.problems)) {
-            // 旧データ移行: problems → デフォルトセット
-            const migrated = newProblemSet('問題集');
-            migrated.problems = (data.problems as Record<string, unknown>[]).map(parseProblem);
-            setSets([migrated]);
-          }
-        }
-      } catch (e) {
-        console.error('Quiz Firestore読み込みエラー:', e);
-        setDbError(true);
-      } finally {
-        setLoading(false);
-        setGlobalLoading('quiz', false);
+  // index === 0 の問題があれば再採番が必要なフラグ（parse → onAfterLoad で共有）
+  let needsReindexSave = false;
+
+  const { data: sets, setData: setSets, loading, dbError } = useFirestoreData<ProblemSet[]>({
+    currentUser,
+    path: firestorePaths.quizData(currentUser?.uid ?? ''),
+    parse: (raw) => {
+      needsReindexSave = false;
+      if (Array.isArray(raw.sets)) {
+        const loaded = (raw.sets as Record<string, unknown>[]).map(parseProblemSet);
+        const needsReindex = loaded.some(s => s.problems.some(p => p.index === 0));
+        if (!needsReindex) return loaded;
+        needsReindexSave = true;
+        return loaded.map(s =>
+          s.problems.some(p => p.index === 0)
+            ? { ...s, problems: s.problems.map((p, i) => ({ ...p, index: i + 1 })) }
+            : s
+        );
       }
-    })();
-  }, [currentUser]);
+      if (Array.isArray(raw.problems)) {
+        // 旧データ移行: problems → デフォルトセット
+        const migrated = newProblemSet('問題集');
+        migrated.problems = (raw.problems as Record<string, unknown>[]).map(parseProblem);
+        return [migrated];
+      }
+      return [];
+    },
+    loadingKey: 'quiz',
+    initialData: [],
+    onAfterLoad: (data) => {
+      if (needsReindexSave) saveToFirestore({ sets: data });
+    },
+  });
 
   useEffect(() => { setsRef.current = sets; }, [sets]);
 
@@ -131,20 +124,7 @@ export const Quiz = () => {
           .filter(item => !usedPaths.has(item.fullPath))
           .map(item => deleteObject(item).catch((e) => { console.error('Storage個別削除失敗:', e); })),
       );
-    } catch (e) { console.error('ストレージクリーンアップ失敗:', e); }
-  }, [currentUser]);
-
-  const saveToFirestore = useCallback((data: ProblemSet[]) => {
-    if (!currentUser) return;
-    if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
-    saveTimeoutRef.current = setTimeout(async () => {
-      try {
-        const ref = doc(db, firestorePaths.quizData(currentUser.uid));
-        await setDoc(ref, { sets: data }, { merge: true });
-      } catch (e) {
-        console.error('Quiz: Firestore保存失敗', e);
-      }
-    }, SAVE_DEBOUNCE_MS);
+    } catch (e) { console.error('ストレージクリーンアップ失敗:', e); /* 画像クリーンアップは補助的処理のため失敗しても続行 */ }
   }, [currentUser]);
 
   const handleLogout = async () => {
@@ -156,7 +136,7 @@ export const Quiz = () => {
   const createSet = (name: string, answerFormat: AnswerFormat = 'written') => {
     const next = [...sets, newProblemSet(name, answerFormat)];
     setSets(next);
-    saveToFirestore(next);
+    saveToFirestore({ sets: next });
     setModal(null);
   };
 
@@ -174,7 +154,7 @@ export const Quiz = () => {
       return { ...s, name, answerFormat, problems };
     });
     setSets(next);
-    saveToFirestore(next);
+    saveToFirestore({ sets: next });
     setModal(null);
   };
 
@@ -202,7 +182,7 @@ export const Quiz = () => {
     }
 
     setSets(remainingSets);
-    saveToFirestore(remainingSets);
+    saveToFirestore({ sets: remainingSets });
     if (activeSetId === setId) setActiveSetId(null);
     setModal(null);
   };
@@ -213,7 +193,7 @@ export const Quiz = () => {
       problems: s.problems.map(p => ({ ...p, attemptCount: 0, correctCount: 0, consecutiveCorrect: 0, consecutiveWrong: 0 })),
     });
     setSets(next);
-    saveToFirestore(next);
+    saveToFirestore({ sets: next });
   };
 
   // ── 問題 CRUD（アクティブセット内）────────────────────────
@@ -223,7 +203,7 @@ export const Quiz = () => {
   const updateActiveSetProblems = (updated: Problem[]) => {
     const next = sets.map(s => s.id === activeSetId ? { ...s, problems: updated } : s);
     setSets(next);
-    saveToFirestore(next);
+    saveToFirestore({ sets: next });
   };
 
   const handleReorder = (orderedIds: string[]) => {
@@ -234,7 +214,7 @@ export const Quiz = () => {
   const handleReorderSets = (orderedIds: string[]) => {
     const next = orderedIds.map(id => sets.find(s => s.id === id)!).filter(Boolean);
     setSets(next);
-    saveToFirestore(next);
+    saveToFirestore({ sets: next });
   };
 
   const SET_SHIFT_PX = 14;
@@ -310,7 +290,7 @@ export const Quiz = () => {
     s.problems = imported.map((p, i) => ({ ...p, index: i + 1 }));
     const next = [...sets, s];
     setSets(next);
-    saveToFirestore(next);
+    saveToFirestore({ sets: next });
     setModal(null);
   };
 
@@ -321,7 +301,7 @@ export const Quiz = () => {
         : s
     );
     setSets(next);
-    saveToFirestore(next);
+    saveToFirestore({ sets: next });
     setModal(null);
   };
 
@@ -534,7 +514,7 @@ export const Quiz = () => {
             if (!activeSetId) return;
             const next = sets.map(s => s.id === activeSetId ? { ...s, shareCode: code } : s);
             setSets(next);
-            saveToFirestore(next);
+            saveToFirestore({ sets: next });
           }}
           onClose={() => setModal(null)}
           addToast={addToast}

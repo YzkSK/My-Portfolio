@@ -1,4 +1,4 @@
-import { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useToast } from '../shared/useToast';
 import { doc, getDoc, setDoc, deleteDoc } from 'firebase/firestore';
 import { getToken, deleteToken, onMessage } from 'firebase/messaging';
@@ -9,13 +9,14 @@ import { signOut } from 'firebase/auth';
 import '../shared/app.css';
 import './timetable.css';
 import { AppFooter } from '../shared/AppFooter';
-import { useSetLoading } from '../shared/AppLoadingContext';
 import {
   DEFAULT_PERIODS, DAY_LABELS, NOTIFY_OPTIONS,
-  SAVE_DEBOUNCE_MS, MS_PER_MINUTE, TOAST_DURATION_MS,
+  MS_PER_MINUTE, TOAST_DURATION_MS,
   toKey, addDays, startOfWeek, timeToMin, isEventModal, firestorePaths,
   type TimetableEvent, type Period, type Events, type Modal, type Form,
 } from './constants';
+import { useFirestoreData } from '../shared/useFirestoreData';
+import { useFirestoreSave } from '../shared/useFirestoreSave';
 import { MonthView } from './views/MonthView';
 import { WeekView } from './views/WeekView';
 import { DayView } from './views/DayView';
@@ -45,14 +46,11 @@ export const Timetable = () => {
 
   const [view, setView] = useState<'month' | 'week' | 'day'>('week');
   const [cursor, setCursor] = useState(new Date(today));
-  const [events, setEvents] = useState<Events>({});
-  const [periods, setPeriods] = useState<Period[]>(DEFAULT_PERIODS);
   const [modal, setModal] = useState<Modal>(null);
   const [form, setForm] = useState<Form>({ name: '', room: '', note: '', colorIdx: 0 });
   const [formError, setFormError] = useState('');
   const [settingsError, setSettingsError] = useState('');
   const [isEditing, setIsEditing] = useState(false);
-  const [notifyBefore, setNotifyBefore] = useState(10);
   const [notifyEnabled, setNotifyEnabled] = useState(() => {
     const saved = localStorage.getItem('notifyEnabled') === 'true';
     const perm = typeof Notification !== 'undefined' ? Notification.permission : 'default';
@@ -64,23 +62,58 @@ export const Timetable = () => {
   const { toasts, addToast } = useToast(TOAST_DURATION_MS);
   const [showNotifyPicker, setShowNotifyPicker] = useState(false);
   const [settingsPeriods, setSettingsPeriods] = useState<Period[]>(DEFAULT_PERIODS);
-  const [loading, setLoading] = useState(true);
-  const [dbError, setDbError] = useState(false);
   const [nextNotify, setNextNotify] = useState<{
     label: string; name: string; start: string; notifyAt: string; pushReady: boolean;
   } | null>(null);
   const [tokenVersion, setTokenVersion] = useState(0);
   const [notifyToggling, setNotifyToggling] = useState(false);
-  const setGlobalLoading = useSetLoading();
   const scheduledRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
-  const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const currentTokenRef = useRef<string>('');
 
-  // ── Firestoreローディングをグローバルに通知 ──────────────
-  useLayoutEffect(() => {
-    setGlobalLoading('timetable', true);
-    return () => setGlobalLoading('timetable', false);
-  }, [setGlobalLoading]);
+  // ── Firestore 保存（デバウンス） ────────────────────────
+  type TimetableData = { events: Events; periods: Period[]; notifyBefore: number };
+  const saveToFirestore = useFirestoreSave<TimetableData>({
+    currentUser,
+    path: firestorePaths.timetableData(currentUser?.uid ?? ''),
+    onSuccess: () => setTokenVersion(v => v + 1),
+  });
+  const { data: ttData, setData: setTtData, loading, dbError } = useFirestoreData<TimetableData>({
+    currentUser,
+    path: firestorePaths.timetableData(currentUser?.uid ?? ''),
+    parse: (raw) => {
+      const parsedEvents: Events = {};
+      if (raw.events && typeof raw.events === 'object') {
+        for (const [key, evs] of Object.entries(raw.events as Record<string, unknown>)) {
+          parsedEvents[key] = (evs as Record<string, unknown>[]).map(ev => ({
+            periodIndex: (ev.periodIndex ?? ev.pi) as number,
+            eventId: (ev.eventId ?? ev._idx) as number,
+            name: ev.name as string,
+            room: (ev.room ?? '') as string,
+            note: (ev.note ?? '') as string,
+            colorIdx: (ev.colorIdx ?? 0) as number,
+          }));
+        }
+      }
+      const periodsRaw = raw.periods;
+      const parsedPeriods: Period[] =
+        Array.isArray(periodsRaw) && periodsRaw.length > 0 ? (periodsRaw as Period[]) : DEFAULT_PERIODS;
+      const notifyBeforeVal = typeof raw.notifyBefore === 'number' ? raw.notifyBefore : 10;
+      return { events: parsedEvents, periods: parsedPeriods, notifyBefore: notifyBeforeVal };
+    },
+    loadingKey: 'timetable',
+    initialData: { events: {}, periods: DEFAULT_PERIODS, notifyBefore: 10 },
+  });
+  const events = ttData.events;
+  const periods = ttData.periods;
+  const notifyBefore = ttData.notifyBefore;
+  const setEvents = (updater: Events | ((prev: Events) => Events)) => {
+    setTtData(prev => ({
+      ...prev,
+      events: typeof updater === 'function' ? updater(prev.events) : updater,
+    }));
+  };
+  const setPeriods = (p: Period[]) => setTtData(prev => ({ ...prev, periods: p }));
+  const setNotifyBefore = (n: number) => setTtData(prev => ({ ...prev, notifyBefore: n }));
 
   // ── Service Worker 登録 ─────────────────────────────────
   useEffect(() => {
@@ -105,63 +138,6 @@ export const Timetable = () => {
       }
     }).catch(console.error);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // ── Firestore 読み込み ──────────────────────────────────
-  useEffect(() => {
-    if (!currentUser) return;
-    (async () => {
-      try {
-        const ref = doc(db, firestorePaths.timetableData(currentUser.uid));
-        const snap = await getDoc(ref);
-        if (snap.exists()) {
-          const data = snap.data();
-          if (data.events) {
-            // pi/_idx → periodIndex/eventId への移行処理
-            const migrated: Events = {};
-            for (const [key, evs] of Object.entries(data.events)) {
-              migrated[key] = (evs as Record<string, unknown>[]).map(ev => ({
-                periodIndex: (ev.periodIndex ?? ev.pi) as number,
-                eventId: (ev.eventId ?? ev._idx) as number,
-                name: ev.name as string,
-                room: (ev.room ?? '') as string,
-                note: (ev.note ?? '') as string,
-                colorIdx: (ev.colorIdx ?? 0) as number,
-              }));
-            }
-            setEvents(migrated);
-          }
-          if (data.periods?.length > 0) setPeriods(data.periods);
-          if (data.notifyBefore) setNotifyBefore(data.notifyBefore);
-        }
-      } catch (e) {
-        console.error('Firestore読み込みエラー:', e);
-        setDbError(true);
-      } finally {
-        setLoading(false);
-        setGlobalLoading('timetable', false);
-      }
-    })();
-  }, [currentUser]);
-
-  // ── Firestore 保存（デバウンス） ────────────────────────
-  const saveToFirestore = useCallback((
-    eventsData: Events,
-    periodsData: Period[],
-    notifyBeforeData: number,
-  ) => {
-    if (!currentUser) return;
-    if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
-    saveTimeoutRef.current = setTimeout(async () => {
-      try {
-        const ref = doc(db, firestorePaths.timetableData(currentUser.uid));
-        await setDoc(ref, { events: eventsData, periods: periodsData, notifyBefore: notifyBeforeData });
-        // 保存完了後にSW側の次の予定チェックを再実行
-        setTokenVersion(v => v + 1);
-      } catch (e) {
-        console.error('Timetable: Firestore保存失敗', e);
-      }
-    }, SAVE_DEBOUNCE_MS);
-  }, [currentUser, setTokenVersion]);
 
   // ── 通知 ────────────────────────────────────────────────
   const requestPermission = async () => {
@@ -259,7 +235,7 @@ export const Timetable = () => {
       if (permission === 'granted') {
         navigator.serviceWorker.ready.then(reg => {
           reg.showNotification(title, { body });
-        }).catch((e) => { console.error('フォアグラウンド通知表示失敗:', e); });
+        }).catch((e) => { console.error('フォアグラウンド通知表示失敗:', e); /* フォアグラウンド通知表示失敗は無視（通知機能に影響しない） */ });
       }
     });
     return unsub;
@@ -367,7 +343,7 @@ export const Timetable = () => {
         note: form.note.trim(), colorIdx: form.colorIdx, eventId: Date.now() + Math.random(),
       };
       const next = { ...prev, [dateKey]: [...filtered, newEv].sort((a, b) => a.periodIndex - b.periodIndex) };
-      saveToFirestore(next, periods, notifyBefore);
+      saveToFirestore({ events: next, periods, notifyBefore });
       return next;
     });
     setModal(null);
@@ -381,7 +357,7 @@ export const Timetable = () => {
         ...prev,
         [dateKey]: (prev[dateKey] || []).filter(e => !(e.periodIndex === periodIndex && e.eventId === eventId)),
       };
-      saveToFirestore(next, periods, notifyBefore);
+      saveToFirestore({ events: next, periods, notifyBefore });
       return next;
     });
     setModal(null);
@@ -412,7 +388,7 @@ export const Timetable = () => {
     }
     setSettingsError('');
     setPeriods(settingsPeriods);
-    saveToFirestore(events, settingsPeriods, notifyBefore);
+    saveToFirestore({ events, periods: settingsPeriods, notifyBefore });
     setModal(null);
     addToast('時間設定を保存しました');
   };
@@ -559,7 +535,7 @@ export const Timetable = () => {
               <div key={o.value} onClick={async () => {
                 setNotifyBefore(o.value);
                 setShowNotifyPicker(false);
-                saveToFirestore(events, periods, o.value);
+                saveToFirestore({ events, periods, notifyBefore: o.value });
                 if (notifyEnabled && currentUser && currentTokenRef.current) {
                   const ref = doc(db, firestorePaths.pushTokenDoc(currentUser.uid, currentTokenRef.current));
                   await setDoc(ref, { notifyBefore: o.value }, { merge: true });

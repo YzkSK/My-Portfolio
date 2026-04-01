@@ -34,14 +34,13 @@ Quiz.tsx
 
 | state | 型 | 初期値 | 説明 |
 |---|---|---|---|
-| `sets` | `ProblemSet[]` | `[]` | 全問題集データ |
+| `sets` | `ProblemSet[]` | `[]` | 全問題集データ (`useFirestoreData` が管理) |
 | `activeSetId` | `string \| null` | `null` | 選択中の問題集ID |
 | `modal` | `Modal` | `null` | 開いているモーダル |
 | `toasts` | Toast[] | `[]` | トースト通知 |
-| `loading` | boolean | `true` | 読み込み中フラグ |
-| `dbError` | boolean | `false` | Firestore エラーフラグ |
+| `loading` | boolean | `true` | 読み込み中フラグ (`useFirestoreData` が管理) |
+| `dbError` | boolean | `false` | Firestore エラーフラグ (`useFirestoreData` が管理) |
 | `formError` | string | `''` | ProblemModal のエラー |
-| `saveTimeoutRef` | ref | — | デバウンスタイマー |
 | `setsRef` | ref | — | cleanupImages 用の最新 sets 参照 |
 
 ## データ構造
@@ -88,14 +87,15 @@ Problem = {
 ```
 パス: users/{uid}/quiz/data
 
-Read (useEffect, マウント時1回):
+Read (useFirestoreData フック, マウント時1回):
   getDoc(ref)
   → data.sets が配列: parseProblemSet で正規化してセット
   → data.problems が配列 (旧形式): デフォルト「問題集」に移行
-  → エラー: setDbError(true)
+    移行が発生した場合は onAfterLoad で saveToFirestore({ sets }) を呼ぶ
+  → エラー: console.error + setDbError(true)
   → 完了: setLoading(false), setGlobalLoading('quiz', false)
 
-Write (saveToFirestore, デバウンス 800ms):
+Write (useFirestoreSave フック, デバウンス 800ms):
   setDoc(ref, { sets: data }, { merge: true })
 ```
 
@@ -269,10 +269,54 @@ Phase 3: レビュー
 ## グローバルローディング
 
 ```
-useLayoutEffect:
+useFirestoreData フック内部の useLayoutEffect が管理:
   マウント時: setGlobalLoading('quiz', true)
   アンマウント時: setGlobalLoading('quiz', false)
-  Firestore 読み込み完了後: setGlobalLoading('quiz', false)
+  Firestore 読み込み完了後 (finally): setGlobalLoading('quiz', false)
+```
+
+## AI 解説生成 (memoGenerator.ts)
+
+```
+generateMemoExplanation(question, answer, onChunk):
+  VITE_GOOGLE_GEMINI_API_KEY が未設定 → MemoGenError('no_api_key') をスロー
+  Gemini API (gemini-3.1-flash-lite-preview) にストリーミングリクエスト
+  チャンクごとに累積テキストを onChunk に渡す
+
+エラーコード (MEMO_GEN_ERROR_CODES):
+  E011: NO_API_KEY  (APIキー未設定)
+  E012: GENERATE    (生成中エラー)
+```
+
+### ProblemModal の AI解説ボタン
+
+```
+revealed フェーズ・ProblemModal 編集エリア:
+  「✨ AI解説を生成」ボタン (問題文・答えが入力済みの場合のみ有効)
+  クリック → generateMemoExplanation(question, answer, onChunk)
+    → メモ欄にストリーミング挿入
+  生成中 (generatingMemo=true):
+    Textarea は readOnly
+    ボタンは disabled
+  エラー時: addToast(`解説生成に失敗しました [E011]` など, 'error')
+```
+
+## 画像キャッシュ (imageCache.ts)
+
+```
+3層キャッシュ:
+  1. メモリキャッシュ (Map<url, blobUrl>)
+  2. Cache API ('quiz-img-v1')
+  3. fetch (ネットワーク)
+
+inFlight Map:
+  同一 URL への並列呼び出しを同一 Promise で処理し blob URL の二重生成を防ぐ
+
+failedUrls Set:
+  失敗した URL を記録し、次回呼び出し時に Cache API をスキップして再試行
+
+clearImageCache():
+  全 blob URL を URL.revokeObjectURL() で解放しメモリキャッシュをクリア
 ```
 
 ## テスト
@@ -301,6 +345,31 @@ useLayoutEffect:
 | newProblemSet — 指定した値でセットを生成する | ✅ |
 | buildProblemChoices — choice2 は常に ○/✗ の固定2択 | ✅ |
 | buildProblemChoices — choice4 は正解 + wrongChoices の計4択を含む | ✅ |
+| MAX_RECENT — 10 である | ✅ |
+| RECENT_INITIAL_SHOW — 3 である | ✅ |
+| MEMO_GEN_ERROR_CODES.NO_API_KEY — E011 | ✅ |
+| MEMO_GEN_ERROR_CODES.GENERATE — E012 | ✅ |
+| MemoGenError — reason プロパティが正しく設定される | ✅ |
+| MemoGenError — generate reason も正しく設定される | ✅ |
+
+### 単体テスト — `src/__tests__/unit/quiz/imageCache.test.ts`
+
+| テスト名 | 結果 |
+|---|---|
+| メモリキャッシュヒット → fetch せずに blob URL を返す | ✅ |
+| Cache API ヒット → fetch せずに blob URL を返す | ✅ |
+| キャッシュミス → fetch して blob URL を返す | ✅ |
+| fetch 失敗した URL は再取得をスキップしない（再試行する） | ✅ |
+| 並列呼び出しは同一 Promise を共有し fetch は1回だけ呼ばれる | ✅ |
+| clearImageCache — blob URL を revoke してメモリキャッシュをクリアする | ✅ |
+
+### 結合テスト — `src/__tests__/integration/quiz/memoGenerator.test.ts`
+
+| テスト名 | 結果 |
+|---|---|
+| API キーがない場合は MemoGenError(no_api_key) をスローする | ✅ |
+| ストリーミング成功時に onChunk へ累積テキストが渡される | ✅ |
+| ストリーミング成功時に getGenerativeModel が呼ばれる | ✅ |
 
 ---
 

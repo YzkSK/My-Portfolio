@@ -1,14 +1,13 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
+import { MemoGenError, MEMO_GEN_ERROR_CODES } from './constants';
+
 const MODEL = 'gemini-3.1-flash-lite-preview';
 
 const PROMPT = (question: string, answer: string) =>
   `問題: ${question}\n答え: ${answer}\n\n上記の問題と答えについて、なぜその答えになるかを簡潔に解説してください。学習者が理解・記憶しやすいよう、関連する知識や覚え方のポイントも含めて日本語で説明してください。マークダウン記法は使わず、プレーンテキストで出力してください。`;
 
-export const MEMO_GEN_ERROR_CODES = {
-  NO_API_KEY: 'E001',
-  GENERATE:   'E002',
-} as const;
+export { MemoGenError, MEMO_GEN_ERROR_CODES };
 
 /**
  * Gemini を使ってメモ解説をストリーミング生成する。
@@ -33,11 +32,3 @@ export const generateMemoExplanation = async (
     onChunk(text);
   }
 };
-
-export class MemoGenError extends Error {
-  reason: 'no_api_key' | 'generate';
-  constructor(reason: 'no_api_key' | 'generate') {
-    super(reason);
-    this.reason = reason;
-  }
-}

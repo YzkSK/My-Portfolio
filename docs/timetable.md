@@ -32,20 +32,20 @@ Timetable.tsx
 |---|---|---|---|
 | `view` | `'month' \| 'week' \| 'day'` | `'week'` | 現在のビュー |
 | `cursor` | Date | `today` (時刻は 00:00:00.000) | 表示基準日 |
-| `events` | `Events` | `{}` | 全イベント (キー: "YYYY-MM-DD") |
-| `periods` | `Period[]` | `DEFAULT_PERIODS` | 時限定義 |
+| `events` | `Events` | `{}` | 全イベント (`useFirestoreData` が管理) |
+| `periods` | `Period[]` | `DEFAULT_PERIODS` | 時限定義 (`useFirestoreData` が管理) |
 | `modal` | `Modal` | `null` | 開いているモーダル |
 | `form` | `Form` | `{name:'', room:'', note:'', colorIdx:0}` | イベント編集フォーム値 |
 | `formError` | string | `''` | EventModal のエラー |
 | `settingsError` | string | `''` | SettingsModal のエラー |
 | `isEditing` | boolean | `false` | 編集 vs 新規追加 |
-| `notifyBefore` | number | `10` | 通知タイミング (分) |
+| `notifyBefore` | number | `10` | 通知タイミング (分) (`useFirestoreData` が管理) |
 | `notifyEnabled` | boolean | localStorage + 権限状態 | 通知ON/OFF |
 | `permission` | NotificationPermission | `Notification.permission` | ブラウザ通知権限 |
 | `showNotifyPicker` | boolean | `false` | 通知タイミングピッカー表示 |
 | `settingsPeriods` | `Period[]` | `DEFAULT_PERIODS` | SettingsModal の編集用一時データ |
-| `loading` | boolean | `true` | Firestore 読み込み中フラグ |
-| `dbError` | boolean | `false` | Firestore エラーフラグ |
+| `loading` | boolean | `true` | Firestore 読み込み中フラグ (`useFirestoreData` が管理) |
+| `dbError` | boolean | `false` | Firestore エラーフラグ (`useFirestoreData` が管理) |
 | `nextNotify` | object \| null | `null` | 次に通知する授業の情報 |
 | `notifyToggling` | boolean | `false` | 通知トグル処理中フラグ（多重クリック防止） |
 
@@ -100,17 +100,17 @@ DEFAULT_PERIODS:
 パス: users/{uid}/timetable/data
   (注意: timetableS ではなく timetable)
 
-Read (useEffect, マウント時1回):
+Read (useFirestoreData フック, マウント時1回):
   getDoc(ref)
   → data.events が存在: 旧フォーマット (pi/_idx) → 新フォーマット (periodIndex/eventId) に移行
-  → data.periods?.length > 0: setPeriods
-  → data.notifyBefore: setNotifyBefore
-  → エラー: setDbError(true)
+  → data.periods?.length > 0: parsedPeriods = data.periods (なければ DEFAULT_PERIODS)
+  → data.notifyBefore: parsedNotifyBefore
+  → エラー: console.error + setDbError(true)
   → 完了: setLoading(false), setGlobalLoading('timetable', false)
 
-Write (saveToFirestore, デバウンス 800ms):
-  setDoc(ref, { events, periods, notifyBefore })
-  → 保存完了後: setTokenVersion(v => v + 1) (通知予定を再計算)
+Write (useFirestoreSave フック, デバウンス 800ms):
+  setDoc(ref, { events, periods, notifyBefore }, { merge: true })
+  → 保存完了後 (onSuccess): setTokenVersion(v => v + 1) (通知予定を再計算)
 ```
 
 ## Push Token の Firestore パス
@@ -318,10 +318,10 @@ onMessage(messaging, payload):
 ## グローバルローディング
 
 ```
-useLayoutEffect:
+useFirestoreData フック内部の useLayoutEffect が管理:
   マウント時: setGlobalLoading('timetable', true)
   アンマウント時: setGlobalLoading('timetable', false)
-  Firestore 読み込み完了後: setGlobalLoading('timetable', false)
+  Firestore 読み込み完了後 (finally): setGlobalLoading('timetable', false)
 ```
 
 ## テスト

@@ -44,16 +44,16 @@ QuizPlay.tsx
 
 | state | 型 | 初期値 | 説明 |
 |---|---|---|---|
-| `sets` | `ProblemSet[]` | `[]` | 全問題集 |
-| `recentConfigs` | `RecentConfig[]` | `[]` | 最近の設定 (最大10件) |
+| `sets` | `ProblemSet[]` | `[]` | 全問題集 (`useFirestoreData` が管理、`recentConfigs` と合成) |
+| `recentConfigs` | `RecentConfig[]` | `[]` | 最近の設定・最大 MAX_RECENT(10) 件 (`useFirestoreData` が管理) |
 | `showAllRecent` | boolean | `false` | 直近の記録を全件表示するか |
 | `selectedSetIds` | `string[]` | `[URL params ?set]` or `[]` | 選択中の問題集ID |
 | `configConfirmed` | boolean | `false` | 設定画面に進んだか |
 | `session` | `ActiveSession \| null` | `null` | 現在のセッション |
 | `categoryFilter` | string | `''` | カテゴリフィルター値 |
 | `quizMode` | `QuizMode` | `'oneByOne'` | 出題モード |
-| `loading` | boolean | `true` | 読み込み中 |
-| `dbError` | boolean | `false` | Firestore エラー |
+| `loading` | boolean | `true` | 読み込み中 (`useFirestoreData` が管理) |
+| `dbError` | boolean | `false` | Firestore エラー (`useFirestoreData` が管理) |
 
 ## URL パラメータ
 
@@ -127,7 +127,7 @@ categoryFilter:
 4. RecentConfig を生成し recentConfigs に追加:
    - 同じ setIds + mode + categoryFilter の組み合わせが存在する場合は重複除去
    - 最大 MAX_RECENT(10) 件に制限
-   - saveToFirestore(sets, updatedRecents)
+   - saveToFirestore({ sets, recentConfigs: updatedRecents })
 
 5. mode === 'oneByOne':
    session = {
@@ -325,7 +325,8 @@ beforeunload イベント:
 ### 一問一答 - answering フェーズ
 
 ```
-プログレスバー: currentIndex / queue.length
+プログレスバー: min(currentIndex / queue.length, 1) (上限 1 にキャップ)
+問題遷移時: フェードインアニメーション (CSS animation)
 回答進捗: 全問のチェックリスト (回答済み/未回答)
 カテゴリバッジ + ブックマークトグル
 問題文 + 画像 (imageUrl がある場合)
@@ -346,7 +347,9 @@ beforeunload イベント:
 ```
 正解表示
 ユーザー回答表示 + 正誤マーク (written/choice のみ)
-メモ編集エリア (onUpdateMemo)
+メモ編集エリア (onUpdateMemo) + 「✨」ボタン → generateMemo(id)
+  生成中: textarea readOnly、保存ボタン disabled
+  エラー時: addToast(`... [E011]` など, 'error')
 
 flashcard:
   「○ 正解」→ handleFlashcardJudge(true)
@@ -361,7 +364,7 @@ written/choice:
 スコア: {正解数}/{総問数}
 フィルターボタン: すべて / 正解のみ / 不正解のみ / ブックマーク
 結果リスト (各問):
-  問題文, 正解, ユーザー回答, 正誤マーク, メモ編集
+  問題文, 正解, ユーザー回答, 正誤マーク, メモ編集 + 「✨」ボタン
 「戻る」→ endSession() → session=null
 ```
 
@@ -382,8 +385,7 @@ written/choice:
 ```
 スコア + 解答時間
 フィルターボタン
-結果リスト (各問: 問題文, 正解, ユーザー回答, 正誤)
-メモ編集
+結果リスト (各問: 問題文, 正解, ユーザー回答, 正誤, メモ編集 + 「✨」ボタン)
 「戻る」→ endSession()
 ```
 
