@@ -4,6 +4,7 @@ import {
   type ActiveSession, type OneByOneSession, type ExamSession, type Problem,
   isExamSession, isAnswerCorrect, buildProblemChoices, formatTime, formatElapsed,
 } from '../constants';
+import { generateMemoExplanation, MemoGenError, MEMO_GEN_ERROR_CODES } from '../memoGenerator';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -31,6 +32,7 @@ type Props = {
   onJumpTo: (index: number) => void;
   onToggleBookmark: (id: string) => void;
   onUpdateMemo: (id: string, memo: string) => void;
+  addToast: (msg: string, type?: 'normal' | 'error' | 'warning') => void;
 };
 
 export const QuizSession = ({
@@ -40,13 +42,14 @@ export const QuizSession = ({
   onChoiceSelect, onChoiceNext,
   onExamNext, onExamPrev, onExamWrittenInputChange,
   onSubmitExam, onTimeUp,
-  onEnd, onInterrupt, onJumpTo, onToggleBookmark, onUpdateMemo,
+  onEnd, onInterrupt, onJumpTo, onToggleBookmark, onUpdateMemo, addToast,
 }: Props) => {
   const [resultFilter, setResultFilter] = useState<ResultFilter>('all');
   const [selectedChoice, setSelectedChoice] = useState<string | null>(null);
   const [remainingMs, setRemainingMs]   = useState<number>(0);
-  const [editingMemoId, setEditingMemoId] = useState<string | null>(null);
-  const [memoInput, setMemoInput]         = useState('');
+  const [editingMemoId, setEditingMemoId]     = useState<string | null>(null);
+  const [memoInput, setMemoInput]             = useState('');
+  const [generatingMemoId, setGeneratingMemoId] = useState<string | null>(null);
   const [showSubmitConfirm, setShowSubmitConfirm] = useState(false);
   const [showSheet, setShowSheet] = useState(true);
   const timeUpFired = useRef(false);
@@ -96,21 +99,54 @@ export const QuizSession = ({
   const startEditMemo = (id: string) => { setEditingMemoId(id); setMemoInput(getMemo(id)); };
   const saveMemo = (id: string) => { onUpdateMemo(id, memoInput); setEditingMemoId(null); };
 
-  const renderMemo = (id: string) => (
-    editingMemoId === id ? (
+  const generateMemo = async (id: string) => {
+    const problem = problems.find(p => p.id === id);
+    if (!problem) return;
+    setEditingMemoId(id);
+    setMemoInput('');
+    setGeneratingMemoId(id);
+    try {
+      await generateMemoExplanation(problem.question, problem.answer, text => setMemoInput(text));
+    } catch (e) {
+      console.error('AI解説生成エラー:', e);
+      const code = e instanceof MemoGenError && e.reason === 'no_api_key'
+        ? MEMO_GEN_ERROR_CODES.NO_API_KEY
+        : MEMO_GEN_ERROR_CODES.GENERATE;
+      addToast(`AI解説の生成に失敗しました [${code}]`, 'error');
+      setMemoInput('');
+    } finally {
+      setGeneratingMemoId(null);
+    }
+  };
+
+  const renderMemo = (id: string) => {
+    const isGenerating = generatingMemoId === id;
+    return editingMemoId === id ? (
       <div className="qz-memo-edit">
-        <textarea name="memo" className="qz-memo-input" value={memoInput} onChange={e => setMemoInput(e.target.value)} autoFocus placeholder="メモを入力" />
+        <textarea
+          name="memo"
+          className="qz-memo-input"
+          value={memoInput}
+          onChange={e => setMemoInput(e.target.value)}
+          autoFocus={!isGenerating}
+          placeholder={isGenerating ? 'AI解説を生成中...' : 'メモを入力'}
+          readOnly={isGenerating}
+        />
         <div className="qz-memo-edit-btns">
-          <Button variant="outline" size="sm" onClick={() => setEditingMemoId(null)}>キャンセル</Button>
-          <Button variant="default" size="sm" onClick={() => saveMemo(id)}>保存</Button>
+          <Button variant="outline" size="sm" onClick={() => { setEditingMemoId(null); setGeneratingMemoId(null); }} disabled={isGenerating}>キャンセル</Button>
+          <Button variant="outline" size="sm" onClick={() => generateMemo(id)} disabled={isGenerating}>
+            {isGenerating ? '生成中...' : '✨ AI解説'}
+          </Button>
+          <Button variant="default" size="sm" onClick={() => saveMemo(id)} disabled={isGenerating}>保存</Button>
         </div>
       </div>
     ) : (
       <div className="qz-memo-row" onClick={() => startEditMemo(id)}>
         {getMemo(id) ? <span className="qz-memo-text">📝 {getMemo(id)}</span> : <span className="qz-memo-placeholder">📝 メモを追加</span>}
+        <button className="qz-memo-ai-btn" onClick={e => { e.stopPropagation(); generateMemo(id); }}>✨</button>
       </div>
-    )
-  );
+    );
+  };
 
   // 一問一答: choice オプション（安定化）
   const oneByOneChoiceOptions = useMemo(() => {
@@ -227,19 +263,7 @@ export const QuizSession = ({
                   </div>
                 )}
               </div>
-              {editingMemoId === p.id ? (
-                <div className="qz-memo-edit">
-                  <textarea name="memo" className="qz-memo-input" value={memoInput} onChange={e => setMemoInput(e.target.value)} autoFocus placeholder="メモを入力" />
-                  <div className="qz-memo-edit-btns">
-                    <Button variant="outline" size="sm" onClick={() => setEditingMemoId(null)}>キャンセル</Button>
-                    <Button variant="default" size="sm" onClick={() => saveMemo(p.id)}>保存</Button>
-                  </div>
-                </div>
-              ) : (
-                <div className="qz-memo-row" onClick={() => startEditMemo(p.id)}>
-                  {getMemo(p.id) ? <span className="qz-memo-text">📝 {getMemo(p.id)}</span> : <span className="qz-memo-placeholder">📝 メモを追加</span>}
-                </div>
-              )}
+              {renderMemo(p.id)}
             </div>
             <button className="qz-result-bm-btn" onClick={() => onToggleBookmark(p.id)}>
               {getBookmarked(p.id) ? '★' : '☆'}
@@ -305,19 +329,7 @@ export const QuizSession = ({
                   {!correct && <div className="qz-result-userans">正解: {p.answer}</div>}
                 </div>
               </div>
-              {editingMemoId === p.id ? (
-                <div className="qz-memo-edit">
-                  <textarea name="memo" className="qz-memo-input" value={memoInput} onChange={e => setMemoInput(e.target.value)} autoFocus placeholder="メモを入力" />
-                  <div className="qz-memo-edit-btns">
-                    <Button variant="outline" size="sm" onClick={() => setEditingMemoId(null)}>キャンセル</Button>
-                    <Button variant="default" size="sm" onClick={() => saveMemo(p.id)}>保存</Button>
-                  </div>
-                </div>
-              ) : (
-                <div className="qz-memo-row" onClick={() => startEditMemo(p.id)}>
-                  {getMemo(p.id) ? <span className="qz-memo-text">📝 {getMemo(p.id)}</span> : <span className="qz-memo-placeholder">📝 メモを追加</span>}
-                </div>
-              )}
+              {renderMemo(p.id)}
             </div>
             <button className="qz-result-bm-btn" onClick={() => onToggleBookmark(p.id)}>
               {getBookmarked(p.id) ? '★' : '☆'}

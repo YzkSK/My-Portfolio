@@ -335,6 +335,7 @@ export const QuizPlay = () => {
               onJumpTo={handleJumpTo}
               onToggleBookmark={toggleBookmark}
               onUpdateMemo={handleUpdateMemo}
+              addToast={addToast}
             />
           </>
         ) : configConfirmed ? (

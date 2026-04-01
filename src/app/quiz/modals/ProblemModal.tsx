@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { storage } from '../../shared/firebase';
 import { getCachedImageUrl } from '../imageCache';
+import { generateMemoExplanation, MemoGenError, MEMO_GEN_ERROR_CODES } from '../memoGenerator';
 import {
   type AddModal, type EditModal, type Problem, type AnswerFormat,
   WRONG_CHOICES_COUNT, CHOICE2_OPTIONS, getErrorCode,
@@ -64,6 +65,7 @@ export const ProblemModal = ({ modal, problems, allProblems, answerFormat, uid, 
   const [imageRemoved, setImageRemoved] = useState(false);
   const [imageError, setImageError]     = useState('');
   const [uploading, setUploading]       = useState(false);
+  const [generatingMemo, setGeneratingMemo] = useState(false);
   const [imgLoaded, setImgLoaded]       = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const allProblemsRef = useRef(allProblems);
@@ -95,6 +97,23 @@ export const ProblemModal = ({ modal, problems, allProblems, answerFormat, uid, 
       setWrongChoices(Array(needed).fill(''));
     }
   }, []);
+
+  const generateMemoFromAI = async () => {
+    setGeneratingMemo(true);
+    setMemo('');
+    try {
+      await generateMemoExplanation(question, answer, text => setMemo(text));
+    } catch (e) {
+      console.error('AI解説生成エラー:', e);
+      const code = e instanceof MemoGenError && e.reason === 'no_api_key'
+        ? MEMO_GEN_ERROR_CODES.NO_API_KEY
+        : MEMO_GEN_ERROR_CODES.GENERATE;
+      addToast(`AI解説の生成に失敗しました [${code}]`);
+      setMemo('');
+    } finally {
+      setGeneratingMemo(false);
+    }
+  };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -205,7 +224,6 @@ export const ProblemModal = ({ modal, problems, allProblems, answerFormat, uid, 
             value={question}
             onChange={e => setQuestion(e.target.value)}
             placeholder="問題文を入力してください"
-            autoFocus
           />
         </div>
 
@@ -313,12 +331,24 @@ export const ProblemModal = ({ modal, problems, allProblems, answerFormat, uid, 
 
         {/* メモ */}
         <div className="mb-4">
-          <Label>メモ（任意）</Label>
+          <div className="flex items-center justify-between mb-1">
+            <Label>メモ（任意）</Label>
+            <Button
+              variant="outline"
+              size="sm"
+              type="button"
+              onClick={generateMemoFromAI}
+              disabled={generatingMemo || !question.trim() || !answer.trim()}
+            >
+              {generatingMemo ? '生成中...' : '✨ AI解説を生成'}
+            </Button>
+          </div>
           <Textarea
             className="min-h-[72px]"
             value={memo}
             onChange={e => setMemo(e.target.value)}
-            placeholder="補足・解説・覚え方など"
+            placeholder={generatingMemo ? 'AI解説を生成中...' : '補足・解説・覚え方など'}
+            readOnly={generatingMemo}
           />
         </div>
 
@@ -328,8 +358,8 @@ export const ProblemModal = ({ modal, problems, allProblems, answerFormat, uid, 
               削除
             </Button>
           )}
-          <Button variant="outline" className="flex-1" onClick={onClose} disabled={uploading}>キャンセル</Button>
-          <Button variant="default" className="flex-[2]" onClick={handleSave} disabled={uploading}>
+          <Button variant="outline" className="flex-1" onClick={onClose} disabled={uploading || generatingMemo}>キャンセル</Button>
+          <Button variant="default" className="flex-[2]" onClick={handleSave} disabled={uploading || generatingMemo}>
             {uploading ? 'アップロード中...' : '保存'}
           </Button>
         </div>

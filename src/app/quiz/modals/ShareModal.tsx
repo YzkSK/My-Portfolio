@@ -86,7 +86,7 @@ export const ShareModal = ({ problems, uid, answerFormat, defaultTitle = '', exi
               <Label>シェアする問題</Label>
               <select
                 name="share-category"
-                className="w-full px-3 py-[9px] border-[1.5px] border-[#e0e0e0] dark:border-[#444] rounded-[9px] bg-white dark:bg-[#222] text-[13px] text-[#1a1a1a] dark:text-[#e0e0e0] font-semibold cursor-pointer appearance-none outline-none focus:border-[#1a1a1a] dark:focus:border-[#888]"
+                className="w-full px-3 py-[9px] border-[1.5px] border-[#e0e0e0] dark:border-[#444] rounded-[9px] bg-white dark:bg-[#222] text-base md:text-[13px] text-[#1a1a1a] dark:text-[#e0e0e0] font-semibold cursor-pointer appearance-none outline-none focus:border-[#1a1a1a] dark:focus:border-[#888]"
                 value={categoryFilter}
                 onChange={e => setCategoryFilter(e.target.value)}
               >
