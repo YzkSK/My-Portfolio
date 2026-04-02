@@ -36,9 +36,15 @@ export const Quiz = () => {
   const [modal, setModal]             = useState<Modal>(null);
   const [dragSetId, setDragSetId]         = useState<string | null>(null);
   const [dragOverSetId, setDragOverSetId] = useState<string | null>(null);
+  const [setPointerPos, setSetPointerPos] = useState<{ x: number; y: number } | null>(null);
   const didDragSetRef        = useRef(false);
-  const touchDragSetIdRef    = useRef<string | null>(null);
+  const dragSetIdRef         = useRef<string | null>(null);   // stale-closure 回避
+  const dragOverSetIdRef     = useRef<string | null>(null);   // stale-closure 回避
   const prevDragOverSetIdRef = useRef<string | null>(null);
+  const setSlotHeightRef     = useRef(80);
+  const setCardWidthRef      = useRef(0);
+  const setCardLeftRef       = useRef(0);
+  const setGrabOffsetRef     = useRef(0);
   const { toasts, addToast }          = useToast(TOAST_DURATION_MS);
   const [formError, setFormError]     = useState('');
   const setsRef = useRef<ProblemSet[]>([]);
@@ -217,19 +223,64 @@ export const Quiz = () => {
     saveToFirestore({ sets: next });
   };
 
-  const SET_SHIFT_PX = 14;
   const dragFromSetIdx = dragSetId     ? sets.findIndex(s => s.id === dragSetId)     : -1;
   const dragToSetIdx   = dragOverSetId ? sets.findIndex(s => s.id === dragOverSetId) : -1;
   const getSetShift = (i: number): number => {
     if (dragFromSetIdx === -1 || dragToSetIdx === -1 || dragFromSetIdx === dragToSetIdx) return 0;
-    if (dragFromSetIdx < dragToSetIdx && i > dragFromSetIdx && i <= dragToSetIdx) return -SET_SHIFT_PX;
-    if (dragFromSetIdx > dragToSetIdx && i >= dragToSetIdx && i < dragFromSetIdx) return  SET_SHIFT_PX;
+    const sp = setSlotHeightRef.current;
+    if (dragFromSetIdx < dragToSetIdx && i > dragFromSetIdx && i <= dragToSetIdx) return -sp;
+    if (dragFromSetIdx > dragToSetIdx && i >= dragToSetIdx && i < dragFromSetIdx) return  sp;
     return 0;
   };
   const updateDragOverSet = (id: string | null) => {
-    if (id !== null && id !== prevDragOverSetIdRef.current) navigator.vibrate?.(30);
+    if (id === null) return;
+    if (id !== prevDragOverSetIdRef.current) navigator.vibrate?.(30);
     prevDragOverSetIdRef.current = id;
+    dragOverSetIdRef.current = id;
     setDragOverSetId(id);
+  };
+  const clearDragOverSet = () => {
+    prevDragOverSetIdRef.current = null;
+    dragOverSetIdRef.current = null;
+    setDragOverSetId(null);
+  };
+
+  const getSetItemIdFromPoint = (x: number, y: number): string | null => {
+    const el = document.elementFromPoint(x, y);
+    return (el?.closest('[data-item-id]') as HTMLElement | null)?.dataset.itemId ?? null;
+  };
+
+  const startSetDrag = (id: string, clientX: number, clientY: number, cardEl: HTMLElement | null) => {
+    if (cardEl) {
+      const rect = cardEl.getBoundingClientRect();
+      if (rect.height > 0) setSlotHeightRef.current = rect.height + 10;
+      setCardWidthRef.current = rect.width;
+      setCardLeftRef.current  = rect.left;
+      setGrabOffsetRef.current = clientY - rect.top;
+    }
+    dragSetIdRef.current = id;
+    setDragSetId(id);
+    setSetPointerPos({ x: clientX, y: clientY });
+    didDragSetRef.current = false;
+  };
+
+  const endSetDrag = (clientX: number, clientY: number) => {
+    const toId = getSetItemIdFromPoint(clientX, clientY) ?? dragOverSetIdRef.current;
+    if (toId && toId !== dragSetIdRef.current && dragSetIdRef.current) {
+      didDragSetRef.current = true;
+      const next = [...sets];
+      const fromIdx = next.findIndex(x => x.id === dragSetIdRef.current);
+      const toIdx   = next.findIndex(x => x.id === toId);
+      if (fromIdx !== -1 && toIdx !== -1 && fromIdx !== toIdx) {
+        const [moved] = next.splice(fromIdx, 1);
+        next.splice(toIdx, 0, moved!);
+        handleReorderSets(next.map(x => x.id));
+      }
+    }
+    dragSetIdRef.current = null;
+    setDragSetId(null);
+    setSetPointerPos(null);
+    clearDragOverSet();
   };
 
   const openAdd  = () => { setFormError(''); setModal({ type: 'add' }); };
@@ -347,79 +398,65 @@ export const Quiz = () => {
               </p>
             ) : (
               sets.map((s, i) => {
-                const invalidCount = getInvalidCount(s.problems);
+                const invalidCount   = getInvalidCount(s.problems);
                 const isDragging = dragSetId === s.id;
-                const isDragOver = dragOverSetId === s.id && dragSetId !== s.id;
                 const shift      = getSetShift(i);
+                const isGrabbing = isDragging && !!setPointerPos;
                 return (
                 <div
                   key={s.id}
                   data-item-id={s.id}
-                  style={{ transform: `translateY(${shift}px)` }}
-                  className={`qz-set-item transition-[transform,opacity] duration-150 ${isDragging ? 'opacity-40' : 'opacity-100'} ${isDragOver ? 'border-t-2 border-blue-400' : ''}`}
-                  draggable
-                  onDragStart={e => {
-                    didDragSetRef.current = false;
-                    setDragSetId(s.id);
-                    e.dataTransfer.effectAllowed = 'move';
-                  }}
-                  onDragEnter={() => updateDragOverSet(s.id)}
-                  onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; }}
-                  onDragEnd={() => { setDragSetId(null); updateDragOverSet(null); prevDragOverSetIdRef.current = null; }}
-                  onDrop={e => {
-                    e.preventDefault();
-                    if (!dragSetId || dragSetId === s.id) return;
-                    didDragSetRef.current = true;
-                    const next = [...sets];
-                    const fromIdx = next.findIndex(x => x.id === dragSetId);
-                    const toIdx = i;
-                    const [moved] = next.splice(fromIdx, 1);
-                    next.splice(toIdx, 0, moved!);
-                    handleReorderSets(next.map(x => x.id));
-                    setDragSetId(null);
-                    updateDragOverSet(null);
-                    prevDragOverSetIdRef.current = null;
-                  }}
+                  style={shift ? { transform: `translateY(${shift}px)` } : undefined}
+                  className={`qz-set-item transition-[transform,opacity] duration-[220ms] ease-[cubic-bezier(0.25,0.46,0.45,0.94)]
+                    ${isGrabbing ? 'qz-drag-placeholder' : isDragging ? 'opacity-40' : 'opacity-100'}`}
                   onClick={() => { if (!didDragSetRef.current) setActiveSetId(s.id); didDragSetRef.current = false; }}
                 >
-                  <span
-                    className="text-[14px] text-[#ccc] leading-none cursor-grab select-none mr-1.5 flex-shrink-0 touch-none"
+                  <div
+                    className="-ml-4 -my-[14px] mr-3 flex items-center px-2.5 border-r border-[#ececec] dark:border-[#2a2a2a] rounded-l-[11px] flex-shrink-0 touch-none cursor-grab active:cursor-grabbing"
+                    onMouseDown={e => {
+                      if (e.button !== 0) return;
+                      e.preventDefault();
+                      startSetDrag(s.id, e.clientX, e.clientY, e.currentTarget.parentElement);
+                      const onMove = (me: MouseEvent) => {
+                        setSetPointerPos({ x: me.clientX, y: me.clientY });
+                        const overId = getSetItemIdFromPoint(me.clientX, me.clientY);
+                        if (overId && overId !== dragSetIdRef.current) updateDragOverSet(overId);
+                      };
+                      const onUp = (me: MouseEvent) => {
+                        endSetDrag(me.clientX, me.clientY);
+                        document.removeEventListener('mousemove', onMove);
+                        document.removeEventListener('mouseup', onUp);
+                        document.body.style.userSelect = '';
+                        document.body.style.cursor = '';
+                      };
+                      document.addEventListener('mousemove', onMove);
+                      document.addEventListener('mouseup', onUp);
+                      document.body.style.userSelect = 'none';
+                      document.body.style.cursor = 'grabbing';
+                    }}
                     onTouchStart={e => {
                       e.preventDefault();
-                      touchDragSetIdRef.current = s.id;
-                      setDragSetId(s.id);
-                      didDragSetRef.current = false;
+                      const touch = e.touches[0];
+                      if (!touch) return;
+                      startSetDrag(s.id, touch.clientX, touch.clientY, e.currentTarget.parentElement);
                     }}
                     onTouchMove={e => {
                       e.preventDefault();
                       const touch = e.touches[0];
                       if (!touch) return;
-                      const el = document.elementFromPoint(touch.clientX, touch.clientY);
-                      const overId = (el?.closest('[data-item-id]') as HTMLElement | null)?.dataset.itemId ?? null;
-                      updateDragOverSet(overId !== touchDragSetIdRef.current ? overId : null);
+                      setSetPointerPos({ x: touch.clientX, y: touch.clientY });
+                      const overId = getSetItemIdFromPoint(touch.clientX, touch.clientY);
+                      if (overId && overId !== dragSetIdRef.current) updateDragOverSet(overId);
                     }}
                     onTouchEnd={e => {
                       e.preventDefault();
                       const touch = e.changedTouches[0];
-                      if (touch && touchDragSetIdRef.current) {
-                        const el = document.elementFromPoint(touch.clientX, touch.clientY);
-                        const toId = (el?.closest('[data-item-id]') as HTMLElement | null)?.dataset.itemId ?? null;
-                        if (toId && toId !== touchDragSetIdRef.current) {
-                          didDragSetRef.current = true;
-                          const next = [...sets];
-                          const fromIdx = next.findIndex(x => x.id === touchDragSetIdRef.current);
-                          const toIdx   = next.findIndex(x => x.id === toId);
-                          const [moved] = next.splice(fromIdx, 1);
-                          next.splice(toIdx, 0, moved!);
-                          handleReorderSets(next.map(x => x.id));
-                        }
-                      }
-                      touchDragSetIdRef.current = null;
-                      setDragSetId(null);
-                      updateDragOverSet(null);
-                      prevDragOverSetIdRef.current = null;
+                      if (touch) endSetDrag(touch.clientX, touch.clientY);
+                      else { dragSetIdRef.current = null; setDragSetId(null); setSetPointerPos(null); clearDragOverSet(); }
                     }}
-                  >⠿</span>
+                  >
+                    <span className="text-[16px] text-[#ccc] select-none">⠿</span>
+                  </div>
                   <div className="qz-set-info">
                     <div className="qz-set-name">{s.name}</div>
                     <div className="qz-set-count">
@@ -440,6 +477,34 @@ export const Quiz = () => {
                 );
               })
             )}
+
+            {/* ドラッグ中のゴーストカード（マウス・タッチ共通） */}
+            {setPointerPos && dragSetId && (() => {
+              const gs = sets.find(s => s.id === dragSetId);
+              if (!gs) return null;
+              return (
+                <div
+                  style={{
+                    position: 'fixed',
+                    top: setPointerPos.y - setGrabOffsetRef.current,
+                    left: setCardLeftRef.current,
+                    width: setCardWidthRef.current,
+                    pointerEvents: 'none',
+                    zIndex: 9999,
+                    borderRadius: 12,
+                  }}
+                  className="qz-set-item qz-drag-ghost"
+                >
+                  <div className="-ml-4 -my-[14px] mr-3 flex items-center px-2.5 border-r border-[#ececec] dark:border-[#2a2a2a] rounded-l-[11px] flex-shrink-0">
+                    <span className="text-[16px] text-[#ccc] select-none">⠿</span>
+                  </div>
+                  <div className="qz-set-info">
+                    <div className="qz-set-name">{gs.name}</div>
+                    <div className="qz-set-count">{gs.problems.length}問</div>
+                  </div>
+                </div>
+              );
+            })()}
           </>
         ) : (
           // ── 問題一覧（アクティブセット内）──────────────────

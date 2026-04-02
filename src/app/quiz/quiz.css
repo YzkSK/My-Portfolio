@@ -27,6 +27,36 @@
   color: var(--qz-active-text);
 }
 
+/* ── ドラッグ&ドロップ ──────────────────────────────────── */
+@keyframes qz-card-lift {
+  from {
+    transform: rotate(0deg) scale(1);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.10);
+    opacity: 0.6;
+  }
+  to {
+    transform: scale(1.04);
+    box-shadow: 0 24px 56px rgba(0,0,0,0.30);
+    opacity: 1;
+  }
+}
+/* タッチドラッグ中のゴーストカード（浮き上がるアニメーション） */
+.qz-drag-ghost {
+  animation: qz-card-lift 200ms cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+/* ドラッグ元のプレースホルダースロット */
+.qz-drag-placeholder {
+  background: rgba(0,0,0,0.025) !important;
+  border-color: rgba(150,150,150,0.2) !important;
+  border-style: dashed !important;
+  box-shadow: none !important;
+  pointer-events: none;
+}
+html.app-theme-light .qz-drag-placeholder {
+  background: rgba(0,0,0,0.03) !important;
+}
+.qz-drag-placeholder > * { opacity: 0; }
+
 /* ── 問題一覧 ────────────────────────────────────────────── */
 /* .qz-empty replaced by Tailwind */
 

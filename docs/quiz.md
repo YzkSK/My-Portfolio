@@ -28,6 +28,14 @@ Quiz.tsx
 
 固定フッター: 「回答する」ボタン (activeSetId===null かつ sets.length>0 の場合のみ表示)
   → navigate('/app/quiz/play')
+
+ドラッグ&ドロップ並び替え (問題集一覧・問題一覧 共通):
+  - 各カード左端の ⠿ ハンドルをマウス長押し or タッチ長押し
+  - ゴーストカード: ポインター位置に追従（`position:fixed`）
+    → `qz-card-lift` アニメーション（scale 1.04 + 大きめ shadow）
+  - 元のカード: `qz-drag-placeholder`（点線枠、透明）+ `pointer-events:none` でゴーストカードの下のカードを `elementFromPoint` で検出可能に
+  - 他カード: `translateY(±slotHeight)` でリアルタイムにスライド（220ms ease-out）
+  - 離した時点で `applyReorder` / `handleReorderSets` を呼び出して Firestore 保存
 ```
 
 ## 状態管理
@@ -42,6 +50,10 @@ Quiz.tsx
 | `dbError` | boolean | `false` | Firestore エラーフラグ (`useFirestoreData` が管理) |
 | `formError` | string | `''` | ProblemModal のエラー |
 | `setsRef` | ref | — | cleanupImages 用の最新 sets 参照 |
+| `dragSetId` | `string \| null` | `null` | ドラッグ中の問題集 ID |
+| `dragOverSetId` | `string \| null` | `null` | ドラッグオーバー中の問題集 ID |
+| `setPointerPos` | `{x,y} \| null` | `null` | ゴーストカード位置 |
+| `dragSetIdRef` / `dragOverSetIdRef` | ref | — | グローバル mousemove リスナー内の stale-closure 回避用 |
 
 ## データ構造
 
@@ -370,6 +382,25 @@ clearImageCache():
 | API キーがない場合は MemoGenError(no_api_key) をスローする | ✅ |
 | ストリーミング成功時に onChunk へ累積テキストが渡される | ✅ |
 | ストリーミング成功時に getGenerativeModel が呼ばれる | ✅ |
+
+### 結合テスト — `src/__tests__/integration/quiz/reorder.test.ts`
+
+| テスト名 | 結果 |
+|---|---|
+| index 順に並ぶ（昇順） | ✅ |
+| index=0 の問題は createdAt の新しい順（末尾）になる | ✅ |
+| 前方ドラッグ後の順序が正しい | ✅ |
+| 前方ドラッグ後に index が 1 始まりで再採番される | ✅ |
+| 後方ドラッグ後の順序が正しい | ✅ |
+| 後方ドラッグ後に index が 1 始まりで再採番される | ✅ |
+| 同じ位置へのドラッグは順序を変えない | ✅ |
+| 前方ドラッグ: 間に挟まるカードが -slotHeight ずれる | ✅ |
+| 後方ドラッグ: 間に挟まるカードが +slotHeight ずれる | ✅ |
+| dragFromIdx === dragToIdx のとき全カードのシフトは 0 | ✅ |
+| ドラッグ未開始（-1）のとき全カードのシフトは 0 | ✅ |
+| 問題集の前方ドラッグ後の順序が正しい | ✅ |
+| 問題集の後方ドラッグ後の順序が正しい | ✅ |
+| index が不連続な問題でも並び替え後に連番になる | ✅ |
 
 ---
 

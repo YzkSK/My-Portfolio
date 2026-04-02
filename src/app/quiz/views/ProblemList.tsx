@@ -6,7 +6,6 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 const ANSWER_INLINE_LIMIT = 5;
-const SHIFT_PX = 14;
 
 type Props = {
   problems: Problem[];
@@ -24,11 +23,17 @@ const getItemIdFromPoint = (x: number, y: number): string | null => {
 
 export const ProblemList = ({ problems, onAdd, onEdit, onShare, onToggleBookmark, onReorder }: Props) => {
   const [answerDialog, setAnswerDialog] = useState<{ question: string; answer: string } | null>(null);
-  const [dragId, setDragId]       = useState<string | null>(null);
+  const [dragId, setDragId]         = useState<string | null>(null);
   const [dragOverId, setDragOverId] = useState<string | null>(null);
-  const didDragRef        = useRef(false);
-  const touchDragIdRef    = useRef<string | null>(null);
-  const prevDragOverIdRef = useRef<string | null>(null);
+  const [pointerPos, setPointerPos] = useState<{ x: number; y: number } | null>(null);
+  const didDragRef         = useRef(false);
+  const dragIdRef          = useRef<string | null>(null);   // stale-closure 回避
+  const dragOverIdRef      = useRef<string | null>(null);   // stale-closure 回避
+  const prevDragOverIdRef  = useRef<string | null>(null);
+  const slotHeightRef      = useRef(80);
+  const cardWidthRef       = useRef(0);
+  const cardLeftRef        = useRef(0);
+  const grabOffsetRef      = useRef(0);
 
   const sorted = [...problems].sort((a, b) => {
     if (a.index && b.index) return a.index - b.index;
@@ -42,17 +47,23 @@ export const ProblemList = ({ problems, onAdd, onEdit, onShare, onToggleBookmark
 
   const getShift = (i: number): number => {
     if (dragFromIdx === -1 || dragToIdx === -1 || dragFromIdx === dragToIdx) return 0;
-    if (dragFromIdx < dragToIdx && i > dragFromIdx && i <= dragToIdx) return -SHIFT_PX;
-    if (dragFromIdx > dragToIdx && i >= dragToIdx && i < dragFromIdx) return  SHIFT_PX;
+    const sp = slotHeightRef.current;
+    if (dragFromIdx < dragToIdx && i > dragFromIdx && i <= dragToIdx) return -sp;
+    if (dragFromIdx > dragToIdx && i >= dragToIdx && i < dragFromIdx) return  sp;
     return 0;
   };
 
   const updateDragOver = (id: string | null) => {
-    if (id !== null && id !== prevDragOverIdRef.current) {
-      navigator.vibrate?.(30);
-    }
+    if (id === null) return;
+    if (id !== prevDragOverIdRef.current) navigator.vibrate?.(30);
     prevDragOverIdRef.current = id;
+    dragOverIdRef.current = id;
     setDragOverId(id);
+  };
+  const clearDragOver = () => {
+    prevDragOverIdRef.current = null;
+    dragOverIdRef.current = null;
+    setDragOverId(null);
   };
 
   const applyReorder = (fromId: string, toId: string) => {
@@ -63,6 +74,32 @@ export const ProblemList = ({ problems, onAdd, onEdit, onShare, onToggleBookmark
     const [item] = next.splice(fromIdx, 1);
     next.splice(toIdx, 0, item!);
     onReorder(next.map(x => x.id));
+  };
+
+  const startDrag = (id: string, clientX: number, clientY: number, cardEl: HTMLElement | null) => {
+    if (cardEl) {
+      const rect = cardEl.getBoundingClientRect();
+      if (rect.height > 0) slotHeightRef.current = rect.height + 8;
+      cardWidthRef.current = rect.width;
+      cardLeftRef.current  = rect.left;
+      grabOffsetRef.current = clientY - rect.top;
+    }
+    dragIdRef.current = id;
+    setDragId(id);
+    setPointerPos({ x: clientX, y: clientY });
+    didDragRef.current = false;
+  };
+
+  const endDrag = (clientX: number, clientY: number) => {
+    const toId = getItemIdFromPoint(clientX, clientY) ?? dragOverIdRef.current;
+    if (toId && toId !== dragIdRef.current && dragIdRef.current) {
+      didDragRef.current = true;
+      applyReorder(dragIdRef.current, toId);
+    }
+    dragIdRef.current = null;
+    setDragId(null);
+    setPointerPos(null);
+    clearDragOver();
   };
 
   return (
@@ -82,69 +119,65 @@ export const ProblemList = ({ problems, onAdd, onEdit, onShare, onToggleBookmark
         </p>
       ) : (
         sorted.map((p, i) => {
-          const isLong     = p.answer.length > ANSWER_INLINE_LIMIT;
+          const isLong    = p.answer.length > ANSWER_INLINE_LIMIT;
           const isDragging = dragId === p.id;
-          const isDragOver = dragOverId === p.id && dragId !== p.id;
           const shift      = getShift(i);
+          const isGrabbing = isDragging && !!pointerPos;
           return (
             <div
               key={p.id}
               data-item-id={p.id}
-              style={{ transform: `translateY(${shift}px)` }}
-              className={`qz-problem-item flex items-stretch gap-0 transition-[transform,opacity] duration-150 ${isDragging ? 'opacity-40' : 'opacity-100'} ${isDragOver ? 'border-t-2 border-blue-400' : ''}`}
-              draggable
-              onDragStart={e => {
-                didDragRef.current = false;
-                setDragId(p.id);
-                e.dataTransfer.effectAllowed = 'move';
-              }}
-              onDragEnter={() => updateDragOver(p.id)}
-              onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; }}
-              onDragEnd={() => { setDragId(null); updateDragOver(null); prevDragOverIdRef.current = null; }}
-              onDrop={e => {
-                e.preventDefault();
-                if (!dragId || dragId === p.id) return;
-                didDragRef.current = true;
-                applyReorder(dragId, p.id);
-                setDragId(null);
-                updateDragOver(null);
-                prevDragOverIdRef.current = null;
-              }}
+              style={shift ? { transform: `translateY(${shift}px)` } : undefined}
+              className={`qz-problem-item flex items-stretch gap-0 transition-[transform,opacity] duration-[220ms] ease-[cubic-bezier(0.25,0.46,0.45,0.94)]
+                ${isGrabbing ? 'qz-drag-placeholder' : isDragging ? 'opacity-40' : 'opacity-100'}`}
               onClick={() => { if (!didDragRef.current) onEdit(p.id); didDragRef.current = false; }}
             >
               {/* ドラッグハンドル */}
               <div
-                className="-ml-4 -my-[14px] mr-3 flex items-center px-2.5 border-r border-[#ececec] dark:border-[#2a2a2a] rounded-l-[11px] flex-shrink-0 touch-none"
+                className="-ml-4 -my-[14px] mr-3 flex items-center px-2.5 border-r border-[#ececec] dark:border-[#2a2a2a] rounded-l-[11px] flex-shrink-0 touch-none cursor-grab active:cursor-grabbing"
+                onMouseDown={e => {
+                  if (e.button !== 0) return;
+                  e.preventDefault();
+                  startDrag(p.id, e.clientX, e.clientY, e.currentTarget.parentElement);
+                  const onMove = (me: MouseEvent) => {
+                    setPointerPos({ x: me.clientX, y: me.clientY });
+                    const overId = getItemIdFromPoint(me.clientX, me.clientY);
+                    if (overId && overId !== dragIdRef.current) updateDragOver(overId);
+                  };
+                  const onUp = (me: MouseEvent) => {
+                    endDrag(me.clientX, me.clientY);
+                    document.removeEventListener('mousemove', onMove);
+                    document.removeEventListener('mouseup', onUp);
+                    document.body.style.userSelect = '';
+                    document.body.style.cursor = '';
+                  };
+                  document.addEventListener('mousemove', onMove);
+                  document.addEventListener('mouseup', onUp);
+                  document.body.style.userSelect = 'none';
+                  document.body.style.cursor = 'grabbing';
+                }}
                 onTouchStart={e => {
                   e.preventDefault();
-                  touchDragIdRef.current = p.id;
-                  setDragId(p.id);
-                  didDragRef.current = false;
+                  const touch = e.touches[0];
+                  if (!touch) return;
+                  startDrag(p.id, touch.clientX, touch.clientY, e.currentTarget.parentElement);
                 }}
                 onTouchMove={e => {
                   e.preventDefault();
                   const touch = e.touches[0];
                   if (!touch) return;
+                  setPointerPos({ x: touch.clientX, y: touch.clientY });
                   const overId = getItemIdFromPoint(touch.clientX, touch.clientY);
-                  updateDragOver(overId !== touchDragIdRef.current ? overId : null);
+                  if (overId && overId !== dragIdRef.current) updateDragOver(overId);
                 }}
                 onTouchEnd={e => {
                   e.preventDefault();
                   const touch = e.changedTouches[0];
-                  if (touch && touchDragIdRef.current) {
-                    const toId = getItemIdFromPoint(touch.clientX, touch.clientY);
-                    if (toId && toId !== touchDragIdRef.current) {
-                      didDragRef.current = true;
-                      applyReorder(touchDragIdRef.current, toId);
-                    }
-                  }
-                  touchDragIdRef.current = null;
-                  setDragId(null);
-                  updateDragOver(null);
-                  prevDragOverIdRef.current = null;
+                  if (touch) endDrag(touch.clientX, touch.clientY);
+                  else { dragIdRef.current = null; setDragId(null); setPointerPos(null); clearDragOver(); }
                 }}
               >
-                <span className="text-[16px] text-[#ccc] cursor-grab select-none">⠿</span>
+                <span className="text-[16px] text-[#ccc] select-none">⠿</span>
               </div>
 
               <div className="qz-problem-qa flex-1 min-w-0">
@@ -197,6 +230,41 @@ export const ProblemList = ({ problems, onAdd, onEdit, onShare, onToggleBookmark
           );
         })
       )}
+
+      {/* ドラッグ中のゴーストカード */}
+      {pointerPos && dragId && (() => {
+        const gp = sorted.find(p => p.id === dragId);
+        if (!gp) return null;
+        return (
+          <div
+            style={{
+              position: 'fixed',
+              top: pointerPos.y - grabOffsetRef.current,
+              left: cardLeftRef.current,
+              width: cardWidthRef.current,
+              pointerEvents: 'none',
+              zIndex: 9999,
+              borderRadius: 12,
+            }}
+            className="qz-problem-item qz-drag-ghost flex items-stretch gap-0"
+          >
+            <div className="-ml-4 -my-[14px] mr-3 flex items-center px-2.5 border-r border-[#ececec] dark:border-[#2a2a2a] rounded-l-[11px] flex-shrink-0">
+              <span className="text-[16px] text-[#ccc] select-none">⠿</span>
+            </div>
+            <div className="qz-problem-qa flex-1 min-w-0">
+              <div className="qz-problem-q">
+                <div className="qz-problem-top-row">
+                  <div className="qz-problem-question">{gp.question}</div>
+                </div>
+              </div>
+              <div className="qz-problem-a">
+                <div className="qz-result-qa-label">答え</div>
+                <div className="qz-problem-answer">{gp.answer.length > ANSWER_INLINE_LIMIT ? `${gp.answer.slice(0, 20)}…` : gp.answer}</div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {answerDialog && (
         <Dialog open={true} onOpenChange={() => setAnswerDialog(null)}>
