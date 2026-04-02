@@ -203,6 +203,22 @@ export function formatElapsed(ms: number): string {
   return `${min}分${sec}秒`;
 }
 
+export const MAX_RECENT          = 10;  // 直近の記録の最大保存件数
+export const RECENT_INITIAL_SHOW = 3;   // 直近の記録の初期表示件数
+
+export const MEMO_GEN_ERROR_CODES = {
+  NO_API_KEY: 'E011',
+  GENERATE:   'E012',
+} as const;
+
+export class MemoGenError extends Error {
+  reason: 'no_api_key' | 'generate';
+  constructor(reason: 'no_api_key' | 'generate') {
+    super(reason);
+    this.reason = reason;
+  }
+}
+
 export function genShareCode(): string {
   return Math.random().toString(36).slice(2, 10).toUpperCase();
 }

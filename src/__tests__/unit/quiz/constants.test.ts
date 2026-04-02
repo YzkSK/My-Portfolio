@@ -16,6 +16,10 @@ import {
   buildProblemChoices,
   isExamSession,
   CHOICE2_OPTIONS,
+  MAX_RECENT,
+  RECENT_INITIAL_SHOW,
+  MEMO_GEN_ERROR_CODES,
+  MemoGenError,
   type Problem,
   type ActiveSession,
 } from '@/app/quiz/constants';
@@ -323,5 +327,43 @@ describe('isExamSession', () => {
   it('oneByOne モードは false', () => {
     const s = { mode: 'oneByOne' } as ActiveSession;
     expect(isExamSession(s)).toBe(false);
+  });
+});
+
+// ── MAX_RECENT / RECENT_INITIAL_SHOW ──────────────────────────
+describe('MAX_RECENT', () => {
+  it('10 である', () => {
+    expect(MAX_RECENT).toBe(10);
+  });
+});
+
+describe('RECENT_INITIAL_SHOW', () => {
+  it('3 である', () => {
+    expect(RECENT_INITIAL_SHOW).toBe(3);
+  });
+});
+
+// ── MEMO_GEN_ERROR_CODES ──────────────────────────────────────
+describe('MEMO_GEN_ERROR_CODES', () => {
+  it('NO_API_KEY は E011', () => {
+    expect(MEMO_GEN_ERROR_CODES.NO_API_KEY).toBe('E011');
+  });
+
+  it('GENERATE は E012', () => {
+    expect(MEMO_GEN_ERROR_CODES.GENERATE).toBe('E012');
+  });
+});
+
+// ── MemoGenError ──────────────────────────────────────────────
+describe('MemoGenError', () => {
+  it('reason プロパティが正しく設定される', () => {
+    const err = new MemoGenError('no_api_key');
+    expect(err.reason).toBe('no_api_key');
+    expect(err).toBeInstanceOf(Error);
+  });
+
+  it('generate reason も正しく設定される', () => {
+    const err = new MemoGenError('generate');
+    expect(err.reason).toBe('generate');
   });
 });

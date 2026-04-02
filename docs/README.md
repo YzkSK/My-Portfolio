@@ -4,10 +4,10 @@
 
 | 種別 | テストファイル数 | テストケース数 | 結果 |
 |---|---|---|---|
-| 単体テスト | 5 | 76 | ✅ 全件パス |
-| 結合テスト | 8 | 69 | ✅ 全件パス |
-| Worker 単体テスト | 1 | 25 | ✅ 全件パス |
-| **合計** | **14** | **145** | ✅ |
+| 単体テスト | 7 | 95 | ✅ 全件パス |
+| 結合テスト | 13 | 88 | ✅ 全件パス |
+| Worker 単体テスト | 1 | 26 | ✅ 全件パス |
+| **合計** | **21** | **209** | ✅ |
 
 テストコマンド: ルート `npm test`、Worker `cd workers/notification-cron && npm test`
 
@@ -28,3 +28,4 @@
 | [quiz.md](quiz.md) | `/app/quiz` | 問題集管理 |
 | [quiz-play.md](quiz-play.md) | `/app/quiz/play` | 問題集プレイ |
 | [error-pages.md](error-pages.md) | - | エラーページ (404/403/500/503) |
+| [hooks.md](hooks.md) | - | 共有 Hooks (useFirestoreData / useFirestoreSave) |

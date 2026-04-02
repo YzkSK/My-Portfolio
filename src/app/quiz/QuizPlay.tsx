@@ -1,21 +1,21 @@
-import { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useToast } from '../shared/useToast';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
-import { db } from '../shared/firebase';
 import { useAuth } from '../auth/AuthContext';
-import { useSetLoading } from '../shared/AppLoadingContext';
 import { useNavigate, useSearchParams, useBlocker } from 'react-router-dom';
 import { AppFooter } from '../shared/AppFooter';
 import '../shared/app.css';
 import './quiz.css';
 import {
-  SAVE_DEBOUNCE_MS, TOAST_DURATION_MS, EXAM_TIME_LIMIT_MS, EXAM_MAX_PROBLEMS, MASTER_THRESHOLD,
+  TOAST_DURATION_MS, EXAM_TIME_LIMIT_MS, EXAM_MAX_PROBLEMS, MASTER_THRESHOLD,
+  MAX_RECENT, RECENT_INITIAL_SHOW,
   shuffle, filterProblems, buildProblemChoices, isAnswerCorrect, isWeak, isExamSession, isInvalidProblem,
   getCategories, newProblemSet, parseProblem, parseProblemSet, parseRecentConfig, firestorePaths,
   QUIZ_MODE_LABELS, formatRelativeTime, getInvalidCount,
   type Problem, type ProblemSet, type RecentConfig, type ActiveSession, type QuizSessionConfig,
   type OneByOneSession, type ExamSession, type QuizMode,
 } from './constants';
+import { useFirestoreData } from '../shared/useFirestoreData';
+import { useFirestoreSave } from '../shared/useFirestoreSave';
 import { QuizSession } from './views/QuizSession';
 import { Button } from '@/components/ui/button';
 import { AppMenu } from '../shared/AppMenu';
@@ -23,81 +23,66 @@ import { usePageTitle } from '../shared/usePageTitle';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { DbErrorBanner } from '../shared/DbErrorBanner';
 
-const MAX_RECENT = 10;
-const RECENT_INITIAL_SHOW = 3;
+type QuizPlayData = { sets: ProblemSet[]; recentConfigs: RecentConfig[] };
 
 export const QuizPlay = () => {
   const { currentUser } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const setGlobalLoading = useSetLoading();
   usePageTitle('問題集');
 
-  const [sets, setSets]                     = useState<ProblemSet[]>([]);
-  const [recentConfigs, setRecentConfigs]   = useState<RecentConfig[]>([]);
   const [showAllRecent, setShowAllRecent]   = useState(false);
   const initSetId = searchParams.get('set');
   const [selectedSetIds, setSelectedSetIds] = useState<string[]>(initSetId ? [initSetId] : []);
   const [configConfirmed, setConfigConfirmed] = useState(false);
   const [session, setSession]               = useState<ActiveSession | null>(null);
   const { toasts, addToast }                = useToast(TOAST_DURATION_MS);
-  const [loading, setLoading]               = useState(true);
-  const [dbError, setDbError]               = useState(false);
-  const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const setsRef = useRef<ProblemSet[]>([]);
-  setsRef.current = sets;
 
   const [categoryFilter, setCategoryFilter] = useState('');
   const [quizMode, setQuizMode]             = useState<QuizMode>('oneByOne');
 
-  useLayoutEffect(() => {
-    setGlobalLoading('quizplay', true);
-    return () => setGlobalLoading('quizplay', false);
-  }, [setGlobalLoading]);
+  const saveToFirestore = useFirestoreSave<QuizPlayData>({
+    currentUser,
+    path: firestorePaths.quizData(currentUser?.uid ?? ''),
+  });
 
-  useEffect(() => {
-    if (!currentUser) return;
-    (async () => {
-      try {
-        const ref = doc(db, firestorePaths.quizData(currentUser.uid));
-        const snap = await getDoc(ref);
-        if (snap.exists()) {
-          const data = snap.data();
-          if (Array.isArray(data.sets)) {
-            setSets((data.sets as Record<string, unknown>[]).map(parseProblemSet));
-          } else if (Array.isArray(data.problems)) {
-            const migrated = newProblemSet('問題集');
-            migrated.problems = (data.problems as Record<string, unknown>[]).map(parseProblem);
-            setSets([migrated]);
-          }
-          if (Array.isArray(data.recentConfigs)) {
-            setRecentConfigs((data.recentConfigs as Record<string, unknown>[]).map(parseRecentConfig));
-          }
-        }
-      } catch (e) {
-        console.error('QuizPlay Firestore読み込みエラー:', e);
-        setDbError(true);
-      } finally {
-        setLoading(false);
-        setGlobalLoading('quizplay', false);
+  const { data, setData, loading, dbError } = useFirestoreData<QuizPlayData>({
+    currentUser,
+    path: firestorePaths.quizData(currentUser?.uid ?? ''),
+    parse: (raw) => {
+      let sets: ProblemSet[];
+      if (Array.isArray(raw.sets)) {
+        sets = (raw.sets as Record<string, unknown>[]).map(parseProblemSet);
+      } else if (Array.isArray(raw.problems)) {
+        const migrated = newProblemSet('問題集');
+        migrated.problems = (raw.problems as Record<string, unknown>[]).map(parseProblem);
+        sets = [migrated];
+      } else {
+        sets = [];
       }
-    })();
-  }, [currentUser]);
+      const recentConfigs = Array.isArray(raw.recentConfigs)
+        ? (raw.recentConfigs as Record<string, unknown>[]).map(parseRecentConfig)
+        : [];
+      return { sets, recentConfigs };
+    },
+    loadingKey: 'quizplay',
+    initialData: { sets: [], recentConfigs: [] },
+  });
 
-  const saveToFirestore = useCallback((setsData: ProblemSet[], recentsData?: RecentConfig[]) => {
-    if (!currentUser) return;
-    if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
-    saveTimeoutRef.current = setTimeout(async () => {
-      try {
-        const ref = doc(db, firestorePaths.quizData(currentUser.uid));
-        const payload: Record<string, unknown> = { sets: setsData };
-        if (recentsData !== undefined) payload.recentConfigs = recentsData;
-        await setDoc(ref, payload, { merge: true });
-      } catch (e) {
-        console.error('QuizPlay: Firestore保存失敗', e);
-      }
-    }, SAVE_DEBOUNCE_MS);
-  }, [currentUser]);
+  const sets = data.sets;
+  const recentConfigs = data.recentConfigs;
+  const setSets = useCallback((updater: ProblemSet[] | ((prev: ProblemSet[]) => ProblemSet[])) => {
+    setData(prev => ({
+      ...prev,
+      sets: typeof updater === 'function' ? updater(prev.sets) : updater,
+    }));
+  }, [setData]);
+  const setRecentConfigs = useCallback((recents: RecentConfig[]) => {
+    setData(prev => ({ ...prev, recentConfigs: recents }));
+  }, [setData]);
+
+  setsRef.current = sets;
 
   // ── 選択中のセット・問題 ──────────────────────────────────
   const selectedSets = sets.filter(s => selectedSetIds.includes(s.id));
@@ -120,12 +105,12 @@ export const QuizPlay = () => {
 
   // ── 問題更新（複数セット横断）─────────────────────────────
   const updateProblemInSets = useCallback((id: string, updater: (p: Problem) => Problem) => {
-    setSets(prev => {
-      const next = prev.map(s => ({ ...s, problems: s.problems.map(p => p.id === id ? updater(p) : p) }));
-      saveToFirestore(next);
-      return next;
+    setData(prev => {
+      const nextSets = prev.sets.map(s => ({ ...s, problems: s.problems.map(p => p.id === id ? updater(p) : p) }));
+      saveToFirestore({ sets: nextSets, recentConfigs: prev.recentConfigs });
+      return { ...prev, sets: nextSets };
     });
-  }, [saveToFirestore]);
+  }, [saveToFirestore, setData]);
 
   const recordResult = useCallback((entries: { id: string; correct: boolean }[]) => {
     const mastered: string[] = [];
@@ -146,8 +131,8 @@ export const QuizPlay = () => {
     setSets(next);
     setsRef.current = next;
     mastered.forEach(q => addToast(`「${q.length > 15 ? q.slice(0, 15) + '…' : q}」をマスターしました！`));
-    saveToFirestore(next);
-  }, [saveToFirestore]);
+    saveToFirestore({ sets: next, recentConfigs: data.recentConfigs });
+  }, [saveToFirestore, setSets, data.recentConfigs]);
 
   const toggleBookmark  = (id: string) => updateProblemInSets(id, p => ({ ...p, bookmarked: !p.bookmarked }));
   const handleUpdateMemo = (id: string, memo: string) => updateProblemInSets(id, p => ({ ...p, memo }));
@@ -178,7 +163,7 @@ export const QuizPlay = () => {
     );
     const updatedRecents = [newRecent, ...deduped].slice(0, MAX_RECENT);
     setRecentConfigs(updatedRecents);
-    saveToFirestore(sets, updatedRecents);
+    saveToFirestore({ sets, recentConfigs: updatedRecents });
 
     if (config.mode === 'oneByOne') {
       setSession({
