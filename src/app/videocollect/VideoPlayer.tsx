@@ -210,6 +210,7 @@ export const VideoPlayer = () => {
 
   const handlePointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     if (e.pointerType !== 'mouse') return;
+    if ((e.target as HTMLElement).closest('button, input')) return;
     const video = videoRef.current;
     if (!video) return;
     video.paused ? video.play() : video.pause();
