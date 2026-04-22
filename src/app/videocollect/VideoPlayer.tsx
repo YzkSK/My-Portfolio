@@ -21,7 +21,7 @@ export const VideoPlayer = () => {
 
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [videoError, setVideoError] = useState<'processing' | 'error' | null>(null);
+  const [videoError, setVideoError] = useState<'processing' | 'codec' | 'error' | null>(null);
   const [vcData, setVcData] = useState<VcData>(VC_INITIAL_DATA);
   const [showTagModal, setShowTagModal] = useState(false);
 
@@ -326,7 +326,15 @@ export const VideoPlayer = () => {
           onRateChange={() => setSpeed(videoRef.current?.playbackRate ?? 1)}
           onWaiting={() => setWaiting(true)}
           onPlaying={() => { setWaiting(false); setIsBufferReady(true); }}
-          onCanPlay={() => { setWaiting(false); setIsBufferReady(true); }}
+          onCanPlay={() => {
+            setWaiting(false);
+            setIsBufferReady(true);
+            // ビデオトラックが描画されない場合（コーデック非対応）を検知
+            const v = videoRef.current;
+            if (v && v.readyState >= 3 && v.videoWidth === 0 && v.duration > 0) {
+              setVideoError('codec');
+            }
+          }}
           onError={async () => {
             // プロキシが 503 を返した場合は processing エラー、それ以外は一般エラー
             try {
@@ -564,6 +572,17 @@ export const VideoPlayer = () => {
       </div>
 
       {/* タイトル・タグ */}
+      {videoError === 'codec' && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 16px', background: 'rgba(234,179,8,0.15)', borderBottom: '1px solid rgba(234,179,8,0.3)' }}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#eab308" strokeWidth="2" style={{ flexShrink: 0 }}>
+            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" />
+          </svg>
+          <p style={{ fontSize: 12, color: '#eab308', margin: 0 }}>
+            このブラウザでは映像コーデックがサポートされていないため、音声のみ再生されます。ダウンロードしてローカルで再生してください。
+          </p>
+        </div>
+      )}
+
       <div className="vc-player-info">
         <h2 className="vc-player-title">{fileName}</h2>
         <div className="vc-card-tags" style={{ marginTop: 8 }}>
