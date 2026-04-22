@@ -128,13 +128,13 @@ export const VideoPlayer = () => {
     };
   }, []);
 
-  // ドラッグ中にプレビュー動画を80msデバウンスでシーク
+  // ドラッグ中にプレビュー動画を80msデバウンスでシーク（メタデータ読み込み済みの場合のみ）
   useEffect(() => {
     if (!isSeeking) return;
     if (previewSeekTimerRef.current) clearTimeout(previewSeekTimerRef.current);
     previewSeekTimerRef.current = setTimeout(() => {
       const pv = previewVideoRef.current;
-      if (pv) pv.currentTime = seekPreview;
+      if (pv && pv.readyState >= 1) pv.currentTime = seekPreview;
     }, 80);
   }, [isSeeking, seekPreview]);
 
@@ -530,7 +530,6 @@ export const VideoPlayer = () => {
 
           {/* 下部: シークバー・時間 */}
           <div className="vc-player-controls-bottom">
-            {/* シークプレビューバブル */}
             <div className="vc-seek-wrapper">
               {isSeeking && duration > 0 && (
                 <div
@@ -543,49 +542,53 @@ export const VideoPlayer = () => {
                     src={videoSrc}
                     muted
                     playsInline
-                    preload="none"
+                    preload="metadata"
+                    onLoadedMetadata={() => {
+                      const pv = previewVideoRef.current;
+                      if (pv) pv.currentTime = seekPreview;
+                    }}
                   />
                   <span className="vc-seek-preview-time">{formatTime(seekPreview)}</span>
                 </div>
               )}
+              <input
+                type="range"
+                className="vc-seek-bar"
+                min={0}
+                max={duration || 1}
+                step={0.01}
+                value={isSeeking ? seekPreview : (seekTarget ?? currentTime)}
+                onMouseDown={() => { setIsSeeking(true); setSeekPreview(seekTarget ?? currentTime); }}
+                onTouchStart={() => { setIsSeeking(true); setSeekPreview(seekTarget ?? currentTime); }}
+                onChange={e => setSeekPreview(Number(e.target.value))}
+                onMouseUp={e => {
+                  const target = Number((e.target as HTMLInputElement).value);
+                  const v = videoRef.current;
+                  if (v) v.currentTime = target;
+                  setSeekTarget(target);
+                  setIsSeeking(false);
+                }}
+                onTouchEnd={e => {
+                  const v = videoRef.current;
+                  if (v) v.currentTime = seekPreview;
+                  setSeekTarget(seekPreview);
+                  setIsSeeking(false);
+                  e.stopPropagation();
+                }}
+                style={duration ? {
+                  background: (() => {
+                    const pos = isSeeking ? seekPreview : (seekTarget ?? currentTime);
+                    const played = (pos / duration) * 100;
+                    const buffered = (Math.max(bufferedEnd, pos) / duration) * 100;
+                    return `linear-gradient(to right,
+                      rgba(255,255,255,0.9) ${played}%,
+                      rgba(255,255,255,0.4) ${played}%,
+                      rgba(255,255,255,0.4) ${buffered}%,
+                      rgba(255,255,255,0.2) ${buffered}%)`;
+                  })(),
+                } : undefined}
+              />
             </div>
-            <input
-              type="range"
-              className="vc-seek-bar"
-              min={0}
-              max={duration || 1}
-              step={0.01}
-              value={isSeeking ? seekPreview : (seekTarget ?? currentTime)}
-              onMouseDown={() => { setIsSeeking(true); setSeekPreview(seekTarget ?? currentTime); }}
-              onTouchStart={() => { setIsSeeking(true); setSeekPreview(seekTarget ?? currentTime); }}
-              onChange={e => setSeekPreview(Number(e.target.value))}
-              onMouseUp={e => {
-                const target = Number((e.target as HTMLInputElement).value);
-                const v = videoRef.current;
-                if (v) v.currentTime = target;
-                setSeekTarget(target);
-                setIsSeeking(false);
-              }}
-              onTouchEnd={e => {
-                const v = videoRef.current;
-                if (v) v.currentTime = seekPreview;
-                setSeekTarget(seekPreview);
-                setIsSeeking(false);
-                e.stopPropagation();
-              }}
-              style={duration ? {
-                background: (() => {
-                  const pos = isSeeking ? seekPreview : (seekTarget ?? currentTime);
-                  const played = (pos / duration) * 100;
-                  const buffered = (Math.max(bufferedEnd, pos) / duration) * 100;
-                  return `linear-gradient(to right,
-                    rgba(255,255,255,0.9) ${played}%,
-                    rgba(255,255,255,0.4) ${played}%,
-                    rgba(255,255,255,0.4) ${buffered}%,
-                    rgba(255,255,255,0.2) ${buffered}%)`;
-                })(),
-              } : undefined}
-            />
             <span className="vc-player-time">
               {formatTime(isSeeking ? seekPreview : (seekTarget ?? currentTime))} / {formatTime(duration)}
             </span>
