@@ -396,17 +396,23 @@
   font-variant-numeric: tabular-nums;
 }
 
-.vc-settings-menu {
-  position: absolute;
-  bottom: calc(100% + 8px);
-  right: 0;
-  background: rgba(0, 0, 0, 0.92);
-  border-radius: 10px;
-  padding: 10px;
-  min-width: 180px;
+.vc-player-settings-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: 50;
   display: flex;
-  flex-direction: column;
-  gap: 8px;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.vc-player-settings-panel {
+  background: #1a1a1a;
+  border-radius: 16px 16px 0 0;
+  padding: 20px;
+  width: 100%;
+  max-width: 480px;
+  padding-bottom: max(20px, env(safe-area-inset-bottom));
 }
 
 .vc-settings-section-label {

@@ -27,6 +27,7 @@ import {
 } from './constants';
 import { VideoGrid } from './views/VideoGrid';
 import { FolderModal } from './modals/FolderModal';
+import { FilterModal } from './modals/FilterModal';
 import { TagModal } from './modals/TagModal';
 import { UploadModal } from './modals/UploadModal';
 
@@ -41,6 +42,7 @@ type Modal =
   | null
   | { type: 'folder' }
   | { type: 'upload' }
+  | { type: 'filter' }
   | { type: 'tag'; file: DriveFile };
 
 export const Videocollect = () => {
@@ -50,7 +52,7 @@ export const Videocollect = () => {
 
   const [pageState, setPageState] = useState<PageState>({ status: 'loading' });
   const [modal, setModal] = useState<Modal>(null);
-  const [activeTag, setActiveTag] = useState<string | null>(null);
+  const [activeTags, setActiveTags] = useState<string[]>([]);
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [sortKey, setSortKey] = useState<'date-desc' | 'date-asc' | 'name-asc' | 'name-desc' | 'size-desc' | 'size-asc' | 'tag-asc' | 'tag-desc'>('date-desc');
 
@@ -130,8 +132,8 @@ export const Videocollect = () => {
 
   const filteredFiles = useMemo(() => {
     if (pageState.status !== 'loaded') return [];
-    const files = activeTag
-      ? pageState.files.filter(f => (data.tags[f.id] ?? []).includes(activeTag))
+    const files = activeTags.length > 0
+      ? pageState.files.filter(f => activeTags.some(t => (data.tags[f.id] ?? []).includes(t)))
       : pageState.files;
     return [...files].sort((a, b) => {
       switch (sortKey) {
@@ -153,7 +155,7 @@ export const Videocollect = () => {
         }
       }
     });
-  }, [pageState, activeTag, data.tags, sortKey]);
+  }, [pageState, activeTags, data.tags, sortKey]);
 
   const handleFolderSave = (folders: DriveFolder[]) => {
     const next = { ...data, folders };
@@ -224,36 +226,31 @@ export const Videocollect = () => {
           >
             アップロード
           </Button>
-          <select
-            className="vc-sort-select"
-            value={sortKey}
-            onChange={e => setSortKey(e.target.value as typeof sortKey)}
-            aria-label="並び替え"
+          <button
+            className="vc-icon-btn"
+            onClick={() => setModal({ type: 'filter' })}
+            aria-label="タグで絞り込み"
+            title="タグで絞り込み"
+            style={{ border: '1px solid var(--vc-card-border)', borderRadius: 8, padding: '6px 10px', gap: 6, position: 'relative' }}
           >
-            <option value="date-desc">新しい順</option>
-            <option value="date-asc">古い順</option>
-            <option value="name-asc">名前 A→Z</option>
-            <option value="name-desc">名前 Z→A</option>
-            <option value="size-desc">サイズ 大→小</option>
-            <option value="size-asc">サイズ 小→大</option>
-            <option value="tag-asc">タグ A→Z</option>
-            <option value="tag-desc">タグ Z→A</option>
-          </select>
-        </div>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M10 18h4v-2h-4v2zM3 6v2h18V6H3zm3 7h12v-2H6v2z" />
+            </svg>
+            <span style={{ fontSize: 13 }}>フィルター</span>
+            {activeTags.length > 0 && (
+              <span style={{
+                position: 'absolute', top: -6, right: -6,
+                background: 'var(--vc-accent)', color: '#fff',
+                fontSize: 10, fontWeight: 700, borderRadius: '99px',
+                minWidth: 18, height: 18, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                padding: '0 4px',
+              }}>
+                {activeTags.length}
+              </span>
+            )}
+          </button>
 
-        {allTags.length > 0 && (
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 16 }}>
-            {allTags.map(tag => (
-              <button
-                key={tag}
-                className={`vc-tag vc-tag--filter${activeTag === tag ? ' vc-tag--active' : ''}`}
-                onClick={() => setActiveTag(prev => prev === tag ? null : tag)}
-              >
-                {tag}
-              </button>
-            ))}
-          </div>
-        )}
+        </div>
 
         {pageState.status === 'loading' && (
           <div className="vc-empty">
@@ -278,10 +275,10 @@ export const Videocollect = () => {
             </p>
           </div>
         )}
-        {pageState.status === 'loaded' && filteredFiles.length === 0 && activeTag && (
+        {pageState.status === 'loaded' && filteredFiles.length === 0 && activeTags.length > 0 && (
           <div className="vc-empty">
             <p style={{ fontSize: 14, color: 'var(--vc-text-secondary)' }}>
-              「{activeTag}」のタグが付いた動画がありません
+              選択したタグの動画がありません
             </p>
           </div>
         )}
@@ -305,6 +302,15 @@ export const Videocollect = () => {
       </div>
 
       {/* モーダル */}
+      {modal?.type === 'filter' && (
+        <FilterModal
+          allTags={allTags}
+          activeTags={activeTags}
+          sortKey={sortKey}
+          onApply={(tags, sort) => { setActiveTags(tags); setSortKey(sort); }}
+          onClose={() => setModal(null)}
+        />
+      )}
       {modal?.type === 'folder' && accessToken && (
         <FolderModal
           selectedFolders={data.folders}

@@ -433,49 +433,15 @@ export const VideoPlayer = () => {
               </button>
 
               {/* 設定 */}
-              <div style={{ position: 'relative' }}>
-                <button
-                  className="vc-player-btn"
-                  onClick={() => setShowSettingsMenu(p => !p)}
-                  aria-label="設定"
-                >
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M19.14 12.94c.04-.3.06-.61.06-.94s-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.488.488 0 0 0-.59-.22l-2.39.96a7.05 7.05 0 0 0-1.62-.94l-.36-2.54a.484.484 0 0 0-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96a.477.477 0 0 0-.59.22L2.74 8.87a.47.47 0 0 0 .12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32a.47.47 0 0 0-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z" />
-                  </svg>
-                </button>
-                {showSettingsMenu && (
-                  <div className="vc-settings-menu">
-                    <p className="vc-settings-section-label">再生速度</p>
-                    <div className="vc-settings-options">
-                      {SPEEDS.map(s => (
-                        <button
-                          key={s}
-                          className={`vc-settings-option${s === speed ? ' vc-settings-option--active' : ''}`}
-                          onClick={() => {
-                            const v = videoRef.current;
-                            if (v) v.playbackRate = s;
-                            setSpeed(s);
-                          }}
-                        >
-                          {s}x
-                        </button>
-                      ))}
-                    </div>
-                    <p className="vc-settings-section-label">スキップ秒数</p>
-                    <div className="vc-settings-options">
-                      {[5, 10, 15, 30].map(s => (
-                        <button
-                          key={s}
-                          className={`vc-settings-option${s === skipSeconds ? ' vc-settings-option--active' : ''}`}
-                          onClick={() => setSkipSeconds(s)}
-                        >
-                          {s}秒
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
+              <button
+                className="vc-player-btn"
+                onClick={() => setShowSettingsMenu(true)}
+                aria-label="設定"
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M19.14 12.94c.04-.3.06-.61.06-.94s-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.488.488 0 0 0-.59-.22l-2.39.96a7.05 7.05 0 0 0-1.62-.94l-.36-2.54a.484.484 0 0 0-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96a.477.477 0 0 0-.59.22L2.74 8.87a.47.47 0 0 0 .12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32a.47.47 0 0 0-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z" />
+                </svg>
+              </button>
 
               {/* ダウンロード */}
               <button className="vc-player-btn" onClick={handleDownload} aria-label="ダウンロード">
@@ -521,6 +487,47 @@ export const VideoPlayer = () => {
           </button>
         </div>
       </div>
+
+      {showSettingsMenu && (
+        <div className="vc-player-settings-overlay" onClick={() => setShowSettingsMenu(false)}>
+          <div className="vc-player-settings-panel" onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <span style={{ fontSize: 15, fontWeight: 700, color: '#fff' }}>設定</span>
+              <button className="vc-player-btn" onClick={() => setShowSettingsMenu(false)} aria-label="閉じる">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" />
+                </svg>
+              </button>
+            </div>
+
+            <p className="vc-settings-section-label">再生速度</p>
+            <div className="vc-settings-options" style={{ marginBottom: 20 }}>
+              {SPEEDS.map(s => (
+                <button
+                  key={s}
+                  className={`vc-settings-option${s === speed ? ' vc-settings-option--active' : ''}`}
+                  onClick={() => { const v = videoRef.current; if (v) v.playbackRate = s; setSpeed(s); }}
+                >
+                  {s}x
+                </button>
+              ))}
+            </div>
+
+            <p className="vc-settings-section-label">ダブルタップスキップ</p>
+            <div className="vc-settings-options">
+              {[5, 10, 15, 30].map(s => (
+                <button
+                  key={s}
+                  className={`vc-settings-option${s === skipSeconds ? ' vc-settings-option--active' : ''}`}
+                  onClick={() => setSkipSeconds(s)}
+                >
+                  {s}秒
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {showTagModal && (
         <TagModal
