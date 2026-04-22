@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { useGoogleLogin } from '@react-oauth/google';
 import '../shared/app.css';
 import { useAuth } from '../auth/AuthContext';
@@ -54,6 +54,8 @@ export const Settings = () => {
           body: JSON.stringify({ code, uid: currentUser.uid, redirectUri: REDIRECT_URI }),
         });
         if (!res.ok) throw new Error(`exchange failed: ${res.status}`);
+        // 再接続時は古いフォルダフィルターをクリア
+        await setDoc(doc(db, firestorePaths.vcData(currentUser.uid)), { folders: [] }, { merge: true });
         setDriveConnected(true);
         addToast('Google Drive に接続しました');
       } catch (e) {
