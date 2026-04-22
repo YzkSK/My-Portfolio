@@ -349,26 +349,6 @@ export const VideoPlayer = () => {
                 )}
               </button>
 
-              {/* -10秒 */}
-              <button
-                className="vc-player-btn"
-                style={{ fontSize: 11, fontWeight: 700, letterSpacing: '-0.5px' }}
-                onClick={() => { const v = videoRef.current; if (v) v.currentTime = Math.max(0, v.currentTime - 10); }}
-                aria-label="-10秒"
-              >
-                -10s
-              </button>
-
-              {/* +10秒 */}
-              <button
-                className="vc-player-btn"
-                style={{ fontSize: 11, fontWeight: 700, letterSpacing: '-0.5px' }}
-                onClick={() => { const v = videoRef.current; if (v) v.currentTime = Math.min(v.duration || 0, v.currentTime + 10); }}
-                aria-label="+10秒"
-              >
-                +10s
-              </button>
-
               {/* 時間 */}
               <span className="vc-player-time">
                 {formatTime(currentTime)} / {formatTime(duration)}
