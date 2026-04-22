@@ -203,6 +203,10 @@ export const UploadModal = ({ accessToken, defaultFolders, onUploaded, onClose, 
           <DialogTitle>動画をアップロード</DialogTitle>
         </DialogHeader>
 
+        <p style={{ fontSize: 11, color: 'var(--vc-text-secondary)', margin: 0 }}>
+          推奨形式: <strong style={{ color: 'var(--vc-text-primary)' }}>H.264 (MP4)</strong>。H.265 / HEVC は Chrome では映像が再生されません。
+        </p>
+
         {/* Drop zone */}
         <div
           className={`vc-dropzone${dragOver ? ' vc-dropzone--over' : ''}`}
