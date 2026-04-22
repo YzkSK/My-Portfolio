@@ -191,6 +191,11 @@ export const UploadModal = ({ accessToken, defaultFolders, onUploaded, onClose, 
 
   const canUpload = !uploading && fileStatuses.some(fs => fs.status === 'pending' || fs.status === 'error');
 
+  const totalCount = fileStatuses.length;
+  const doneCount = fileStatuses.filter(fs => fs.status === 'done').length;
+  const overallPct = totalCount === 0 ? 0 : Math.round(fileStatuses.reduce((sum, fs) => sum + fs.progress, 0) / totalCount);
+  const showOverall = uploading || doneCount > 0;
+
   return (
     <Dialog open={true} onOpenChange={open => { if (!open) handleClose(); }}>
       <DialogContent className="max-w-[480px]" aria-describedby={undefined}>
@@ -227,6 +232,24 @@ export const UploadModal = ({ accessToken, defaultFolders, onUploaded, onClose, 
             disabled={uploading}
           />
         </div>
+
+        {/* Overall progress */}
+        {showOverall && (
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+              <span style={{ fontSize: 12, color: 'var(--vc-text-secondary)' }}>
+                {doneCount} / {totalCount} 完了
+              </span>
+              <span style={{ fontSize: 12, color: 'var(--vc-text-secondary)' }}>{overallPct}%</span>
+            </div>
+            <div className="vc-progress-bar">
+              <div
+                className="vc-progress-fill"
+                style={{ width: `${overallPct}%`, background: doneCount === totalCount ? '#22c55e' : undefined }}
+              />
+            </div>
+          </div>
+        )}
 
         {/* File list */}
         {fileStatuses.length > 0 && (

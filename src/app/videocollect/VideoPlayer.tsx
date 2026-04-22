@@ -21,6 +21,7 @@ export const VideoPlayer = () => {
 
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [videoError, setVideoError] = useState<'processing' | 'error' | null>(null);
   const [vcData, setVcData] = useState<VcData>(VC_INITIAL_DATA);
   const [showTagModal, setShowTagModal] = useState(false);
 
@@ -236,18 +237,18 @@ export const VideoPlayer = () => {
     }
   };
 
+  const proxyUrl = import.meta.env.VITE_DRIVE_PROXY_URL as string;
+
   const handleDownload = () => {
     if (!accessToken) return;
-    const proxyUrl = import.meta.env.VITE_DRIVE_PROXY_URL as string;
     const a = document.createElement('a');
-    a.href = `${proxyUrl}/stream/${fileId}?token=${encodeURIComponent(accessToken)}`;
+    a.href = `${proxyUrl}/stream/${encodeURIComponent(fileId)}?token=${encodeURIComponent(accessToken)}`;
     a.download = fileName;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
   };
 
-  const proxyUrl = import.meta.env.VITE_DRIVE_PROXY_URL as string;
   const videoSrc = accessToken
     ? `${proxyUrl}/stream/${encodeURIComponent(fileId)}?token=${encodeURIComponent(accessToken)}`
     : '';
@@ -324,9 +325,18 @@ export const VideoPlayer = () => {
           }}
           onRateChange={() => setSpeed(videoRef.current?.playbackRate ?? 1)}
           onWaiting={() => setWaiting(true)}
-          onPlaying={() => setWaiting(false)}
-          onCanPlay={() => setWaiting(false)}
-          onCanPlayThrough={() => setIsBufferReady(true)}
+          onPlaying={() => { setWaiting(false); setIsBufferReady(true); }}
+          onCanPlay={() => { setWaiting(false); setIsBufferReady(true); }}
+          onError={async () => {
+            // プロキシが 503 を返した場合は processing エラー、それ以外は一般エラー
+            try {
+              const proxyUrl = import.meta.env.VITE_DRIVE_PROXY_URL as string;
+              const res = await fetch(`${proxyUrl}/stream/${encodeURIComponent(fileId)}?token=${encodeURIComponent(accessToken ?? '')}`, { method: 'HEAD' });
+              setVideoError(res.status === 503 ? 'processing' : 'error');
+            } catch {
+              setVideoError('error');
+            }
+          }}
         />
 
         {/* ダブルタップインジケーター */}
@@ -352,7 +362,32 @@ export const VideoPlayer = () => {
         )}
 
         {/* 初回バッファリングオーバーレイ */}
-        {!isBufferReady && (
+        {videoError && (
+          <div className="vc-buffer-overlay">
+            {videoError === 'processing' ? (
+              <>
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.7)" strokeWidth="1.5">
+                  <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
+                </svg>
+                <p className="vc-buffer-text" style={{ maxWidth: 280, textAlign: 'center' }}>
+                  Google Drive が動画を処理中です。しばらく待ってからもう一度お試しください。
+                </p>
+              </>
+            ) : (
+              <>
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.7)" strokeWidth="1.5">
+                  <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
+                </svg>
+                <p className="vc-buffer-text">動画を読み込めませんでした</p>
+                <button className="vc-buffer-skip" onClick={() => { setVideoError(null); setIsBufferReady(false); videoRef.current?.load(); }}>
+                  再試行
+                </button>
+              </>
+            )}
+          </div>
+        )}
+
+        {!videoError && !isBufferReady && (
           <div className="vc-buffer-overlay">
             <div className="vc-spinner" />
             <p className="vc-buffer-text">

@@ -154,12 +154,22 @@ async function handleStream(
   const token = url.searchParams.get('token');
   if (!token) return jsonError(cors, 'Unauthorized', 401);
 
-  const driveUrl = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`;
-  const headers: Record<string, string> = { Authorization: `Bearer ${token}` };
+  const driveUrl = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&acknowledgeAbuse=true&supportsAllDrives=true`;
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${token}`,
+    Accept: 'video/*,application/octet-stream',
+  };
   const range = request.headers.get('Range');
   if (range) headers['Range'] = range;
 
   const resp = await fetch(driveUrl, { headers });
+
+  // Drive がトランスコード処理中の場合、HTML のエラーページが返ってくる
+  const contentType = resp.headers.get('Content-Type') ?? '';
+  if (contentType.includes('text/html')) {
+    return jsonError(cors, 'processing', 503);
+  }
+
   const respHeaders: Record<string, string> = { ...cors };
   for (const h of ['Content-Type', 'Content-Length', 'Content-Range', 'Accept-Ranges']) {
     const v = resp.headers.get(h);
