@@ -4,9 +4,11 @@ import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../shared/firebase';
 import { useAuth } from '../auth/AuthContext';
 import { usePageTitle } from '../shared/usePageTitle';
+import { useFirestoreSave } from '../shared/useFirestoreSave';
 import '../shared/app.css';
 import './videocollect.css';
-import { type VcAuth, firestorePaths, loadAccessToken, formatTime, parseVcData, VC_ERROR_CODES } from './constants';
+import { type VcAuth, type VcData, VC_INITIAL_DATA, firestorePaths, loadAccessToken, formatTime, parseVcData, VC_ERROR_CODES } from './constants';
+import { TagModal } from './modals/TagModal';
 
 const SPEEDS = [0.5, 0.75, 1, 1.25, 1.5, 2];
 
@@ -19,7 +21,22 @@ export const VideoPlayer = () => {
 
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [fileTags, setFileTags] = useState<string[]>([]);
+  const [vcData, setVcData] = useState<VcData>(VC_INITIAL_DATA);
+  const [showTagModal, setShowTagModal] = useState(false);
+
+  const fileTags = vcData.tags[fileId] ?? [];
+
+  const saveVcData = useFirestoreSave<VcData>({
+    currentUser,
+    path: currentUser ? firestorePaths.vcData(currentUser.uid) : '',
+  });
+
+  const handleTagSave = (tags: string[]) => {
+    const next = { ...vcData, tags: { ...vcData.tags, [fileId]: tags } };
+    setVcData(next);
+    saveVcData(next);
+    setShowTagModal(false);
+  };
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -47,8 +64,7 @@ export const VideoPlayer = () => {
     ])
       .then(([authSnap, dataSnap]) => {
         if (dataSnap.exists()) {
-          const parsed = parseVcData(dataSnap.data() as Record<string, unknown>);
-          setFileTags(parsed.tags[fileId] ?? []);
+          setVcData(parseVcData(dataSnap.data() as Record<string, unknown>));
         }
         if (!authSnap.exists()) {
           setLoadError('Google Drive が連携されていません');
@@ -445,14 +461,32 @@ export const VideoPlayer = () => {
       {/* タイトル・タグ */}
       <div className="vc-player-info">
         <h2 className="vc-player-title">{fileName}</h2>
-        {fileTags.length > 0 && (
-          <div className="vc-card-tags" style={{ marginTop: 8 }}>
-            {fileTags.map(tag => (
-              <span key={tag} className="vc-tag">{tag}</span>
-            ))}
-          </div>
-        )}
+        <div className="vc-card-tags" style={{ marginTop: 8 }}>
+          {fileTags.map(tag => (
+            <span key={tag} className="vc-tag">{tag}</span>
+          ))}
+          <button
+            className="vc-icon-btn vc-tag-edit-btn"
+            onClick={() => setShowTagModal(true)}
+            aria-label="タグを編集"
+            title="タグを編集"
+          >
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z" />
+              <line x1="7" y1="7" x2="7.01" y2="7" />
+            </svg>
+          </button>
+        </div>
       </div>
+
+      {showTagModal && (
+        <TagModal
+          file={{ id: fileId, name: fileName } as Parameters<typeof TagModal>[0]['file']}
+          currentTags={fileTags}
+          onSave={handleTagSave}
+          onClose={() => setShowTagModal(false)}
+        />
+      )}
     </div>
   );
 };

@@ -37,13 +37,14 @@ export const VideoCard = ({ file, tags, accessToken, onTagEdit }: Props) => {
   };
 
   return (
-    <div className="vc-card">
-      <div className="vc-card-thumb" onClick={handlePlay} role="button" tabIndex={0} onKeyDown={e => { if (e.key === 'Enter') handlePlay(); }}>
+    <div className="vc-card" onClick={handleTitleClick}>
+      <div className="vc-card-thumb" onClick={e => { e.stopPropagation(); handlePlay(); }} role="button" tabIndex={0} onKeyDown={e => { if (e.key === 'Enter') handlePlay(); }}>
         {previewing ? (
           <video
             className="vc-card-preview-video"
             src={previewSrc}
             autoPlay
+            muted
             playsInline
             preload="none"
             onEnded={() => setPreviewing(false)}
@@ -73,7 +74,6 @@ export const VideoCard = ({ file, tags, accessToken, onTagEdit }: Props) => {
         <p
           className={`vc-card-name${previewing ? ' vc-card-name--previewing' : ''}`}
           title={file.name}
-          onClick={handleTitleClick}
         >
           {file.name}
         </p>
