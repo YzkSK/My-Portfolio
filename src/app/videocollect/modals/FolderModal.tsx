@@ -100,7 +100,28 @@ export const FolderModal = ({ selectedFolders, accessToken, onSave, onClose, onE
               読み込み中…
             </p>
           )}
-          {!loading && folders.length === 0 && (
+          {/* ルート直下オプション（トップ階層のみ表示） */}
+          {!loading && breadcrumb.length === 1 && (() => {
+            const root: DriveFolder = { id: 'root', name: 'マイドライブ（直下）' };
+            return (
+              <div className="vc-folder-item">
+                <input
+                  type="checkbox"
+                  id="folder-root"
+                  checked={checked.has('root')}
+                  onChange={() => toggleFolder(root)}
+                  style={{ flexShrink: 0 }}
+                />
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style={{ flexShrink: 0, color: '#6366f1' }}>
+                  <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z" />
+                </svg>
+                <label htmlFor="folder-root" style={{ flex: 1, cursor: 'pointer', fontSize: 13 }}>
+                  マイドライブ（直下）
+                </label>
+              </div>
+            );
+          })()}
+          {!loading && folders.length === 0 && breadcrumb.length > 1 && (
             <p style={{ textAlign: 'center', color: 'var(--vc-text-secondary)', padding: '20px 0', fontSize: 13 }}>
               フォルダがありません
             </p>

@@ -323,6 +323,7 @@ export const Videocollect = () => {
         <TagModal
           file={modal.file}
           currentTags={data.tags[modal.file.id] ?? []}
+          allTags={allTags}
           onSave={tags => handleTagSave(modal.file, tags)}
           onClose={() => setModal(null)}
         />

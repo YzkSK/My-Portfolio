@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useMemo } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import type { DriveFile } from '../constants';
@@ -6,21 +6,25 @@ import type { DriveFile } from '../constants';
 type Props = {
   file: DriveFile;
   currentTags: string[];
+  allTags?: string[];
   onSave: (tags: string[]) => void;
   onClose: () => void;
 };
 
-export const TagModal = ({ file, currentTags, onSave, onClose }: Props) => {
+export const TagModal = ({ file, currentTags, allTags = [], onSave, onClose }: Props) => {
   const [tags, setTags] = useState<string[]>(currentTags);
   const [input, setInput] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
 
+  const addTag = (tag: string) => {
+    const trimmed = tag.trim();
+    if (trimmed && !tags.includes(trimmed)) {
+      setTags(prev => [...prev, trimmed]);
+    }
+  };
+
   const addTags = (raw: string) => {
-    const newTags = raw
-      .split(/[\s,]+/)
-      .map(t => t.trim())
-      .filter(t => t.length > 0 && !tags.includes(t));
-    if (newTags.length > 0) setTags(prev => [...prev, ...newTags]);
+    raw.split(/[\s,]+/).forEach(t => addTag(t));
     setInput('');
   };
 
@@ -36,6 +40,22 @@ export const TagModal = ({ file, currentTags, onSave, onClose }: Props) => {
   };
 
   const removeTag = (tag: string) => setTags(prev => prev.filter(t => t !== tag));
+
+  // existing tags not yet added to current tags
+  const availableTags = useMemo(
+    () => allTags.filter(t => !tags.includes(t)),
+    [allTags, tags],
+  );
+
+  // predictive suggestions based on input
+  const suggestions = useMemo(() => {
+    if (!input.trim()) return [];
+    const lower = input.toLowerCase();
+    return availableTags.filter(t => t.toLowerCase().includes(lower));
+  }, [input, availableTags]);
+
+  // existing tags shown when input is empty (exclude suggestions overlap)
+  const existingChips = input.trim() ? [] : availableTags;
 
   return (
     <Dialog open={true} onOpenChange={open => { if (!open) onClose(); }}>
@@ -108,7 +128,40 @@ export const TagModal = ({ file, currentTags, onSave, onClose }: Props) => {
           />
         </div>
 
-        <p style={{ fontSize: 11, color: 'var(--vc-text-secondary)' }}>
+        {/* suggestions while typing */}
+        {suggestions.length > 0 && (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 4 }}>
+            {suggestions.map(tag => (
+              <button
+                key={tag}
+                onClick={() => { addTag(tag); setInput(''); inputRef.current?.focus(); }}
+                className="vc-tag-suggestion"
+              >
+                {tag}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* existing tags (when not typing) */}
+        {existingChips.length > 0 && (
+          <div style={{ marginTop: 8 }}>
+            <p style={{ fontSize: 11, color: 'var(--vc-text-secondary)', marginBottom: 6 }}>既存のタグ</p>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+              {existingChips.map(tag => (
+                <button
+                  key={tag}
+                  onClick={() => { addTag(tag); inputRef.current?.focus(); }}
+                  className="vc-tag-suggestion"
+                >
+                  {tag}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <p style={{ fontSize: 11, color: 'var(--vc-text-secondary)', marginTop: existingChips.length > 0 || suggestions.length > 0 ? 4 : 0 }}>
           Enter・スペースで追加 / Backspace で末尾のタグを削除
         </p>
 

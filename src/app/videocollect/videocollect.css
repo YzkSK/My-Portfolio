@@ -616,3 +616,20 @@
   background: var(--vc-card-border);
   color: var(--vc-text-primary);
 }
+
+/* Tag suggestion chips */
+.vc-tag-suggestion {
+  font-size: 12px;
+  padding: 3px 10px;
+  border-radius: 99px;
+  border: 1px dashed rgba(59, 130, 246, 0.5);
+  background: transparent;
+  color: var(--vc-accent);
+  cursor: pointer;
+  transition: background 0.12s, border-style 0.12s;
+}
+
+.vc-tag-suggestion:hover {
+  background: rgba(59, 130, 246, 0.12);
+  border-style: solid;
+}

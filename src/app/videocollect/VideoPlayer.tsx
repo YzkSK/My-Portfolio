@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../shared/firebase';
@@ -25,6 +25,10 @@ export const VideoPlayer = () => {
   const [showTagModal, setShowTagModal] = useState(false);
 
   const fileTags = vcData.tags[fileId] ?? [];
+  const allTags = useMemo(
+    () => [...new Set(Object.values(vcData.tags).flat())],
+    [vcData.tags],
+  );
 
   const saveVcData = useFirestoreSave<VcData>({
     currentUser,
@@ -43,7 +47,10 @@ export const VideoPlayer = () => {
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastTapRef = useRef<{ side: 'left' | 'right'; time: number } | null>(null);
   const doubleTapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const doubleTapAccumSideRef = useRef<'left' | 'right' | null>(null);
+  const doubleTapAccumTotalRef = useRef(0);
   const [doubleTapSide, setDoubleTapSide] = useState<'left' | 'right' | null>(null);
+  const [doubleTapTotal, setDoubleTapTotal] = useState(0);
 
   const [playing, setPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -199,9 +206,21 @@ export const VideoPlayer = () => {
         ? Math.max(0, video.currentTime - skipSeconds)
         : Math.min(video.duration || 0, video.currentTime + skipSeconds);
       lastTapRef.current = null;
+      // 同じ側への連続ダブルタップは秒数を加算
+      if (doubleTapAccumSideRef.current === side) {
+        doubleTapAccumTotalRef.current += skipSeconds;
+      } else {
+        doubleTapAccumSideRef.current = side;
+        doubleTapAccumTotalRef.current = skipSeconds;
+      }
       setDoubleTapSide(side);
+      setDoubleTapTotal(doubleTapAccumTotalRef.current);
       if (doubleTapTimerRef.current) clearTimeout(doubleTapTimerRef.current);
-      doubleTapTimerRef.current = setTimeout(() => setDoubleTapSide(null), 700);
+      doubleTapTimerRef.current = setTimeout(() => {
+        setDoubleTapSide(null);
+        doubleTapAccumSideRef.current = null;
+        doubleTapAccumTotalRef.current = 0;
+      }, 800);
     } else {
       lastTapRef.current = { side, time: now };
     }
@@ -327,7 +346,7 @@ export const VideoPlayer = () => {
               )}
             </div>
             <span className="vc-doubletap-label">
-              {doubleTapSide === 'left' ? `-${skipSeconds}秒` : `+${skipSeconds}秒`}
+              {doubleTapSide === 'left' ? `-${doubleTapTotal}秒` : `+${doubleTapTotal}秒`}
             </span>
           </div>
         )}
@@ -534,6 +553,7 @@ export const VideoPlayer = () => {
         <TagModal
           file={{ id: fileId, name: fileName } as Parameters<typeof TagModal>[0]['file']}
           currentTags={fileTags}
+          allTags={allTags}
           onSave={handleTagSave}
           onClose={() => setShowTagModal(false)}
         />
