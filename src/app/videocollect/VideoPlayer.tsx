@@ -27,7 +27,7 @@ export const VideoPlayer = () => {
   const [allFiles, setAllFiles] = useState<DriveFile[] | null>(null);
   const [expandedSameTag, setExpandedSameTag] = useState(false);
   const [expandedRandom, setExpandedRandom] = useState(false);
-  const REC_INITIAL = 10;
+  const REC_INITIAL = 12;
 
   const fileTags = vcData.tags[fileId] ?? [];
   const allTags = useMemo(
