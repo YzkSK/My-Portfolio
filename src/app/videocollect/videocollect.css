@@ -13,6 +13,8 @@
   overflow: hidden;
   cursor: pointer;
   transition: transform 0.15s, box-shadow 0.15s;
+  display: flex;
+  flex-direction: column;
 }
 
 .vc-card:hover {
@@ -77,6 +79,9 @@
 
 .vc-card-body {
   padding: 10px 12px 12px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
 }
 
 .vc-card-name {
@@ -105,7 +110,8 @@
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
-  margin-top: 6px;
+  margin-top: auto;
+  padding-top: 6px;
   align-items: center;
 }
 
@@ -765,6 +771,8 @@
 .vc-rec-card {
   text-decoration: none;
   color: inherit;
+  display: flex;
+  flex-direction: column;
 }
 
 .vc-rec-thumb {
@@ -803,6 +811,7 @@
   -webkit-box-orient: vertical;
   overflow: hidden;
   line-height: 1.4;
+  min-height: 2.8em;
 }
 
 .vc-rec-expand-btn {
