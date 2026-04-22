@@ -727,6 +727,44 @@
   border: 1px solid var(--vc-card-border);
 }
 
+/* Seek preview */
+.vc-seek-wrapper {
+  position: relative;
+}
+
+.vc-seek-preview {
+  position: absolute;
+  bottom: 8px;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.vc-seek-preview-video {
+  width: 120px;
+  height: 68px;
+  object-fit: cover;
+  border-radius: 6px;
+  border: 1.5px solid rgba(255, 255, 255, 0.5);
+  background: #000;
+  display: block;
+}
+
+.vc-seek-preview-time {
+  font-size: 11px;
+  font-weight: 600;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.7);
+  padding: 2px 7px;
+  border-radius: 4px;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
 /* Tag suggestion chips */
 .vc-tag-suggestion {
   font-size: 12px;
