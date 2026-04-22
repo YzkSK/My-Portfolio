@@ -166,6 +166,7 @@ async function handleStream(
     if (v) respHeaders[h] = v;
   }
   if (!respHeaders['Content-Type']) respHeaders['Content-Type'] = 'video/mp4';
+  respHeaders['Cache-Control'] = 'private, max-age=3600';
 
   return new Response(resp.body, { status: resp.status, headers: respHeaders });
 }

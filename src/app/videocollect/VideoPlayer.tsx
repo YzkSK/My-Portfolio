@@ -28,12 +28,14 @@ export const VideoPlayer = () => {
   const [playing, setPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
+  const [bufferedEnd, setBufferedEnd] = useState(0);
   const [volume, setVolume] = useState(1);
   const [muted, setMuted] = useState(false);
   const [speed, setSpeed] = useState(1);
   const [showControls, setShowControls] = useState(true);
   const [showSpeedMenu, setShowSpeedMenu] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [waiting, setWaiting] = useState(false);
 
   useEffect(() => {
     if (!currentUser) return;
@@ -174,6 +176,16 @@ export const VideoPlayer = () => {
     }
   }, [showControlsTemporary]);
 
+  const updateBuffered = (v: HTMLVideoElement) => {
+    const buf = v.buffered;
+    for (let i = 0; i < buf.length; i++) {
+      if (buf.start(i) <= v.currentTime + 0.1 && buf.end(i) > v.currentTime) {
+        setBufferedEnd(buf.end(i));
+        return;
+      }
+    }
+  };
+
   const handleDownload = () => {
     if (!accessToken) return;
     const proxyUrl = import.meta.env.VITE_DRIVE_PROXY_URL as string;
@@ -257,7 +269,13 @@ export const VideoPlayer = () => {
           playsInline
           onPlay={() => { setPlaying(true); showControlsTemporary(); }}
           onPause={() => { setPlaying(false); setShowControls(true); }}
-          onTimeUpdate={() => setCurrentTime(videoRef.current?.currentTime ?? 0)}
+          onTimeUpdate={() => {
+            const v = videoRef.current;
+            if (!v) return;
+            setCurrentTime(v.currentTime);
+            updateBuffered(v);
+          }}
+          onProgress={() => { const v = videoRef.current; if (v) updateBuffered(v); }}
           onDurationChange={() => setDuration(videoRef.current?.duration ?? 0)}
           onVolumeChange={() => {
             const v = videoRef.current;
@@ -266,15 +284,27 @@ export const VideoPlayer = () => {
             setMuted(v.muted);
           }}
           onRateChange={() => setSpeed(videoRef.current?.playbackRate ?? 1)}
+          onWaiting={() => setWaiting(true)}
+          onPlaying={() => setWaiting(false)}
+          onCanPlay={() => setWaiting(false)}
         />
+
+        {/* バッファリングスピナー */}
+        {waiting && (
+          <div className="vc-spinner-overlay">
+            <div className="vc-spinner" />
+          </div>
+        )}
 
         {/* コントロールオーバーレイ */}
         <div
           className={`vc-player-controls${showControls ? '' : ' vc-player-controls--hidden'}`}
-          onPointerDown={e => e.stopPropagation()}
-          onTouchEnd={e => e.stopPropagation()}
         >
-          <div className="vc-player-controls-inner">
+          <div
+            className="vc-player-controls-inner"
+            onPointerDown={e => e.stopPropagation()}
+            onTouchEnd={e => e.stopPropagation()}
+          >
             {/* シークバー */}
             <input
               type="range"
@@ -287,9 +317,17 @@ export const VideoPlayer = () => {
                 const v = videoRef.current;
                 if (v) v.currentTime = Number(e.target.value);
               }}
-              style={{
-                background: `linear-gradient(to right, rgba(255,255,255,0.9) ${duration ? (currentTime / duration) * 100 : 0}%, rgba(255,255,255,0.3) 0%)`,
-              }}
+              style={duration ? {
+                background: (() => {
+                  const played = (currentTime / duration) * 100;
+                  const buffered = (Math.max(bufferedEnd, currentTime) / duration) * 100;
+                  return `linear-gradient(to right,
+                    rgba(255,255,255,0.9) ${played}%,
+                    rgba(255,255,255,0.4) ${played}%,
+                    rgba(255,255,255,0.4) ${buffered}%,
+                    rgba(255,255,255,0.2) ${buffered}%)`;
+                })(),
+              } : undefined}
             />
 
             {/* ボタン行 */}

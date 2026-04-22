@@ -177,16 +177,22 @@ export const Videocollect = () => {
       <header className="app-header">
         <AppMenu />
         <h1>動画</h1>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+        <div style={{ width: 36 }} />
+      </header>
+
+      <main style={{ padding: '16px', paddingBottom: 80 }}>
+        <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
           <button
             className="vc-icon-btn"
             onClick={() => setModal({ type: 'folder' })}
             aria-label="フォルダ設定"
             title="フォルダ設定"
+            style={{ border: '1px solid var(--vc-card-border)', borderRadius: 8, padding: '6px 10px', gap: 6 }}
           >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
               <path d="M10 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-8l-2-2z" />
             </svg>
+            <span style={{ fontSize: 13 }}>フォルダ</span>
           </button>
           <Button
             variant="default"
@@ -197,9 +203,7 @@ export const Videocollect = () => {
             アップロード
           </Button>
         </div>
-      </header>
 
-      <main style={{ padding: '16px', paddingBottom: 80 }}>
         {allTags.length > 0 && (
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 16 }}>
             {allTags.map(tag => (
