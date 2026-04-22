@@ -3,6 +3,7 @@
 export interface Env {
   ALLOWED_ORIGIN: string;
   FIREBASE_PROJECT_ID: string;
+  FIREBASE_WEB_API_KEY: string;
   GOOGLE_OAUTH_CLIENT_ID: string;
   GOOGLE_OAUTH_CLIENT_SECRET: string;
   GOOGLE_SERVICE_ACCOUNT: string;
@@ -16,8 +17,10 @@ interface ServiceAccount {
 // ── JWT / OAuth2 (Firebase service account) ──────────────────────────────────
 
 function base64url(buf: ArrayBuffer): string {
-  return btoa(String.fromCharCode(...new Uint8Array(buf)))
-    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+  const bytes = new Uint8Array(buf);
+  let str = '';
+  for (const b of bytes) str += String.fromCharCode(b);
+  return btoa(str).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
 }
 
 function encodeObj(obj: object): string {
@@ -114,11 +117,29 @@ async function firestoreSet(
     fields[k] = toFsValue(v);
   }
   const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/${path}`;
-  await fetch(url, {
+  const resp = await fetch(url, {
     method: 'PATCH',
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ fields }),
   });
+  if (!resp.ok) throw new Error(`Firestore write failed: ${resp.status}`);
+}
+
+// ── Firebase ID token 検証 ────────────────────────────────────────────────────
+
+/** Firebase ID トークンを検証し、有効なら uid を返す */
+async function verifyIdToken(idToken: string, webApiKey: string): Promise<string | null> {
+  const resp = await fetch(
+    `https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${webApiKey}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ idToken }),
+    },
+  );
+  if (!resp.ok) return null;
+  const data = await resp.json() as { users?: { localId: string }[] };
+  return data.users?.[0]?.localId ?? null;
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -186,16 +207,20 @@ async function handleExchange(
   env: Env,
   cors: Record<string, string>,
 ): Promise<Response> {
-  let code: string, uid: string, redirectUri: string;
+  let code: string, uid: string, redirectUri: string, idToken: string;
   try {
-    const body = await request.json() as { code?: string; uid?: string; redirectUri?: string };
+    const body = await request.json() as { code?: string; uid?: string; redirectUri?: string; idToken?: string };
     code = body.code ?? '';
     uid = body.uid ?? '';
     redirectUri = body.redirectUri ?? 'postmessage';
+    idToken = body.idToken ?? '';
   } catch {
     return jsonError(cors, 'Invalid JSON', 400);
   }
-  if (!code || !uid) return jsonError(cors, 'Missing code or uid', 400);
+  if (!code || !uid || !idToken) return jsonError(cors, 'Missing required fields', 400);
+
+  const verifiedUid = await verifyIdToken(idToken, env.FIREBASE_WEB_API_KEY);
+  if (!verifiedUid || verifiedUid !== uid) return jsonError(cors, 'Unauthorized', 401);
 
   const tokenResp = await fetch('https://oauth2.googleapis.com/token', {
     method: 'POST',
@@ -241,14 +266,18 @@ async function handleRefresh(
   env: Env,
   cors: Record<string, string>,
 ): Promise<Response> {
-  let uid: string;
+  let uid: string, idToken: string;
   try {
-    const body = await request.json() as { uid?: string };
+    const body = await request.json() as { uid?: string; idToken?: string };
     uid = body.uid ?? '';
+    idToken = body.idToken ?? '';
   } catch {
     return jsonError(cors, 'Invalid JSON', 400);
   }
-  if (!uid) return jsonError(cors, 'Missing uid', 400);
+  if (!uid || !idToken) return jsonError(cors, 'Missing required fields', 400);
+
+  const verifiedUid = await verifyIdToken(idToken, env.FIREBASE_WEB_API_KEY);
+  if (!verifiedUid || verifiedUid !== uid) return jsonError(cors, 'Unauthorized', 401);
 
   const sa: ServiceAccount = JSON.parse(env.GOOGLE_SERVICE_ACCOUNT);
   const firebaseToken = await getFirebaseAccessToken(sa);

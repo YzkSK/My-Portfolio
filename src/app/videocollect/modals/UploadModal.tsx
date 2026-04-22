@@ -189,7 +189,8 @@ export const UploadModal = ({ accessToken, defaultFolders, onUploaded, onClose, 
     addFiles(e.dataTransfer.files);
   };
 
-  const canUpload = !uploading && fileStatuses.some(fs => fs.status === 'pending' || fs.status === 'error');
+  const pendingCount = fileStatuses.filter(fs => fs.status === 'pending' || fs.status === 'error').length;
+  const canUpload = !uploading && pendingCount > 0;
 
   const totalCount = fileStatuses.length;
   const doneCount = fileStatuses.filter(fs => fs.status === 'done').length;
@@ -281,7 +282,7 @@ export const UploadModal = ({ accessToken, defaultFolders, onUploaded, onClose, 
             style={{
               width: '100%',
               padding: '8px 10px',
-              fontSize: 13,
+              fontSize: 16,
               borderRadius: 8,
               border: '1px solid var(--app-border-input)',
               background: 'var(--app-input-bg)',
@@ -305,7 +306,7 @@ export const UploadModal = ({ accessToken, defaultFolders, onUploaded, onClose, 
             onClick={handleUpload}
             disabled={!canUpload}
           >
-            {uploading ? 'アップロード中…' : `アップロード${fileStatuses.filter(fs => fs.status === 'pending' || fs.status === 'error').length > 1 ? `（${fileStatuses.filter(fs => fs.status === 'pending' || fs.status === 'error').length}件）` : ''}`}
+            {uploading ? 'アップロード中…' : `アップロード${pendingCount > 1 ? `（${pendingCount}件）` : ''}`}
           </Button>
         </div>
       </DialogContent>

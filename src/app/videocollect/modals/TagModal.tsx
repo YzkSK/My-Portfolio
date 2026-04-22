@@ -120,7 +120,7 @@ export const TagModal = ({ file, currentTags, allTags = [], onSave, onClose }: P
               border: 'none',
               outline: 'none',
               background: 'transparent',
-              fontSize: 13,
+              fontSize: 16,
               color: 'var(--app-text)',
               flex: 1,
               minWidth: 120,

@@ -115,7 +115,6 @@ export async function fetchAllDriveFiles(
       q,
       fields: `nextPageToken,files(${DRIVE_FILES_FIELDS})`,
       pageSize: '1000',
-      orderBy: 'modifiedTime desc',
     });
     if (pageToken) params.set('pageToken', pageToken);
 
@@ -170,6 +169,7 @@ export async function fetchDriveFolders(
 export async function loadAccessToken(
   uid: string,
   authData: VcAuth,
+  idToken: string,
 ): Promise<string | null> {
   // 5分以上有効なら使用
   if (authData.tokenExpiry > Date.now() + 5 * 60 * 1000) {
@@ -181,12 +181,13 @@ export async function loadAccessToken(
     const resp = await fetch(`${proxyUrl}/oauth/refresh`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ uid }),
+      body: JSON.stringify({ uid, idToken }),
     });
     if (!resp.ok) return null;
     const data = await resp.json() as { accessToken: string };
     return data.accessToken;
-  } catch {
+  } catch (e) {
+    console.error('loadAccessToken: トークンリフレッシュ失敗', e);
     return null;
   }
 }

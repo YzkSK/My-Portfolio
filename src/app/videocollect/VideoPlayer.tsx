@@ -86,7 +86,7 @@ export const VideoPlayer = () => {
           setLoadError('Google Drive が連携されていません');
           return null;
         }
-        return loadAccessToken(currentUser.uid, auth);
+        return currentUser.getIdToken().then(idToken => loadAccessToken(currentUser.uid, auth, idToken));
       })
       .then(token => {
         if (token === null) return;
@@ -112,6 +112,13 @@ export const VideoPlayer = () => {
     return () => {
       document.removeEventListener('fullscreenchange', handler);
       document.removeEventListener('webkitfullscreenchange', handler);
+    };
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+      if (doubleTapTimerRef.current) clearTimeout(doubleTapTimerRef.current);
     };
   }, []);
 
@@ -336,9 +343,7 @@ export const VideoPlayer = () => {
             }
           }}
           onError={async () => {
-            // プロキシが 503 を返した場合は processing エラー、それ以外は一般エラー
             try {
-              const proxyUrl = import.meta.env.VITE_DRIVE_PROXY_URL as string;
               const res = await fetch(`${proxyUrl}/stream/${encodeURIComponent(fileId)}?token=${encodeURIComponent(accessToken ?? '')}`, { method: 'HEAD' });
               setVideoError(res.status === 503 ? 'processing' : 'error');
             } catch {

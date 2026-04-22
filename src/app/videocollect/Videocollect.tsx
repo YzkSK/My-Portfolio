@@ -82,7 +82,7 @@ export const Videocollect = () => {
           setPageState({ status: 'unauthenticated' });
           return null;
         }
-        return loadAccessToken(currentUser.uid, auth);
+        return currentUser.getIdToken().then(idToken => loadAccessToken(currentUser.uid, auth, idToken));
       })
       .then(token => {
         if (token === null) return;

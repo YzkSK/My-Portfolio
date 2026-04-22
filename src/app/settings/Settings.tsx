@@ -47,11 +47,12 @@ export const Settings = () => {
 
     const exchange = async () => {
       try {
+        const idToken = await currentUser.getIdToken();
         const proxyUrl = import.meta.env.VITE_DRIVE_PROXY_URL as string;
         const res = await fetch(`${proxyUrl}/oauth/exchange`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ code, uid: currentUser.uid, redirectUri: REDIRECT_URI }),
+          body: JSON.stringify({ code, uid: currentUser.uid, redirectUri: REDIRECT_URI, idToken }),
         });
         if (!res.ok) throw new Error(`exchange failed: ${res.status}`);
         // 再接続時は古いフォルダフィルターをクリア
