@@ -339,6 +339,7 @@
   padding-top: max(10px, env(safe-area-inset-top));
   padding-right: max(12px, env(safe-area-inset-right));
   gap: 2px;
+  pointer-events: none;
 }
 
 /* 中央エリア: スキップ・再生ボタン */
@@ -347,6 +348,7 @@
   align-items: center;
   justify-content: center;
   gap: 36px;
+  pointer-events: none;
 }
 
 /* 下部エリア: シークバー・時間 */
@@ -358,6 +360,14 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
+  pointer-events: none;
+}
+
+/* ボタン・入力要素は個別にイベントを受け取る */
+.vc-player-controls-top > *,
+.vc-player-controls-center > *,
+.vc-player-controls-bottom > * {
+  pointer-events: auto;
 }
 
 .vc-seek-bar {

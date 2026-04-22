@@ -66,6 +66,8 @@ export const VideoPlayer = () => {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [waiting, setWaiting] = useState(false);
   const [isBufferReady, setIsBufferReady] = useState(false);
+  const [isSeeking, setIsSeeking] = useState(false);
+  const [seekPreview, setSeekPreview] = useState(0);
 
   useEffect(() => {
     if (!currentUser) return;
@@ -427,11 +429,7 @@ export const VideoPlayer = () => {
           className={`vc-player-controls${showControls ? '' : ' vc-player-controls--hidden'}`}
         >
           {/* 上部右: ミュート・設定・ダウンロード・フルスクリーン */}
-          <div
-            className="vc-player-controls-top"
-            onPointerDown={e => e.stopPropagation()}
-            onTouchEnd={e => e.stopPropagation()}
-          >
+          <div className="vc-player-controls-top">
             <button
               className="vc-player-btn"
               onClick={() => { const v = videoRef.current; if (v) v.muted = !v.muted; }}
@@ -475,11 +473,7 @@ export const VideoPlayer = () => {
           </div>
 
           {/* 中央: スキップ戻る・再生/停止・スキップ進む */}
-          <div
-            className="vc-player-controls-center"
-            onPointerDown={e => e.stopPropagation()}
-            onTouchEnd={e => e.stopPropagation()}
-          >
+          <div className="vc-player-controls-center">
             <button
               className="vc-player-btn--skip"
               onClick={() => { const v = videoRef.current; if (v) v.currentTime = Math.max(0, v.currentTime - skipSeconds); }}
@@ -520,26 +514,33 @@ export const VideoPlayer = () => {
           </div>
 
           {/* 下部: シークバー・時間 */}
-          <div
-            className="vc-player-controls-bottom"
-            onPointerDown={e => e.stopPropagation()}
-            onTouchEnd={e => e.stopPropagation()}
-          >
+          <div className="vc-player-controls-bottom">
             <input
               type="range"
               className="vc-seek-bar"
               min={0}
               max={duration || 1}
-              step={0.1}
-              value={currentTime}
-              onChange={e => {
+              step={0.01}
+              value={isSeeking ? seekPreview : currentTime}
+              onMouseDown={() => { setIsSeeking(true); setSeekPreview(currentTime); }}
+              onTouchStart={() => { setIsSeeking(true); setSeekPreview(currentTime); }}
+              onChange={e => setSeekPreview(Number(e.target.value))}
+              onMouseUp={e => {
                 const v = videoRef.current;
-                if (v) v.currentTime = Number(e.target.value);
+                if (v) v.currentTime = Number((e.target as HTMLInputElement).value);
+                setIsSeeking(false);
+              }}
+              onTouchEnd={e => {
+                const v = videoRef.current;
+                if (v) v.currentTime = seekPreview;
+                setIsSeeking(false);
+                e.stopPropagation();
               }}
               style={duration ? {
                 background: (() => {
-                  const played = (currentTime / duration) * 100;
-                  const buffered = (Math.max(bufferedEnd, currentTime) / duration) * 100;
+                  const pos = isSeeking ? seekPreview : currentTime;
+                  const played = (pos / duration) * 100;
+                  const buffered = (Math.max(bufferedEnd, pos) / duration) * 100;
                   return `linear-gradient(to right,
                     rgba(255,255,255,0.9) ${played}%,
                     rgba(255,255,255,0.4) ${played}%,
@@ -549,7 +550,7 @@ export const VideoPlayer = () => {
               } : undefined}
             />
             <span className="vc-player-time">
-              {formatTime(currentTime)} / {formatTime(duration)}
+              {formatTime(isSeeking ? seekPreview : currentTime)} / {formatTime(duration)}
             </span>
           </div>
         </div>
