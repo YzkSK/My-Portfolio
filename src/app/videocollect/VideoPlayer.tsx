@@ -37,6 +37,7 @@ export const VideoPlayer = () => {
   const [showSpeedMenu, setShowSpeedMenu] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [waiting, setWaiting] = useState(false);
+  const [isBufferReady, setIsBufferReady] = useState(false);
 
   useEffect(() => {
     if (!currentUser) return;
@@ -263,6 +264,7 @@ export const VideoPlayer = () => {
           className="vc-player-video"
           src={videoSrc}
           playsInline
+          preload="auto"
           onPlay={() => { setPlaying(true); showControlsTemporary(); }}
           onPause={() => { setPlaying(false); setShowControls(true); }}
           onTimeUpdate={() => {
@@ -283,10 +285,27 @@ export const VideoPlayer = () => {
           onWaiting={() => setWaiting(true)}
           onPlaying={() => setWaiting(false)}
           onCanPlay={() => setWaiting(false)}
+          onCanPlayThrough={() => setIsBufferReady(true)}
         />
 
+        {/* 初回バッファリングオーバーレイ */}
+        {!isBufferReady && (
+          <div className="vc-buffer-overlay">
+            <div className="vc-spinner" />
+            <p className="vc-buffer-text">
+              バッファリング中
+              {duration > 0
+                ? `… ${Math.round((Math.min(bufferedEnd, duration) / duration) * 100)}%`
+                : '…'}
+            </p>
+            <button className="vc-buffer-skip" onClick={() => setIsBufferReady(true)}>
+              今すぐ再生
+            </button>
+          </div>
+        )}
+
         {/* バッファリングスピナー */}
-        {waiting && (
+        {waiting && isBufferReady && (
           <div className="vc-spinner-overlay">
             <div className="vc-spinner" />
           </div>

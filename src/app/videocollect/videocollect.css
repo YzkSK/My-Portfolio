@@ -404,6 +404,40 @@
   color: #60a5fa;
 }
 
+/* Initial buffer overlay */
+.vc-buffer-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.8);
+  gap: 14px;
+  z-index: 10;
+}
+
+.vc-buffer-text {
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 14px;
+  margin: 0;
+}
+
+.vc-buffer-skip {
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: #fff;
+  font-size: 13px;
+  padding: 8px 22px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.vc-buffer-skip:hover {
+  background: rgba(255, 255, 255, 0.22);
+}
+
 /* Buffering spinner */
 .vc-spinner-overlay {
   position: absolute;
