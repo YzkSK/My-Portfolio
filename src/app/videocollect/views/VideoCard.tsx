@@ -1,25 +1,54 @@
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { DriveFile } from '../constants';
 import { formatDuration, formatDate } from '../constants';
 
+const PREVIEW_DURATION_MS = 10_000;
+
 type Props = {
   file: DriveFile;
   tags: string[];
+  accessToken: string;
   onTagEdit: (file: DriveFile) => void;
 };
 
-export const VideoCard = ({ file, tags, onTagEdit }: Props) => {
+export const VideoCard = ({ file, tags, accessToken, onTagEdit }: Props) => {
   const navigate = useNavigate();
   const duration = file.videoMediaMetadata?.durationMillis;
+  const [previewing, setPreviewing] = useState(false);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (!previewing) return;
+    timerRef.current = setTimeout(() => setPreviewing(false), PREVIEW_DURATION_MS);
+    return () => { if (timerRef.current) clearTimeout(timerRef.current); };
+  }, [previewing]);
+
+  const proxyUrl = import.meta.env.VITE_DRIVE_PROXY_URL as string;
+  const previewSrc = `${proxyUrl}/stream/${encodeURIComponent(file.id)}?token=${encodeURIComponent(accessToken)}`;
 
   const handlePlay = () => {
     navigate(`/app/videocollect/play?id=${encodeURIComponent(file.id)}&name=${encodeURIComponent(file.name)}`);
   };
 
+  const handleTitleClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setPreviewing(prev => !prev);
+  };
+
   return (
     <div className="vc-card">
       <div className="vc-card-thumb" onClick={handlePlay} role="button" tabIndex={0} onKeyDown={e => { if (e.key === 'Enter') handlePlay(); }}>
-        {file.thumbnailLink ? (
+        {previewing ? (
+          <video
+            className="vc-card-preview-video"
+            src={previewSrc}
+            autoPlay
+            playsInline
+            preload="none"
+            onEnded={() => setPreviewing(false)}
+          />
+        ) : file.thumbnailLink ? (
           <img src={file.thumbnailLink} alt={file.name} loading="lazy" />
         ) : (
           <div className="vc-card-thumb-placeholder">
@@ -28,18 +57,26 @@ export const VideoCard = ({ file, tags, onTagEdit }: Props) => {
             </svg>
           </div>
         )}
-        <div className="vc-card-play-overlay">
-          <svg width="36" height="36" viewBox="0 0 24 24" fill="white">
-            <path d="M8 5v14l11-7z" />
-          </svg>
-        </div>
+        {!previewing && (
+          <div className="vc-card-play-overlay">
+            <svg width="36" height="36" viewBox="0 0 24 24" fill="white">
+              <path d="M8 5v14l11-7z" />
+            </svg>
+          </div>
+        )}
         {duration && (
           <div className="vc-card-duration">{formatDuration(duration)}</div>
         )}
       </div>
 
       <div className="vc-card-body">
-        <p className="vc-card-name" title={file.name}>{file.name}</p>
+        <p
+          className={`vc-card-name${previewing ? ' vc-card-name--previewing' : ''}`}
+          title={file.name}
+          onClick={handleTitleClick}
+        >
+          {file.name}
+        </p>
         <p className="vc-card-date">{formatDate(file.modifiedTime)}</p>
 
         <div className="vc-card-tags">

@@ -252,6 +252,7 @@ export const Videocollect = () => {
           <VideoGrid
             files={filteredFiles}
             tags={data.tags}
+            accessToken={accessToken!}
             onTagEdit={file => setModal({ type: 'tag', file })}
           />
         )}

@@ -68,6 +68,13 @@
   border-radius: 4px;
 }
 
+.vc-card-preview-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
 .vc-card-body {
   padding: 10px 12px 12px;
 }
@@ -82,6 +89,16 @@
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   line-height: 1.4;
+  cursor: pointer;
+}
+
+.vc-card-name:hover {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.vc-card-name--previewing {
+  color: var(--vc-accent);
 }
 
 .vc-card-date {
