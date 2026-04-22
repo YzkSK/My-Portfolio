@@ -318,8 +318,10 @@
   inset: 0;
   display: flex;
   flex-direction: column;
-  justify-content: flex-end;
-  background: linear-gradient(to top, rgba(0,0,0,0.8) 0%, transparent 40%);
+  justify-content: space-between;
+  background:
+    linear-gradient(to bottom, rgba(0,0,0,0.65) 0%, transparent 25%),
+    linear-gradient(to top,    rgba(0,0,0,0.75) 0%, transparent 35%);
   transition: opacity 0.3s;
 }
 
@@ -328,11 +330,34 @@
   pointer-events: none;
 }
 
-.vc-player-controls-inner {
-  padding: 12px 16px;
-  padding-bottom: max(16px, env(safe-area-inset-bottom));
+/* 上部エリア: 右寄せアイコンボタン群 */
+.vc-player-controls-top {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  padding: 10px 12px;
+  padding-top: max(10px, env(safe-area-inset-top));
+  padding-right: max(12px, env(safe-area-inset-right));
+  gap: 2px;
+}
+
+/* 中央エリア: スキップ・再生ボタン */
+.vc-player-controls-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 36px;
+}
+
+/* 下部エリア: シークバー・時間 */
+.vc-player-controls-bottom {
+  padding: 0 16px 12px;
+  padding-bottom: max(12px, env(safe-area-inset-bottom));
   padding-left: max(16px, env(safe-area-inset-left));
   padding-right: max(16px, env(safe-area-inset-right));
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
 .vc-seek-bar {
@@ -344,7 +369,6 @@
   background: rgba(255,255,255,0.3);
   outline: none;
   cursor: pointer;
-  margin-bottom: 10px;
 }
 
 .vc-seek-bar::-webkit-slider-thumb {
@@ -365,19 +389,13 @@
   border: none;
 }
 
-.vc-player-row {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
 .vc-player-btn {
   background: none;
   border: none;
   cursor: pointer;
   color: #fff;
-  padding: 6px;
-  border-radius: 6px;
+  padding: 7px;
+  border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -387,6 +405,53 @@
 
 .vc-player-btn:hover {
   background: rgba(255,255,255,0.15);
+}
+
+/* 中央: 再生/停止ボタン（大） */
+.vc-player-btn--play {
+  background: rgba(0,0,0,0.35);
+  border: none;
+  cursor: pointer;
+  color: #fff;
+  padding: 14px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, transform 0.1s;
+  flex-shrink: 0;
+}
+
+.vc-player-btn--play:hover {
+  background: rgba(0,0,0,0.55);
+  transform: scale(1.06);
+}
+
+/* 中央: スキップボタン */
+.vc-player-btn--skip {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #fff;
+  padding: 8px;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  transition: background 0.15s;
+  flex-shrink: 0;
+}
+
+.vc-player-btn--skip:hover {
+  background: rgba(255,255,255,0.15);
+}
+
+.vc-player-skip-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: rgba(255,255,255,0.9);
+  line-height: 1;
 }
 
 .vc-player-time {
