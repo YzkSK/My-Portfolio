@@ -465,6 +465,48 @@ export const VideoPlayer = () => {
             </div>
           </div>
         </div>
+
+        {/* 設定モーダル（フルスクリーン時も表示されるようコンテナ内に配置） */}
+        {showSettingsMenu && (
+          <div className="vc-player-settings-overlay" onClick={() => setShowSettingsMenu(false)}>
+            <div className="vc-player-settings-panel" onClick={e => e.stopPropagation()}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                <span style={{ fontSize: 15, fontWeight: 700, color: '#fff' }}>設定</span>
+                <button className="vc-player-btn" onClick={() => setShowSettingsMenu(false)} aria-label="閉じる">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" />
+                  </svg>
+                </button>
+              </div>
+
+              <p className="vc-settings-section-label">再生速度</p>
+              <div className="vc-settings-options" style={{ marginBottom: 20 }}>
+                {SPEEDS.map(s => (
+                  <button
+                    key={s}
+                    className={`vc-settings-option${s === speed ? ' vc-settings-option--active' : ''}`}
+                    onClick={() => { const v = videoRef.current; if (v) v.playbackRate = s; setSpeed(s); }}
+                  >
+                    {s}x
+                  </button>
+                ))}
+              </div>
+
+              <p className="vc-settings-section-label">ダブルタップスキップ</p>
+              <div className="vc-settings-options">
+                {[5, 10, 15, 30].map(s => (
+                  <button
+                    key={s}
+                    className={`vc-settings-option${s === skipSeconds ? ' vc-settings-option--active' : ''}`}
+                    onClick={() => setSkipSeconds(s)}
+                  >
+                    {s}秒
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* タイトル・タグ */}
@@ -487,47 +529,6 @@ export const VideoPlayer = () => {
           </button>
         </div>
       </div>
-
-      {showSettingsMenu && (
-        <div className="vc-player-settings-overlay" onClick={() => setShowSettingsMenu(false)}>
-          <div className="vc-player-settings-panel" onClick={e => e.stopPropagation()}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-              <span style={{ fontSize: 15, fontWeight: 700, color: '#fff' }}>設定</span>
-              <button className="vc-player-btn" onClick={() => setShowSettingsMenu(false)} aria-label="閉じる">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" />
-                </svg>
-              </button>
-            </div>
-
-            <p className="vc-settings-section-label">再生速度</p>
-            <div className="vc-settings-options" style={{ marginBottom: 20 }}>
-              {SPEEDS.map(s => (
-                <button
-                  key={s}
-                  className={`vc-settings-option${s === speed ? ' vc-settings-option--active' : ''}`}
-                  onClick={() => { const v = videoRef.current; if (v) v.playbackRate = s; setSpeed(s); }}
-                >
-                  {s}x
-                </button>
-              ))}
-            </div>
-
-            <p className="vc-settings-section-label">ダブルタップスキップ</p>
-            <div className="vc-settings-options">
-              {[5, 10, 15, 30].map(s => (
-                <button
-                  key={s}
-                  className={`vc-settings-option${s === skipSeconds ? ' vc-settings-option--active' : ''}`}
-                  onClick={() => setSkipSeconds(s)}
-                >
-                  {s}秒
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
 
       {showTagModal && (
         <TagModal

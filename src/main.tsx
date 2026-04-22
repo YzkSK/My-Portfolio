@@ -1,6 +1,18 @@
 import { StrictMode, lazy, Suspense, useEffect } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
+import { clearCachesAndReload } from './app/shared/ErrorBoundary';
+
+// モジュール読み込みエラー（MIME type / chunk not found）を React 外で検知してキャッシュクリア
+// sessionStorage でガードして無限リロードを防ぐ
+window.addEventListener('error', (e) => {
+  const isMimeError = e.message?.includes('MIME type');
+  const isModuleError = e.message?.includes('Failed to load module script') || e.message?.includes('dynamically imported module');
+  if (!isMimeError && !isModuleError) return;
+  if (sessionStorage.getItem('chunk-reload')) return;
+  sessionStorage.setItem('chunk-reload', '1');
+  clearCachesAndReload();
+}, true);
 import { App } from './portfolio/App'
 import { createBrowserRouter, RouterProvider, Route, Routes } from 'react-router-dom';
 import { GoogleOAuthProvider } from '@react-oauth/google';
