@@ -384,35 +384,102 @@
   font-variant-numeric: tabular-nums;
 }
 
-.vc-speed-menu {
+.vc-settings-menu {
   position: absolute;
-  bottom: 100%;
+  bottom: calc(100% + 8px);
   right: 0;
-  background: rgba(0,0,0,0.9);
-  border-radius: 8px;
-  overflow: hidden;
-  min-width: 80px;
-  margin-bottom: 4px;
+  background: rgba(0, 0, 0, 0.92);
+  border-radius: 10px;
+  padding: 10px;
+  min-width: 180px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
-.vc-speed-option {
-  display: block;
-  width: 100%;
-  padding: 8px 14px;
-  background: none;
-  border: none;
+.vc-settings-section-label {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.5);
+  margin: 0;
+  padding: 0 2px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.vc-settings-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.vc-settings-option {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.15);
   color: #fff;
-  font-size: 13px;
-  text-align: left;
+  font-size: 12px;
+  padding: 5px 10px;
+  border-radius: 6px;
   cursor: pointer;
+  transition: background 0.12s;
 }
 
-.vc-speed-option:hover {
-  background: rgba(255,255,255,0.1);
+.vc-settings-option:hover {
+  background: rgba(255, 255, 255, 0.2);
 }
 
-.vc-speed-option--active {
-  color: #60a5fa;
+.vc-settings-option--active {
+  background: #3b82f6;
+  border-color: #3b82f6;
+}
+
+/* Double-tap indicator */
+.vc-doubletap-indicator {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 40%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  pointer-events: none;
+  z-index: 6;
+  animation: vc-doubletap-fade 0.7s ease-out forwards;
+}
+
+.vc-doubletap-indicator--left {
+  left: 0;
+  border-radius: 0 999px 999px 0;
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.vc-doubletap-indicator--right {
+  right: 0;
+  border-radius: 999px 0 0 999px;
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.vc-doubletap-chevrons {
+  display: flex;
+  gap: 0;
+}
+
+.vc-doubletap-indicator--left .vc-doubletap-chevrons {
+  flex-direction: row-reverse;
+}
+
+.vc-doubletap-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #fff;
+}
+
+@keyframes vc-doubletap-fade {
+  0%   { opacity: 0; }
+  15%  { opacity: 1; }
+  70%  { opacity: 1; }
+  100% { opacity: 0; }
 }
 
 /* Initial buffer overlay */

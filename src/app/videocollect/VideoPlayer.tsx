@@ -42,6 +42,8 @@ export const VideoPlayer = () => {
   const containerRef = useRef<HTMLDivElement>(null);
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastTapRef = useRef<{ side: 'left' | 'right'; time: number } | null>(null);
+  const doubleTapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [doubleTapSide, setDoubleTapSide] = useState<'left' | 'right' | null>(null);
 
   const [playing, setPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -50,8 +52,9 @@ export const VideoPlayer = () => {
   const [volume, setVolume] = useState(1);
   const [muted, setMuted] = useState(false);
   const [speed, setSpeed] = useState(1);
+  const [skipSeconds, setSkipSeconds] = useState(10);
   const [showControls, setShowControls] = useState(true);
-  const [showSpeedMenu, setShowSpeedMenu] = useState(false);
+  const [showSettingsMenu, setShowSettingsMenu] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [waiting, setWaiting] = useState(false);
   const [isBufferReady, setIsBufferReady] = useState(false);
@@ -193,13 +196,16 @@ export const VideoPlayer = () => {
     const last = lastTapRef.current;
     if (last && last.side === side && now - last.time < 300) {
       video.currentTime = side === 'left'
-        ? Math.max(0, video.currentTime - 10)
-        : Math.min(video.duration || 0, video.currentTime + 10);
+        ? Math.max(0, video.currentTime - skipSeconds)
+        : Math.min(video.duration || 0, video.currentTime + skipSeconds);
       lastTapRef.current = null;
+      setDoubleTapSide(side);
+      if (doubleTapTimerRef.current) clearTimeout(doubleTapTimerRef.current);
+      doubleTapTimerRef.current = setTimeout(() => setDoubleTapSide(null), 700);
     } else {
       lastTapRef.current = { side, time: now };
     }
-  }, [showControlsTemporary]);
+  }, [showControlsTemporary, skipSeconds]);
 
   const updateBuffered = (v: HTMLVideoElement) => {
     const buf = v.buffered;
@@ -304,6 +310,28 @@ export const VideoPlayer = () => {
           onCanPlayThrough={() => setIsBufferReady(true)}
         />
 
+        {/* ダブルタップインジケーター */}
+        {doubleTapSide && (
+          <div className={`vc-doubletap-indicator vc-doubletap-indicator--${doubleTapSide}`}>
+            <div className="vc-doubletap-chevrons">
+              {[0, 1, 2].map(i =>
+                doubleTapSide === 'left' ? (
+                  <svg key={i} width="20" height="20" viewBox="0 0 24 24" fill="white" style={{ opacity: 1 - i * 0.25 }}>
+                    <path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z" />
+                  </svg>
+                ) : (
+                  <svg key={i} width="20" height="20" viewBox="0 0 24 24" fill="white" style={{ opacity: 1 - i * 0.25 }}>
+                    <path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z" />
+                  </svg>
+                )
+              )}
+            </div>
+            <span className="vc-doubletap-label">
+              {doubleTapSide === 'left' ? `-${skipSeconds}秒` : `+${skipSeconds}秒`}
+            </span>
+          </div>
+        )}
+
         {/* 初回バッファリングオーバーレイ */}
         {!isBufferReady && (
           <div className="vc-buffer-overlay">
@@ -404,32 +432,47 @@ export const VideoPlayer = () => {
                 )}
               </button>
 
-              {/* 速度 */}
+              {/* 設定 */}
               <div style={{ position: 'relative' }}>
                 <button
                   className="vc-player-btn"
-                  onClick={() => setShowSpeedMenu(p => !p)}
-                  style={{ fontSize: 12, padding: '6px 8px', minWidth: 38, fontWeight: 700 }}
-                  aria-label="再生速度"
+                  onClick={() => setShowSettingsMenu(p => !p)}
+                  aria-label="設定"
                 >
-                  {speed}x
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M19.14 12.94c.04-.3.06-.61.06-.94s-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.488.488 0 0 0-.59-.22l-2.39.96a7.05 7.05 0 0 0-1.62-.94l-.36-2.54a.484.484 0 0 0-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96a.477.477 0 0 0-.59.22L2.74 8.87a.47.47 0 0 0 .12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32a.47.47 0 0 0-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z" />
+                  </svg>
                 </button>
-                {showSpeedMenu && (
-                  <div className="vc-speed-menu">
-                    {SPEEDS.map(s => (
-                      <button
-                        key={s}
-                        className={`vc-speed-option${s === speed ? ' vc-speed-option--active' : ''}`}
-                        onClick={() => {
-                          const v = videoRef.current;
-                          if (v) v.playbackRate = s;
-                          setSpeed(s);
-                          setShowSpeedMenu(false);
-                        }}
-                      >
-                        {s}x
-                      </button>
-                    ))}
+                {showSettingsMenu && (
+                  <div className="vc-settings-menu">
+                    <p className="vc-settings-section-label">再生速度</p>
+                    <div className="vc-settings-options">
+                      {SPEEDS.map(s => (
+                        <button
+                          key={s}
+                          className={`vc-settings-option${s === speed ? ' vc-settings-option--active' : ''}`}
+                          onClick={() => {
+                            const v = videoRef.current;
+                            if (v) v.playbackRate = s;
+                            setSpeed(s);
+                          }}
+                        >
+                          {s}x
+                        </button>
+                      ))}
+                    </div>
+                    <p className="vc-settings-section-label">スキップ秒数</p>
+                    <div className="vc-settings-options">
+                      {[5, 10, 15, 30].map(s => (
+                        <button
+                          key={s}
+                          className={`vc-settings-option${s === skipSeconds ? ' vc-settings-option--active' : ''}`}
+                          onClick={() => setSkipSeconds(s)}
+                        >
+                          {s}秒
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>
