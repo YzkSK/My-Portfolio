@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { doc, getDoc } from 'firebase/firestore';
 import { useGoogleLogin } from '@react-oauth/google';
 import '../shared/app.css';
@@ -10,15 +10,19 @@ import { useToast } from '../shared/useToast';
 import { db } from '../shared/firebase';
 import { type VcAuth, firestorePaths, DRIVE_SCOPES, VC_ERROR_CODES } from '../videocollect/constants';
 
+const REDIRECT_URI = `${window.location.origin}/app/settings`;
+
 export const Settings = () => {
   const { currentUser, username } = useAuth();
   const { darkMode, toggleDarkMode } = useTheme();
   const navigate = useNavigate();
+  const location = useLocation();
   usePageTitle('設定');
   const { toasts, addToast } = useToast();
 
   const [driveConnected, setDriveConnected] = useState(false);
 
+  // Drive 接続状態チェック
   useEffect(() => {
     if (!currentUser) return;
     getDoc(doc(db, firestorePaths.vcAuth(currentUser.uid)))
@@ -31,16 +35,23 @@ export const Settings = () => {
       .catch(console.error);
   }, [currentUser]);
 
-  const login = useGoogleLogin({
-    flow: 'auth-code',
-    scope: DRIVE_SCOPES,
-    onSuccess: async response => {
+  // OAuth リダイレクト後のコールバック処理
+  useEffect(() => {
+    if (!currentUser) return;
+    const params = new URLSearchParams(location.search);
+    const code = params.get('code');
+    if (!code) return;
+
+    // URL からコードを除去
+    window.history.replaceState({}, '', window.location.pathname);
+
+    const exchange = async () => {
       try {
         const proxyUrl = import.meta.env.VITE_DRIVE_PROXY_URL as string;
         const res = await fetch(`${proxyUrl}/oauth/exchange`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ code: response.code, uid: currentUser!.uid }),
+          body: JSON.stringify({ code, uid: currentUser.uid, redirectUri: REDIRECT_URI }),
         });
         if (!res.ok) throw new Error(`exchange failed: ${res.status}`);
         setDriveConnected(true);
@@ -49,8 +60,16 @@ export const Settings = () => {
         console.error('Drive 連携エラー:', e);
         addToast(`Drive 連携に失敗しました [${VC_ERROR_CODES.AUTH_FAILED}]`, 'error');
       }
-    },
-    onError: () => addToast(`Drive 連携に失敗しました [${VC_ERROR_CODES.AUTH_FAILED}]`, 'error'),
+    };
+    exchange();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentUser]);
+
+  const login = useGoogleLogin({
+    flow: 'auth-code',
+    scope: DRIVE_SCOPES,
+    ux_mode: 'redirect',
+    redirect_uri: REDIRECT_URI,
   });
 
   return (

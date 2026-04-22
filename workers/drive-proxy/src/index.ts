@@ -175,11 +175,12 @@ async function handleExchange(
   env: Env,
   cors: Record<string, string>,
 ): Promise<Response> {
-  let code: string, uid: string;
+  let code: string, uid: string, redirectUri: string;
   try {
-    const body = await request.json() as { code?: string; uid?: string };
+    const body = await request.json() as { code?: string; uid?: string; redirectUri?: string };
     code = body.code ?? '';
     uid = body.uid ?? '';
+    redirectUri = body.redirectUri ?? 'postmessage';
   } catch {
     return jsonError(cors, 'Invalid JSON', 400);
   }
@@ -192,7 +193,7 @@ async function handleExchange(
       code,
       client_id: env.GOOGLE_OAUTH_CLIENT_ID,
       client_secret: env.GOOGLE_OAUTH_CLIENT_SECRET,
-      redirect_uri: 'postmessage',
+      redirect_uri: redirectUri,
       grant_type: 'authorization_code',
     }),
   });
