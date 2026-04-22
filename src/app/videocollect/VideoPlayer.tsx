@@ -7,7 +7,7 @@ import { usePageTitle } from '../shared/usePageTitle';
 import { useFirestoreSave } from '../shared/useFirestoreSave';
 import '../shared/app.css';
 import './videocollect.css';
-import { type VcAuth, type VcData, VC_INITIAL_DATA, firestorePaths, loadAccessToken, formatTime, parseVcData, VC_ERROR_CODES } from './constants';
+import { type DriveFile, type VcAuth, type VcData, VC_INITIAL_DATA, firestorePaths, loadAccessToken, formatTime, parseVcData, VC_ERROR_CODES, fetchAllDriveFiles } from './constants';
 import { TagModal } from './modals/TagModal';
 
 const SPEEDS = [0.5, 0.75, 1, 1.25, 1.5, 2];
@@ -24,12 +24,27 @@ export const VideoPlayer = () => {
   const [videoError, setVideoError] = useState<'processing' | 'codec' | 'error' | null>(null);
   const [vcData, setVcData] = useState<VcData>(VC_INITIAL_DATA);
   const [showTagModal, setShowTagModal] = useState(false);
+  const [allFiles, setAllFiles] = useState<DriveFile[] | null>(null);
 
   const fileTags = vcData.tags[fileId] ?? [];
   const allTags = useMemo(
     () => [...new Set(Object.values(vcData.tags).flat())],
     [vcData.tags],
   );
+
+  const { sameTagFiles, randomFiles } = useMemo(() => {
+    if (!allFiles) return { sameTagFiles: [], randomFiles: [] };
+    const same = fileTags.length > 0
+      ? allFiles.filter(f => (vcData.tags[f.id] ?? []).some(t => fileTags.includes(t)))
+      : [];
+    const sameIds = new Set(same.map(f => f.id));
+    const random = allFiles
+      .filter(f => !sameIds.has(f.id))
+      .sort(() => Math.random() - 0.5)
+      .slice(0, 12);
+    return { sameTagFiles: same, randomFiles: random };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allFiles]);
 
   const saveVcData = useFirestoreSave<VcData>({
     currentUser,
@@ -107,6 +122,18 @@ export const VideoPlayer = () => {
       });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUser]);
+
+  // レコメンド用に全ファイル一覧を取得
+  useEffect(() => {
+    if (!accessToken) return;
+    const q = vcData.folders.length > 0
+      ? `(${vcData.folders.map(f => `'${f.id}' in parents`).join(' or ')}) and mimeType contains 'video/' and trashed=false`
+      : `mimeType contains 'video/' and trashed=false`;
+    fetchAllDriveFiles(accessToken, q)
+      .then(files => setAllFiles(files.filter(f => f.id !== fileId)))
+      .catch(() => setAllFiles([]));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [accessToken]);
 
   useEffect(() => {
     const handler = () => {
@@ -670,6 +697,56 @@ export const VideoPlayer = () => {
           </button>
         </div>
       </div>
+
+      {/* レコメンド */}
+      {(sameTagFiles.length > 0 || randomFiles.length > 0) && (
+        <div className="vc-recommendations">
+          {sameTagFiles.length > 0 && (
+            <>
+              <p className="vc-recommendations-label">同じタグ</p>
+              <div className="vc-recommendations-scroll">
+                {sameTagFiles.map(f => (
+                  <Link
+                    key={f.id}
+                    to={`/app/videocollect/play?id=${encodeURIComponent(f.id)}&name=${encodeURIComponent(f.name)}`}
+                    className="vc-rec-card"
+                  >
+                    <div className="vc-rec-thumb">
+                      {f.thumbnailLink
+                        ? <img src={f.thumbnailLink} alt="" loading="lazy" />
+                        : <div className="vc-rec-thumb-placeholder"><svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M17 10.5V7a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-3.5l4 4v-11l-4 4z"/></svg></div>
+                      }
+                    </div>
+                    <p className="vc-rec-name">{f.name}</p>
+                  </Link>
+                ))}
+              </div>
+            </>
+          )}
+          {randomFiles.length > 0 && (
+            <>
+              <p className="vc-recommendations-label" style={{ marginTop: sameTagFiles.length > 0 ? 16 : 0 }}>おすすめ</p>
+              <div className="vc-recommendations-scroll">
+                {randomFiles.map(f => (
+                  <Link
+                    key={f.id}
+                    to={`/app/videocollect/play?id=${encodeURIComponent(f.id)}&name=${encodeURIComponent(f.name)}`}
+                    className="vc-rec-card"
+                  >
+                    <div className="vc-rec-thumb">
+                      {f.thumbnailLink
+                        ? <img src={f.thumbnailLink} alt="" loading="lazy" />
+                        : <div className="vc-rec-thumb-placeholder"><svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M17 10.5V7a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-3.5l4 4v-11l-4 4z"/></svg></div>
+                      }
+                    </div>
+                    <p className="vc-rec-name">{f.name}</p>
+                  </Link>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+      )}
 
       {showTagModal && (
         <TagModal
