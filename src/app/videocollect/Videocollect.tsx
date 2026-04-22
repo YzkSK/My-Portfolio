@@ -52,6 +52,7 @@ export const Videocollect = () => {
   const [modal, setModal] = useState<Modal>(null);
   const [activeTag, setActiveTag] = useState<string | null>(null);
   const [accessToken, setAccessToken] = useState<string | null>(null);
+  const [sortKey, setSortKey] = useState<'date-desc' | 'date-asc' | 'name-asc' | 'name-desc' | 'size-desc' | 'size-asc' | 'tag-asc' | 'tag-desc'>('date-desc');
 
   const { data, setData, loading, dbError } = useFirestoreData({
     currentUser,
@@ -129,9 +130,30 @@ export const Videocollect = () => {
 
   const filteredFiles = useMemo(() => {
     if (pageState.status !== 'loaded') return [];
-    if (!activeTag) return pageState.files;
-    return pageState.files.filter(f => (data.tags[f.id] ?? []).includes(activeTag));
-  }, [pageState, activeTag, data.tags]);
+    const files = activeTag
+      ? pageState.files.filter(f => (data.tags[f.id] ?? []).includes(activeTag))
+      : pageState.files;
+    return [...files].sort((a, b) => {
+      switch (sortKey) {
+        case 'date-desc': return new Date(b.modifiedTime).getTime() - new Date(a.modifiedTime).getTime();
+        case 'date-asc':  return new Date(a.modifiedTime).getTime() - new Date(b.modifiedTime).getTime();
+        case 'name-asc':  return a.name.localeCompare(b.name, 'ja');
+        case 'name-desc': return b.name.localeCompare(a.name, 'ja');
+        case 'size-desc': return Number(b.size ?? 0) - Number(a.size ?? 0);
+        case 'size-asc':  return Number(a.size ?? 0) - Number(b.size ?? 0);
+        case 'tag-asc': {
+          const ta = (data.tags[a.id] ?? [])[0] ?? '￿';
+          const tb = (data.tags[b.id] ?? [])[0] ?? '￿';
+          return ta.localeCompare(tb, 'ja');
+        }
+        case 'tag-desc': {
+          const ta = (data.tags[a.id] ?? [])[0] ?? '';
+          const tb = (data.tags[b.id] ?? [])[0] ?? '';
+          return tb.localeCompare(ta, 'ja');
+        }
+      }
+    });
+  }, [pageState, activeTag, data.tags, sortKey]);
 
   const handleFolderSave = (folders: DriveFolder[]) => {
     const next = { ...data, folders };
@@ -181,7 +203,7 @@ export const Videocollect = () => {
       </header>
 
       <main style={{ padding: '16px', paddingBottom: 80 }}>
-        <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+        <div style={{ display: 'flex', gap: 8, marginBottom: 16, alignItems: 'center' }}>
           <button
             className="vc-icon-btn"
             onClick={() => setModal({ type: 'folder' })}
@@ -202,6 +224,21 @@ export const Videocollect = () => {
           >
             アップロード
           </Button>
+          <select
+            className="vc-sort-select"
+            value={sortKey}
+            onChange={e => setSortKey(e.target.value as typeof sortKey)}
+            aria-label="並び替え"
+          >
+            <option value="date-desc">新しい順</option>
+            <option value="date-asc">古い順</option>
+            <option value="name-asc">名前 A→Z</option>
+            <option value="name-desc">名前 Z→A</option>
+            <option value="size-desc">サイズ 大→小</option>
+            <option value="size-asc">サイズ 小→大</option>
+            <option value="tag-asc">タグ A→Z</option>
+            <option value="tag-desc">タグ Z→A</option>
+          </select>
         </div>
 
         {allTags.length > 0 && (

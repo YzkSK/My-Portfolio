@@ -126,6 +126,18 @@
   white-space: nowrap;
 }
 
+.vc-sort-select {
+  margin-left: auto;
+  font-size: 13px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--vc-card-border);
+  background: var(--vc-card-bg);
+  color: var(--vc-text-primary);
+  cursor: pointer;
+  outline: none;
+}
+
 .vc-tag--filter {
   cursor: pointer;
 }
