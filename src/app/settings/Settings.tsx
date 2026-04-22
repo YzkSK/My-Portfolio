@@ -1,14 +1,57 @@
+import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { doc, getDoc } from 'firebase/firestore';
+import { useGoogleLogin } from '@react-oauth/google';
 import '../shared/app.css';
 import { useAuth } from '../auth/AuthContext';
 import { useTheme } from '../shared/ThemeContext';
 import { usePageTitle } from '../shared/usePageTitle';
+import { useToast } from '../shared/useToast';
+import { db } from '../shared/firebase';
+import { type VcAuth, firestorePaths, DRIVE_SCOPES, VC_ERROR_CODES } from '../videocollect/constants';
 
 export const Settings = () => {
   const { currentUser, username } = useAuth();
   const { darkMode, toggleDarkMode } = useTheme();
   const navigate = useNavigate();
   usePageTitle('設定');
+  const { toasts, addToast } = useToast();
+
+  const [driveConnected, setDriveConnected] = useState(false);
+
+  useEffect(() => {
+    if (!currentUser) return;
+    getDoc(doc(db, firestorePaths.vcAuth(currentUser.uid)))
+      .then(snap => {
+        if (snap.exists()) {
+          const data = snap.data() as VcAuth;
+          setDriveConnected(!!data.refreshToken);
+        }
+      })
+      .catch(console.error);
+  }, [currentUser]);
+
+  const login = useGoogleLogin({
+    flow: 'auth-code',
+    scope: DRIVE_SCOPES,
+    onSuccess: async response => {
+      try {
+        const proxyUrl = import.meta.env.VITE_DRIVE_PROXY_URL as string;
+        const res = await fetch(`${proxyUrl}/oauth/exchange`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ code: response.code, uid: currentUser!.uid }),
+        });
+        if (!res.ok) throw new Error(`exchange failed: ${res.status}`);
+        setDriveConnected(true);
+        addToast('Google Drive に接続しました');
+      } catch (e) {
+        console.error('Drive 連携エラー:', e);
+        addToast(`Drive 連携に失敗しました [${VC_ERROR_CODES.AUTH_FAILED}]`, 'error');
+      }
+    },
+    onError: () => addToast(`Drive 連携に失敗しました [${VC_ERROR_CODES.AUTH_FAILED}]`, 'error'),
+  });
 
   return (
     <div className="app-settings">
@@ -53,7 +96,26 @@ export const Settings = () => {
             </label>
           </div>
         </section>
+
+        <section className="app-settings-section">
+          <h3 className="app-settings-section-title">外部連携</h3>
+          <div className="app-settings-row">
+            <span className="app-settings-row-label">Google Drive</span>
+            <button onClick={() => login()} className="app-settings-link-btn">
+              {driveConnected ? '接続済み（再接続）' : '接続する'}
+            </button>
+          </div>
+        </section>
       </main>
+
+      {/* トースト */}
+      <div className="app-toast-container">
+        {toasts.map(t => (
+          <div key={t.id} className={`app-toast app-toast--${t.type}`}>
+            {t.msg}
+          </div>
+        ))}
+      </div>
     </div>
   );
 };

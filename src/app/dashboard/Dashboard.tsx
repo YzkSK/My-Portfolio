@@ -9,8 +9,9 @@ import { Button } from '@/components/ui/button';
 
 
 const APPS = [
-  { to: '/app/timetable', label: '時間割', description: '授業・時間割の管理' },
-  { to: '/app/quiz',      label: '問題集', description: '問題登録・ランダム出題' },
+  { to: '/app/timetable',    label: '時間割', description: '授業・時間割の管理' },
+  { to: '/app/quiz',         label: '問題集', description: '問題登録・ランダム出題' },
+  { to: '/app/videocollect', label: '動画',   description: 'Google Drive 動画の管理・再生' },
 ];
 
 export const Dashboard = () => {
