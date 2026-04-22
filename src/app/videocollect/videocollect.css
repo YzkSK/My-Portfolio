@@ -617,6 +617,41 @@
   color: var(--vc-text-primary);
 }
 
+/* Upload drop zone */
+.vc-dropzone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 16px;
+  border: 2px dashed var(--vc-card-border);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+  gap: 2px;
+}
+
+.vc-dropzone:hover,
+.vc-dropzone--over {
+  border-color: var(--vc-accent);
+  background: rgba(59, 130, 246, 0.05);
+}
+
+.vc-upload-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.vc-upload-item {
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--vc-card-bg);
+  border: 1px solid var(--vc-card-border);
+}
+
 /* Tag suggestion chips */
 .vc-tag-suggestion {
   font-size: 12px;

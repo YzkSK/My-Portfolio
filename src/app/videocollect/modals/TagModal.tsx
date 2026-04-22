@@ -134,7 +134,7 @@ export const TagModal = ({ file, currentTags, allTags = [], onSave, onClose }: P
             {suggestions.map(tag => (
               <button
                 key={tag}
-                onClick={() => { addTag(tag); setInput(''); inputRef.current?.focus(); }}
+                onMouseDown={e => { e.preventDefault(); addTag(tag); setInput(''); }}
                 className="vc-tag-suggestion"
               >
                 {tag}
@@ -151,7 +151,7 @@ export const TagModal = ({ file, currentTags, allTags = [], onSave, onClose }: P
               {existingChips.map(tag => (
                 <button
                   key={tag}
-                  onClick={() => { addTag(tag); inputRef.current?.focus(); }}
+                  onMouseDown={e => { e.preventDefault(); addTag(tag); }}
                   className="vc-tag-suggestion"
                 >
                   {tag}
