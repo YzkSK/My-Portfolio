@@ -84,13 +84,10 @@
   line-height: 1.4;
 }
 
-.vc-card-meta {
+.vc-card-date {
   font-size: 11px;
   color: var(--vc-text-secondary);
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-wrap: wrap;
+  margin: 2px 0 0;
 }
 
 .vc-card-tags {
@@ -98,6 +95,13 @@
   flex-wrap: wrap;
   gap: 4px;
   margin-top: 6px;
+  align-items: center;
+}
+
+.vc-tag-edit-btn {
+  padding: 2px 5px;
+  border-radius: 6px;
+  flex-shrink: 0;
 }
 
 .vc-tag {
@@ -255,7 +259,7 @@
 /* Player */
 .vc-player-page {
   min-height: 100svh;
-  background: #000;
+  background: var(--vc-bg);
   display: flex;
   flex-direction: column;
 }
@@ -263,9 +267,21 @@
 .vc-player-container {
   position: relative;
   width: 100%;
+  aspect-ratio: 16 / 9;
   background: #000;
   overflow: hidden;
-  flex: 1;
+}
+
+.vc-player-info {
+  padding: 14px 16px 32px;
+}
+
+.vc-player-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--vc-text-primary);
+  margin: 0;
+  line-height: 1.4;
 }
 
 .vc-player-video {

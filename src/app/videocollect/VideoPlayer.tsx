@@ -6,7 +6,7 @@ import { useAuth } from '../auth/AuthContext';
 import { usePageTitle } from '../shared/usePageTitle';
 import '../shared/app.css';
 import './videocollect.css';
-import { type VcAuth, firestorePaths, loadAccessToken, formatTime, VC_ERROR_CODES } from './constants';
+import { type VcAuth, firestorePaths, loadAccessToken, formatTime, parseVcData, VC_ERROR_CODES } from './constants';
 
 const SPEEDS = [0.5, 0.75, 1, 1.25, 1.5, 2];
 
@@ -19,6 +19,7 @@ export const VideoPlayer = () => {
 
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [fileTags, setFileTags] = useState<string[]>([]);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -39,13 +40,20 @@ export const VideoPlayer = () => {
 
   useEffect(() => {
     if (!currentUser) return;
-    getDoc(doc(db, firestorePaths.vcAuth(currentUser.uid)))
-      .then(snap => {
-        if (!snap.exists()) {
+    Promise.all([
+      getDoc(doc(db, firestorePaths.vcAuth(currentUser.uid))),
+      getDoc(doc(db, firestorePaths.vcData(currentUser.uid))),
+    ])
+      .then(([authSnap, dataSnap]) => {
+        if (dataSnap.exists()) {
+          const parsed = parseVcData(dataSnap.data() as Record<string, unknown>);
+          setFileTags(parsed.tags[fileId] ?? []);
+        }
+        if (!authSnap.exists()) {
           setLoadError('Google Drive が連携されていません');
           return null;
         }
-        const auth = snap.data() as VcAuth;
+        const auth = authSnap.data() as VcAuth;
         if (!auth.refreshToken) {
           setLoadError('Google Drive が連携されていません');
           return null;
@@ -61,7 +69,7 @@ export const VideoPlayer = () => {
         setAccessToken(token);
       })
       .catch(e => {
-        console.error('VideoPlayer トークン取得エラー:', e);
+        console.error('VideoPlayer 読み込みエラー:', e);
         setLoadError('読み込みに失敗しました');
       });
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -229,35 +237,23 @@ export const VideoPlayer = () => {
       <div style={{
         display: 'flex',
         alignItems: 'center',
-        gap: 12,
         padding: '12px 16px',
-        background: 'rgba(0,0,0,0.7)',
+        background: 'var(--vc-bg)',
         flexShrink: 0,
       }}>
         <Link
           to="/app/videocollect"
-          style={{ color: '#fff', textDecoration: 'none', fontSize: 20, lineHeight: 1, flexShrink: 0 }}
+          style={{ color: 'var(--vc-text-primary)', textDecoration: 'none', fontSize: 20, lineHeight: 1 }}
           aria-label="戻る"
         >
           ←
         </Link>
-        <span style={{
-          color: '#fff',
-          fontSize: 14,
-          fontWeight: 600,
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-          whiteSpace: 'nowrap',
-        }}>
-          {fileName}
-        </span>
       </div>
 
-      {/* プレイヤー */}
+      {/* 動画 */}
       <div
         ref={containerRef}
         className="vc-player-container"
-        style={{ minHeight: 0 }}
         onMouseMove={showControlsTemporary}
         onPointerDown={handlePointerDown}
         onTouchEnd={handleTouchEnd}
@@ -425,6 +421,18 @@ export const VideoPlayer = () => {
             </div>
           </div>
         </div>
+      </div>
+
+      {/* タイトル・タグ */}
+      <div className="vc-player-info">
+        <h2 className="vc-player-title">{fileName}</h2>
+        {fileTags.length > 0 && (
+          <div className="vc-card-tags" style={{ marginTop: 8 }}>
+            {fileTags.map(tag => (
+              <span key={tag} className="vc-tag">{tag}</span>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

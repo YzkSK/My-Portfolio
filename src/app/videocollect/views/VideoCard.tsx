@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import type { DriveFile } from '../constants';
-import { formatSize, formatDuration, formatDate } from '../constants';
+import { formatDuration, formatDate } from '../constants';
 
 type Props = {
   file: DriveFile;
@@ -40,32 +40,19 @@ export const VideoCard = ({ file, tags, onTagEdit }: Props) => {
 
       <div className="vc-card-body">
         <p className="vc-card-name" title={file.name}>{file.name}</p>
-        <div className="vc-card-meta">
-          <span>{formatDate(file.modifiedTime)}</span>
-          {file.size && (
-            <>
-              <span>·</span>
-              <span>{formatSize(file.size)}</span>
-            </>
-          )}
-        </div>
+        <p className="vc-card-date">{formatDate(file.modifiedTime)}</p>
 
-        {tags.length > 0 && (
-          <div className="vc-card-tags">
-            {tags.map(tag => (
-              <span key={tag} className="vc-tag">{tag}</span>
-            ))}
-          </div>
-        )}
-
-        <div className="vc-card-actions">
+        <div className="vc-card-tags">
+          {tags.map(tag => (
+            <span key={tag} className="vc-tag">{tag}</span>
+          ))}
           <button
-            className="vc-icon-btn"
+            className="vc-icon-btn vc-tag-edit-btn"
             onClick={e => { e.stopPropagation(); onTagEdit(file); }}
             aria-label="タグを編集"
             title="タグを編集"
           >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z" />
               <line x1="7" y1="7" x2="7.01" y2="7" />
             </svg>
