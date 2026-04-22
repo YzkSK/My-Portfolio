@@ -25,6 +25,9 @@ export const VideoPlayer = () => {
   const [vcData, setVcData] = useState<VcData>(VC_INITIAL_DATA);
   const [showTagModal, setShowTagModal] = useState(false);
   const [allFiles, setAllFiles] = useState<DriveFile[] | null>(null);
+  const [expandedSameTag, setExpandedSameTag] = useState(false);
+  const [expandedRandom, setExpandedRandom] = useState(false);
+  const REC_INITIAL = 10;
 
   const fileTags = vcData.tags[fileId] ?? [];
   const allTags = useMemo(
@@ -702,10 +705,10 @@ export const VideoPlayer = () => {
       {(sameTagFiles.length > 0 || randomFiles.length > 0) && (
         <div className="vc-recommendations">
           {sameTagFiles.length > 0 && (
-            <>
+            <div className="vc-rec-section">
               <p className="vc-recommendations-label">同じタグ</p>
-              <div className="vc-recommendations-scroll">
-                {sameTagFiles.map(f => (
+              <div className="vc-rec-grid">
+                {(expandedSameTag ? sameTagFiles : sameTagFiles.slice(0, REC_INITIAL)).map(f => (
                   <Link
                     key={f.id}
                     to={`/app/videocollect/play?id=${encodeURIComponent(f.id)}&name=${encodeURIComponent(f.name)}`}
@@ -721,13 +724,18 @@ export const VideoPlayer = () => {
                   </Link>
                 ))}
               </div>
-            </>
+              {sameTagFiles.length > REC_INITIAL && (
+                <button className="vc-rec-expand-btn" onClick={() => setExpandedSameTag(v => !v)}>
+                  {expandedSameTag ? '閉じる' : `さらに ${sameTagFiles.length - REC_INITIAL} 件表示`}
+                </button>
+              )}
+            </div>
           )}
           {randomFiles.length > 0 && (
-            <>
-              <p className="vc-recommendations-label" style={{ marginTop: sameTagFiles.length > 0 ? 16 : 0 }}>おすすめ</p>
-              <div className="vc-recommendations-scroll">
-                {randomFiles.map(f => (
+            <div className="vc-rec-section">
+              <p className="vc-recommendations-label">おすすめ</p>
+              <div className="vc-rec-grid">
+                {(expandedRandom ? randomFiles : randomFiles.slice(0, REC_INITIAL)).map(f => (
                   <Link
                     key={f.id}
                     to={`/app/videocollect/play?id=${encodeURIComponent(f.id)}&name=${encodeURIComponent(f.name)}`}
@@ -743,7 +751,12 @@ export const VideoPlayer = () => {
                   </Link>
                 ))}
               </div>
-            </>
+              {randomFiles.length > REC_INITIAL && (
+                <button className="vc-rec-expand-btn" onClick={() => setExpandedRandom(v => !v)}>
+                  {expandedRandom ? '閉じる' : `さらに ${randomFiles.length - REC_INITIAL} 件表示`}
+                </button>
+              )}
+            </div>
           )}
         </div>
       )}
