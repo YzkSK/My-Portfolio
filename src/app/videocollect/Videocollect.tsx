@@ -54,7 +54,7 @@ export const Videocollect = () => {
   const [modal, setModal] = useState<Modal>(null);
   const [activeTags, setActiveTags] = useState<string[]>([]);
   const [accessToken, setAccessToken] = useState<string | null>(null);
-  const [sortKey, setSortKey] = useState<'date-desc' | 'date-asc' | 'name-asc' | 'name-desc' | 'size-desc' | 'size-asc' | 'tag-asc' | 'tag-desc'>('date-desc');
+  const [sortKey, setSortKey] = useState<'date-desc' | 'date-asc' | 'name-asc' | 'name-desc' | 'size-desc' | 'size-asc'>('date-desc');
 
   const { data, setData, loading, dbError } = useFirestoreData({
     currentUser,
@@ -143,16 +143,6 @@ export const Videocollect = () => {
         case 'name-desc': return b.name.localeCompare(a.name, 'ja');
         case 'size-desc': return Number(b.size ?? 0) - Number(a.size ?? 0);
         case 'size-asc':  return Number(a.size ?? 0) - Number(b.size ?? 0);
-        case 'tag-asc': {
-          const ta = (data.tags[a.id] ?? [])[0] ?? '￿';
-          const tb = (data.tags[b.id] ?? [])[0] ?? '￿';
-          return ta.localeCompare(tb, 'ja');
-        }
-        case 'tag-desc': {
-          const ta = (data.tags[a.id] ?? [])[0] ?? '';
-          const tb = (data.tags[b.id] ?? [])[0] ?? '';
-          return tb.localeCompare(ta, 'ja');
-        }
       }
     });
   }, [pageState, activeTags, data.tags, sortKey]);

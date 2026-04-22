@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 
-type SortKey = 'date-desc' | 'date-asc' | 'name-asc' | 'name-desc' | 'size-desc' | 'size-asc' | 'tag-asc' | 'tag-desc';
+type SortKey = 'date-desc' | 'date-asc' | 'name-asc' | 'name-desc' | 'size-desc' | 'size-asc';
 
 const SORT_OPTIONS: { value: SortKey; label: string }[] = [
   { value: 'date-desc', label: '新しい順' },
@@ -11,8 +11,6 @@ const SORT_OPTIONS: { value: SortKey; label: string }[] = [
   { value: 'name-desc', label: '名前 Z→A' },
   { value: 'size-desc', label: 'サイズ 大→小' },
   { value: 'size-asc',  label: 'サイズ 小→大' },
-  { value: 'tag-asc',   label: 'タグ A→Z' },
-  { value: 'tag-desc',  label: 'タグ Z→A' },
 ];
 
 type Props = {
