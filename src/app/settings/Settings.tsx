@@ -109,18 +109,9 @@ export const Settings = () => {
       </main>
 
       {/* トースト */}
-      <div style={{ position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)', display: 'flex', flexDirection: 'column', gap: 8, zIndex: 9000, pointerEvents: 'none', alignItems: 'center' }}>
+      <div className="app-toast-container">
         {toasts.map(t => (
-          <div key={t.id} style={{
-            background: t.type === 'error' ? '#7f1d1d' : '#333',
-            color: '#fff',
-            padding: '10px 18px',
-            borderRadius: 8,
-            fontSize: 13,
-            maxWidth: 320,
-            textAlign: 'center',
-            pointerEvents: 'auto',
-          }}>
+          <div key={t.id} className={`app-toast app-toast--${t.type}`}>
             {t.msg}
           </div>
         ))}

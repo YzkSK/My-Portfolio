@@ -258,9 +258,7 @@ export const Videocollect = () => {
       {/* トースト */}
       <div className="vc-toast-container">
         {toasts.map(t => (
-          <div key={t.id} className={`vc-toast${t.type === 'error' ? ' vc-toast--error' : t.type === 'warning' ? ' vc-toast--warning' : ''}`}>
-            {t.msg}
-          </div>
+          <div key={t.id} className={`vc-toast vc-toast--${t.type}`}>{t.msg}</div>
         ))}
       </div>
 

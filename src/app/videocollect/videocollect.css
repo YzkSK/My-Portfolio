@@ -231,7 +231,8 @@
   pointer-events: auto;
 }
 
-.vc-toast--error { background: #7f1d1d; }
+.vc-toast--normal  { background: #333; }
+.vc-toast--error   { background: #7f1d1d; }
 .vc-toast--warning { background: #78350f; }
 
 /* Upload progress */
