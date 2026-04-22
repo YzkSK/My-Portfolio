@@ -282,26 +282,35 @@ async function handleRefresh(
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
-    const url = new URL(request.url);
     const cors = corsHeaders(env.ALLOWED_ORIGIN);
 
-    if (request.method === 'OPTIONS') {
-      return new Response(null, { status: 204, headers: cors });
-    }
+    try {
+      const url = new URL(request.url);
 
-    const streamMatch = url.pathname.match(/^\/stream\/([^/]+)$/);
-    if (streamMatch && request.method === 'GET') {
-      return handleStream(request, cors, streamMatch[1]);
-    }
+      if (request.method === 'OPTIONS') {
+        return new Response(null, { status: 204, headers: cors });
+      }
 
-    if (url.pathname === '/oauth/exchange' && request.method === 'POST') {
-      return handleExchange(request, env, cors);
-    }
+      const streamMatch = url.pathname.match(/^\/stream\/([^/]+)$/);
+      if (streamMatch && request.method === 'GET') {
+        return handleStream(request, cors, streamMatch[1]);
+      }
 
-    if (url.pathname === '/oauth/refresh' && request.method === 'POST') {
-      return handleRefresh(request, env, cors);
-    }
+      if (url.pathname === '/oauth/exchange' && request.method === 'POST') {
+        return handleExchange(request, env, cors);
+      }
 
-    return new Response('Not Found', { status: 404 });
+      if (url.pathname === '/oauth/refresh' && request.method === 'POST') {
+        return handleRefresh(request, env, cors);
+      }
+
+      return new Response('Not Found', { status: 404, headers: cors });
+    } catch (e) {
+      console.error('Worker error:', e);
+      return new Response(JSON.stringify({ error: 'Internal Server Error' }), {
+        status: 500,
+        headers: { ...cors, 'Content-Type': 'application/json' },
+      });
+    }
   },
 };
