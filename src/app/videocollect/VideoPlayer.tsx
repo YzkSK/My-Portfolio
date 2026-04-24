@@ -27,6 +27,7 @@ export const VideoPlayer = () => {
   const [allFiles, setAllFiles] = useState<DriveFile[] | null>(null);
   const [recLoadFailed, setRecLoadFailed] = useState(false);
   const [recLoading, setRecLoading] = useState(false);
+  const [randomSeed, setRandomSeed] = useState(0);
   const [expandedSameTag, setExpandedSameTag] = useState(false);
   const [expandedRandom, setExpandedRandom] = useState(false);
   const REC_INITIAL = 12;
@@ -49,7 +50,7 @@ export const VideoPlayer = () => {
       .slice(0, 12);
     return { sameTagFiles: same, randomFiles: random };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [allFiles]);
+  }, [allFiles, randomSeed]);
 
   const saveVcData = useFirestoreSave<VcData>({
     currentUser,
@@ -827,21 +828,21 @@ export const VideoPlayer = () => {
       )}
       {!recLoading && !recLoadFailed && (sameTagFiles.length > 0 || randomFiles.length > 0) && (
         <div className="vc-recommendations">
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', marginBottom: 4 }}>
-            <button
-              onClick={reloadRecommendations}
-              style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--vc-text-secondary)', padding: 4, display: 'flex', alignItems: 'center' }}
-              aria-label="おすすめを再読み込み"
-              title="再読み込み"
-            >
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M17.65 6.35A7.958 7.958 0 0 0 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0 1 12 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
-              </svg>
-            </button>
-          </div>
           {sameTagFiles.length > 0 && (
             <div className="vc-rec-section">
-              <p className="vc-recommendations-label">同じタグ</p>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <p className="vc-recommendations-label">同じタグ</p>
+                <button
+                  onClick={() => { reloadRecommendations(); setExpandedSameTag(false); }}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--vc-text-secondary)', padding: 2, display: 'flex', alignItems: 'center' }}
+                  aria-label="同じタグを再読み込み"
+                  title="再読み込み"
+                >
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M17.65 6.35A7.958 7.958 0 0 0 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0 1 12 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
+                  </svg>
+                </button>
+              </div>
               <div className="vc-rec-grid">
                 {(expandedSameTag ? sameTagFiles : sameTagFiles.slice(0, REC_INITIAL)).map(f => (
                   <Link
@@ -868,7 +869,19 @@ export const VideoPlayer = () => {
           )}
           {randomFiles.length > 0 && (
             <div className="vc-rec-section">
-              <p className="vc-recommendations-label">おすすめ</p>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <p className="vc-recommendations-label">おすすめ</p>
+                <button
+                  onClick={() => { setRandomSeed(s => s + 1); setExpandedRandom(false); }}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--vc-text-secondary)', padding: 2, display: 'flex', alignItems: 'center' }}
+                  aria-label="おすすめをシャッフル"
+                  title="シャッフル"
+                >
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M17.65 6.35A7.958 7.958 0 0 0 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0 1 12 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
+                  </svg>
+                </button>
+              </div>
               <div className="vc-rec-grid">
                 {(expandedRandom ? randomFiles : randomFiles.slice(0, REC_INITIAL)).map(f => (
                   <Link

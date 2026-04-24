@@ -78,6 +78,8 @@ export const TagModal = ({ file, currentTags, allTags = [], onSave, onClose }: P
             borderRadius: 8,
             background: 'var(--app-input-bg)',
             minHeight: 44,
+            maxHeight: 140,
+            overflowY: 'auto',
             cursor: 'text',
           }}
           onClick={() => inputRef.current?.focus()}
@@ -144,7 +146,7 @@ export const TagModal = ({ file, currentTags, allTags = [], onSave, onClose }: P
         {existingChips.length > 0 && (
           <div style={{ marginTop: 8 }}>
             <p style={{ fontSize: 11, color: 'var(--vc-text-secondary)', marginBottom: 6 }}>既存のタグ</p>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, maxHeight: 100, overflowY: 'auto' }}>
               {existingChips.map(tag => (
                 <button
                   key={tag}
