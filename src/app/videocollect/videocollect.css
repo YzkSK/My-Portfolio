@@ -204,7 +204,15 @@
   gap: 12px;
 }
 
+.vc-shortcut-btn {
+  display: none;
+}
+
 @media (min-width: 640px) {
+  .vc-shortcut-btn {
+    display: flex;
+  }
+
   .vc-grid {
     grid-template-columns: repeat(3, 1fr);
   }
