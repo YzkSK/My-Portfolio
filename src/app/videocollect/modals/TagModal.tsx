@@ -56,7 +56,7 @@ export const TagModal = ({ file, currentTags, allTags = [], onSave, onClose }: P
 
   return (
     <Dialog open={true} onOpenChange={open => { if (!open) onClose(); }}>
-      <DialogContent className="max-w-[420px]" aria-describedby={undefined}>
+      <DialogContent className="max-w-[420px]" aria-describedby={undefined} onOpenAutoFocus={e => e.preventDefault()}>
         <DialogHeader>
           <DialogTitle>タグを編集</DialogTitle>
         </DialogHeader>

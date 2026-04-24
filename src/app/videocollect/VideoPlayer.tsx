@@ -26,6 +26,7 @@ export const VideoPlayer = () => {
   const [showTagModal, setShowTagModal] = useState(false);
   const [allFiles, setAllFiles] = useState<DriveFile[] | null>(null);
   const [recLoadFailed, setRecLoadFailed] = useState(false);
+  const [recLoading, setRecLoading] = useState(false);
   const [expandedSameTag, setExpandedSameTag] = useState(false);
   const [expandedRandom, setExpandedRandom] = useState(false);
   const REC_INITIAL = 12;
@@ -72,6 +73,7 @@ export const VideoPlayer = () => {
   const doubleTapAccumSideRef = useRef<'left' | 'right' | null>(null);
   const doubleTapAccumTotalRef = useRef(0);
   const singleTapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isFirstFileRef = useRef(true);
   const [doubleTapSide, setDoubleTapSide] = useState<'left' | 'right' | null>(null);
   const [doubleTapTotal, setDoubleTapTotal] = useState(0);
   const [doubleTapKey, setDoubleTapKey] = useState(0);
@@ -130,15 +132,46 @@ export const VideoPlayer = () => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUser]);
 
+  const reloadRecommendations = useCallback(() => {
+    if (!accessToken) return;
+    setRecLoadFailed(false);
+    setAllFiles(null);
+    setRecLoading(true);
+    fetchAllDriveFiles(accessToken, buildVideoQuery(vcData.folders))
+      .then(files => { setAllFiles(files.filter(f => f.id !== fileId)); setRecLoading(false); })
+      .catch(() => { setRecLoadFailed(true); setRecLoading(false); });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [accessToken]);
+
   // レコメンド用に全ファイル一覧を取得
   useEffect(() => {
     if (!accessToken) return;
-    setRecLoadFailed(false);
+    setRecLoading(true);
     fetchAllDriveFiles(accessToken, buildVideoQuery(vcData.folders))
-      .then(files => setAllFiles(files.filter(f => f.id !== fileId)))
-      .catch(() => setRecLoadFailed(true));
+      .then(files => { setAllFiles(files.filter(f => f.id !== fileId)); setRecLoading(false); })
+      .catch(() => { setRecLoadFailed(true); setRecLoading(false); });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [accessToken]);
+
+  // レコメンドから別動画に遷移した際にプレイヤー状態をリセットしてスクロール
+  useEffect(() => {
+    if (isFirstFileRef.current) {
+      isFirstFileRef.current = false;
+      return;
+    }
+    setPlaying(false);
+    setCurrentTime(0);
+    setDuration(0);
+    setBufferedEnd(0);
+    setWaiting(false);
+    setIsBufferReady(false);
+    setVideoError(null);
+    setIsSeeking(false);
+    setSeekTarget(null);
+    setExpandedSameTag(false);
+    setExpandedRandom(false);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [fileId]);
 
   useEffect(() => {
     const handler = () => {
@@ -776,26 +809,36 @@ export const VideoPlayer = () => {
       </div>
 
       {/* レコメンド */}
-      {recLoadFailed && (
+      {recLoading && (
+        <div className="vc-recommendations">
+          <p style={{ fontSize: 13, color: 'var(--vc-text-secondary)', margin: 0, padding: '10px 0' }}>読み込み中…</p>
+        </div>
+      )}
+      {!recLoading && recLoadFailed && (
         <div className="vc-recommendations">
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 0' }}>
             <p style={{ fontSize: 13, color: 'var(--vc-text-secondary)', margin: 0 }}>おすすめ動画の読み込みに失敗しました</p>
             <button
-              onClick={() => {
-                if (!accessToken) return;
-                setRecLoadFailed(false);
-                setAllFiles(null);
-                fetchAllDriveFiles(accessToken, buildVideoQuery(vcData.folders))
-                  .then(files => setAllFiles(files.filter(f => f.id !== fileId)))
-                  .catch(() => setRecLoadFailed(true));
-              }}
+              onClick={reloadRecommendations}
               style={{ fontSize: 12, color: 'var(--vc-accent)', background: 'none', border: 'none', cursor: 'pointer', padding: 0, flexShrink: 0 }}
             >再試行</button>
           </div>
         </div>
       )}
-      {!recLoadFailed && (sameTagFiles.length > 0 || randomFiles.length > 0) && (
+      {!recLoading && !recLoadFailed && (sameTagFiles.length > 0 || randomFiles.length > 0) && (
         <div className="vc-recommendations">
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', marginBottom: 4 }}>
+            <button
+              onClick={reloadRecommendations}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--vc-text-secondary)', padding: 4, display: 'flex', alignItems: 'center' }}
+              aria-label="おすすめを再読み込み"
+              title="再読み込み"
+            >
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M17.65 6.35A7.958 7.958 0 0 0 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0 1 12 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
+              </svg>
+            </button>
+          </div>
           {sameTagFiles.length > 0 && (
             <div className="vc-rec-section">
               <p className="vc-recommendations-label">同じタグ</p>
