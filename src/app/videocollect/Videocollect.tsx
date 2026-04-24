@@ -24,6 +24,7 @@ import {
   VC_ERROR_CODES,
   fetchAllDriveFiles,
   loadAccessToken,
+  buildVideoQuery,
 } from './constants';
 import { VideoGrid } from './views/VideoGrid';
 import { FolderModal } from './modals/FolderModal';
@@ -103,12 +104,7 @@ export const Videocollect = () => {
   const fetchFiles = useCallback(async (token: string, folders: DriveFolder[]) => {
     setPageState({ status: 'loading' });
     try {
-      let q = "mimeType contains 'video/' and trashed=false";
-      if (folders.length > 0) {
-        const clauses = folders.map(f => `'${f.id}' in parents`).join(' or ');
-        q = `(${clauses}) and mimeType contains 'video/' and trashed=false`;
-      }
-      const files = await fetchAllDriveFiles(token, q);
+      const files = await fetchAllDriveFiles(token, buildVideoQuery(folders));
       setPageState(files.length > 0 ? { status: 'loaded', files } : { status: 'empty' });
     } catch (e) {
       console.error('ファイル取得エラー:', e);
@@ -267,9 +263,18 @@ export const Videocollect = () => {
         )}
         {pageState.status === 'loaded' && filteredFiles.length === 0 && activeTags.length > 0 && (
           <div className="vc-empty">
-            <p style={{ fontSize: 14, color: 'var(--vc-text-secondary)' }}>
+            <p style={{ fontSize: 14, color: 'var(--vc-text-secondary)', marginBottom: 8 }}>
               選択したタグの動画がありません
             </p>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, justifyContent: 'center' }}>
+              {activeTags.map(tag => (
+                <span key={tag} className="vc-tag">{tag}</span>
+              ))}
+            </div>
+            <button
+              style={{ marginTop: 10, fontSize: 12, color: 'var(--vc-accent)', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', padding: 0 }}
+              onClick={() => setActiveTags([])}
+            >フィルターを解除</button>
           </div>
         )}
         {pageState.status === 'loaded' && filteredFiles.length > 0 && (

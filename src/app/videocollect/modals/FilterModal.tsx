@@ -35,7 +35,15 @@ export const FilterModal = ({ allTags, activeTags, sortKey, onApply, onClose }: 
           <DialogTitle>フィルター・並べ替え</DialogTitle>
         </DialogHeader>
 
-        <p style={{ fontSize: 11, color: 'var(--vc-text-secondary)', margin: '4px 0 6px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>並べ替え</p>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', margin: '4px 0 6px' }}>
+          <p style={{ fontSize: 11, color: 'var(--vc-text-secondary)', margin: 0, textTransform: 'uppercase', letterSpacing: '0.05em' }}>並べ替え</p>
+          {selectedSort !== 'date-desc' && (
+            <button
+              style={{ fontSize: 11, color: 'var(--vc-text-secondary)', background: 'none', border: 'none', cursor: 'pointer', padding: 0, textDecoration: 'underline' }}
+              onClick={() => setSelectedSort('date-desc')}
+            >リセット</button>
+          )}
+        </div>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
           {SORT_OPTIONS.map(opt => (
             <button

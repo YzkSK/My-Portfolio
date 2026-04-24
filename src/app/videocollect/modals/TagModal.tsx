@@ -41,20 +41,17 @@ export const TagModal = ({ file, currentTags, allTags = [], onSave, onClose }: P
 
   const removeTag = (tag: string) => setTags(prev => prev.filter(t => t !== tag));
 
-  // existing tags not yet added to current tags
   const availableTags = useMemo(
     () => allTags.filter(t => !tags.includes(t)),
     [allTags, tags],
   );
 
-  // predictive suggestions based on input
   const suggestions = useMemo(() => {
     if (!input.trim()) return [];
     const lower = input.toLowerCase();
     return availableTags.filter(t => t.toLowerCase().includes(lower));
   }, [input, availableTags]);
 
-  // existing tags shown when input is empty (exclude suggestions overlap)
   const existingChips = input.trim() ? [] : availableTags;
 
   return (
@@ -115,7 +112,7 @@ export const TagModal = ({ file, currentTags, allTags = [], onSave, onClose }: P
             onChange={e => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
             onBlur={() => { if (input.trim()) addTags(input); }}
-            placeholder={tags.length === 0 ? 'タグを入力（Enter または スペースで追加）' : ''}
+            placeholder={tags.length === 0 ? 'タグを入力（Enter・スペース・カンマで追加）' : ''}
             style={{
               border: 'none',
               outline: 'none',
@@ -162,7 +159,7 @@ export const TagModal = ({ file, currentTags, allTags = [], onSave, onClose }: P
         )}
 
         <p style={{ fontSize: 11, color: 'var(--vc-text-secondary)', marginTop: existingChips.length > 0 || suggestions.length > 0 ? 4 : 0 }}>
-          Enter・スペースで追加 / Backspace で末尾のタグを削除
+          Enter・スペース・カンマで追加 / Backspace で末尾のタグを削除
         </p>
 
         <div className="flex gap-2 mt-2">

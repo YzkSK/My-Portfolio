@@ -7,7 +7,7 @@ import { usePageTitle } from '../shared/usePageTitle';
 import { useFirestoreSave } from '../shared/useFirestoreSave';
 import '../shared/app.css';
 import './videocollect.css';
-import { type DriveFile, type VcAuth, type VcData, VC_INITIAL_DATA, firestorePaths, loadAccessToken, formatTime, parseVcData, VC_ERROR_CODES, fetchAllDriveFiles } from './constants';
+import { type DriveFile, type VcAuth, type VcData, VC_INITIAL_DATA, firestorePaths, loadAccessToken, formatTime, parseVcData, VC_ERROR_CODES, fetchAllDriveFiles, buildVideoQuery } from './constants';
 import { TagModal } from './modals/TagModal';
 
 const SPEEDS = [0.5, 0.75, 1, 1.25, 1.5, 2];
@@ -25,6 +25,7 @@ export const VideoPlayer = () => {
   const [vcData, setVcData] = useState<VcData>(VC_INITIAL_DATA);
   const [showTagModal, setShowTagModal] = useState(false);
   const [allFiles, setAllFiles] = useState<DriveFile[] | null>(null);
+  const [recLoadFailed, setRecLoadFailed] = useState(false);
   const [expandedSameTag, setExpandedSameTag] = useState(false);
   const [expandedRandom, setExpandedRandom] = useState(false);
   const REC_INITIAL = 12;
@@ -70,8 +71,10 @@ export const VideoPlayer = () => {
   const doubleTapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const doubleTapAccumSideRef = useRef<'left' | 'right' | null>(null);
   const doubleTapAccumTotalRef = useRef(0);
+  const singleTapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [doubleTapSide, setDoubleTapSide] = useState<'left' | 'right' | null>(null);
   const [doubleTapTotal, setDoubleTapTotal] = useState(0);
+  const [doubleTapKey, setDoubleTapKey] = useState(0);
 
   const [playing, setPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -83,6 +86,7 @@ export const VideoPlayer = () => {
   const [skipSeconds, setSkipSeconds] = useState(10);
   const [showControls, setShowControls] = useState(true);
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);
+  const [showShortcutHelp, setShowShortcutHelp] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [waiting, setWaiting] = useState(false);
   const [isBufferReady, setIsBufferReady] = useState(false);
@@ -129,12 +133,10 @@ export const VideoPlayer = () => {
   // レコメンド用に全ファイル一覧を取得
   useEffect(() => {
     if (!accessToken) return;
-    const q = vcData.folders.length > 0
-      ? `(${vcData.folders.map(f => `'${f.id}' in parents`).join(' or ')}) and mimeType contains 'video/' and trashed=false`
-      : `mimeType contains 'video/' and trashed=false`;
-    fetchAllDriveFiles(accessToken, q)
+    setRecLoadFailed(false);
+    fetchAllDriveFiles(accessToken, buildVideoQuery(vcData.folders))
       .then(files => setAllFiles(files.filter(f => f.id !== fileId)))
-      .catch(() => setAllFiles([]));
+      .catch(() => setRecLoadFailed(true));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [accessToken]);
 
@@ -155,6 +157,7 @@ export const VideoPlayer = () => {
       if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
       if (doubleTapTimerRef.current) clearTimeout(doubleTapTimerRef.current);
       if (previewSeekTimerRef.current) clearTimeout(previewSeekTimerRef.current);
+      if (singleTapTimerRef.current) clearTimeout(singleTapTimerRef.current);
     };
   }, []);
 
@@ -241,45 +244,70 @@ export const VideoPlayer = () => {
   const handlePointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     if (e.pointerType !== 'mouse') return;
     if ((e.target as HTMLElement).closest('button, input')) return;
-    const video = videoRef.current;
-    if (!video) return;
-    video.paused ? video.play() : video.pause();
-    showControlsTemporary();
-  }, [showControlsTemporary]);
+    if (showControls) {
+      if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+      setShowControls(false);
+    } else {
+      showControlsTemporary();
+    }
+  }, [showControls, showControlsTemporary]);
 
   const handleTouchEnd = useCallback((e: React.TouchEvent<HTMLDivElement>) => {
     const video = videoRef.current;
     if (!video) return;
-    showControlsTemporary();
     const { left, width } = e.currentTarget.getBoundingClientRect();
     const x = e.changedTouches[0].clientX - left;
     const side: 'left' | 'right' = x < width / 2 ? 'left' : 'right';
     const now = Date.now();
     const last = lastTapRef.current;
     if (last && last.side === side && now - last.time < 300) {
+      if (singleTapTimerRef.current) clearTimeout(singleTapTimerRef.current);
       video.currentTime = side === 'left'
         ? Math.max(0, video.currentTime - skipSeconds)
         : Math.min(video.duration || 0, video.currentTime + skipSeconds);
       lastTapRef.current = null;
-      // 同じ側への連続ダブルタップは秒数を加算
       if (doubleTapAccumSideRef.current === side) {
         doubleTapAccumTotalRef.current += skipSeconds;
       } else {
         doubleTapAccumSideRef.current = side;
         doubleTapAccumTotalRef.current = skipSeconds;
       }
+      // key を変えて同じ側の連続タップでも CSS アニメーションをリスタート
+      setDoubleTapKey(k => k + 1);
       setDoubleTapSide(side);
       setDoubleTapTotal(doubleTapAccumTotalRef.current);
+      setShowControls(true);
+      if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
       if (doubleTapTimerRef.current) clearTimeout(doubleTapTimerRef.current);
       doubleTapTimerRef.current = setTimeout(() => {
         setDoubleTapSide(null);
         doubleTapAccumSideRef.current = null;
         doubleTapAccumTotalRef.current = 0;
+        showControlsTemporary();
       }, 800);
     } else {
       lastTapRef.current = { side, time: now };
+      if (singleTapTimerRef.current) clearTimeout(singleTapTimerRef.current);
+      const wasVisible = showControls;
+      singleTapTimerRef.current = setTimeout(() => {
+        if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+        if (wasVisible) {
+          setShowControls(false);
+        } else {
+          setShowControls(true);
+          hideTimerRef.current = setTimeout(() => {
+            if (videoRef.current && !videoRef.current.paused) setShowControls(false);
+          }, 3000);
+        }
+      }, 300);
     }
-  }, [showControlsTemporary, skipSeconds]);
+  }, [skipSeconds, showControls, showControlsTemporary]);
+
+  const handleSeekStart = () => {
+    setIsSeeking(true);
+    setSeekPreview(seekTarget ?? currentTime);
+    if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+  };
 
   const updateBuffered = (v: HTMLVideoElement) => {
     const buf = v.buffered;
@@ -402,7 +430,7 @@ export const VideoPlayer = () => {
 
         {/* ダブルタップインジケーター */}
         {doubleTapSide && (
-          <div className={`vc-doubletap-indicator vc-doubletap-indicator--${doubleTapSide}`}>
+          <div key={doubleTapKey} className={`vc-doubletap-indicator vc-doubletap-indicator--${doubleTapSide}`}>
             <div className="vc-doubletap-chevrons">
               {[0, 1, 2].map(i =>
                 doubleTapSide === 'left' ? (
@@ -500,6 +528,11 @@ export const VideoPlayer = () => {
                 <path d="M19.14 12.94c.04-.3.06-.61.06-.94s-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.488.488 0 0 0-.59-.22l-2.39.96a7.05 7.05 0 0 0-1.62-.94l-.36-2.54a.484.484 0 0 0-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96a.477.477 0 0 0-.59.22L2.74 8.87a.47.47 0 0 0 .12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32a.47.47 0 0 0-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z" />
               </svg>
             </button>
+            <button className="vc-player-btn" onClick={() => setShowShortcutHelp(v => !v)} aria-label="キーボードショートカット" title="キーボードショートカット">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M20 5H4c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm-9 3h2v2h-2V8zm0 3h2v2h-2v-2zM8 8h2v2H8V8zm0 3h2v2H8v-2zm-1 5H5v-2h2v2zm10 0H9v-2h8v2zm0-3h-2v-2h2v2zm0-3h-2V8h2v2zm-5 0h-2V8h2v2z"/>
+              </svg>
+            </button>
             <button className="vc-player-btn" onClick={handleDownload} aria-label="ダウンロード">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z" />
@@ -589,8 +622,8 @@ export const VideoPlayer = () => {
                 max={duration || 1}
                 step={0.01}
                 value={isSeeking ? seekPreview : (seekTarget ?? currentTime)}
-                onMouseDown={() => { setIsSeeking(true); setSeekPreview(seekTarget ?? currentTime); }}
-                onTouchStart={() => { setIsSeeking(true); setSeekPreview(seekTarget ?? currentTime); }}
+                onMouseDown={handleSeekStart}
+                onTouchStart={handleSeekStart}
                 onChange={e => setSeekPreview(Number(e.target.value))}
                 onMouseUp={e => {
                   const target = Number((e.target as HTMLInputElement).value);
@@ -598,6 +631,7 @@ export const VideoPlayer = () => {
                   if (v) v.currentTime = target;
                   setSeekTarget(target);
                   setIsSeeking(false);
+                  showControlsTemporary();
                 }}
                 onTouchEnd={e => {
                   const v = videoRef.current;
@@ -605,6 +639,7 @@ export const VideoPlayer = () => {
                   setSeekTarget(seekPreview);
                   setIsSeeking(false);
                   e.stopPropagation();
+                  showControlsTemporary();
                 }}
                 style={duration ? {
                   background: (() => {
@@ -625,6 +660,36 @@ export const VideoPlayer = () => {
             </span>
           </div>
         </div>
+
+        {/* ショートカットヘルプ */}
+        {showShortcutHelp && (
+          <div className="vc-player-settings-overlay" onClick={() => setShowShortcutHelp(false)}>
+            <div className="vc-player-settings-panel" onClick={e => e.stopPropagation()}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                <span style={{ fontSize: 15, fontWeight: 700, color: '#fff' }}>キーボードショートカット</span>
+                <button className="vc-player-btn" onClick={() => setShowShortcutHelp(false)} aria-label="閉じる">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" />
+                  </svg>
+                </button>
+              </div>
+              {([
+                ['Space / K', '再生 / 一時停止'],
+                ['←', '5秒戻す'],
+                ['→', '5秒進む'],
+                ['↑', '音量 +10%'],
+                ['↓', '音量 -10%'],
+                ['M', 'ミュート切替'],
+                ['F', 'フルスクリーン切替'],
+              ] as [string, string][]).map(([key, desc]) => (
+                <div key={key} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 0', borderBottom: '1px solid rgba(255,255,255,0.08)', fontSize: 13, color: '#fff' }}>
+                  <kbd style={{ background: 'rgba(255,255,255,0.15)', borderRadius: 4, padding: '2px 8px', fontFamily: 'monospace', fontSize: 12 }}>{key}</kbd>
+                  <span style={{ color: 'rgba(255,255,255,0.7)' }}>{desc}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* 設定モーダル（フルスクリーン時も表示されるようコンテナ内に配置） */}
         {showSettingsMenu && (
@@ -670,16 +735,25 @@ export const VideoPlayer = () => {
       </div>
 
       {/* タイトル・タグ */}
-      {videoError === 'codec' && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 16px', background: 'rgba(234,179,8,0.15)', borderBottom: '1px solid rgba(234,179,8,0.3)' }}>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#eab308" strokeWidth="2" style={{ flexShrink: 0 }}>
-            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" />
-          </svg>
-          <p style={{ fontSize: 12, color: '#eab308', margin: 0 }}>
-            映像が表示されていません（H.265 / HEVC の可能性）。Chrome の設定 → システム →「ハードウェアアクセラレーション」を有効にすると再生できる場合があります。それでも再生できない場合は Edge ブラウザをお試しください。
-          </p>
-        </div>
-      )}
+      {videoError === 'codec' && (() => {
+        const isChrome = navigator.userAgent.includes('Chrome') && !navigator.userAgent.includes('Edg');
+        const isEdge = navigator.userAgent.includes('Edg/');
+        const msg = isChrome
+          ? 'Chrome の設定 → システム →「ハードウェアアクセラレーション」を有効にすると改善する場合があります。または Edge ブラウザをお試しください。'
+          : isEdge
+            ? 'Edge での再生に対応しています。映像コーデック（H.265 / HEVC など）が端末でサポートされていない可能性があります。'
+            : 'このブラウザでは映像コーデック（H.265 / HEVC など）が再生できない可能性があります。Chrome または Edge をお試しください。';
+        return (
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '10px 16px', background: 'rgba(234,179,8,0.15)', borderBottom: '1px solid rgba(234,179,8,0.3)' }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#eab308" strokeWidth="2" style={{ flexShrink: 0, marginTop: 1 }}>
+              <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" />
+            </svg>
+            <p style={{ fontSize: 12, color: '#eab308', margin: 0 }}>
+              映像が表示されていません（H.265 / HEVC の可能性）。{msg}
+            </p>
+          </div>
+        );
+      })()}
 
       <div className="vc-player-info">
         <h2 className="vc-player-title">{fileName}</h2>
@@ -702,7 +776,25 @@ export const VideoPlayer = () => {
       </div>
 
       {/* レコメンド */}
-      {(sameTagFiles.length > 0 || randomFiles.length > 0) && (
+      {recLoadFailed && (
+        <div className="vc-recommendations">
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 0' }}>
+            <p style={{ fontSize: 13, color: 'var(--vc-text-secondary)', margin: 0 }}>おすすめ動画の読み込みに失敗しました</p>
+            <button
+              onClick={() => {
+                if (!accessToken) return;
+                setRecLoadFailed(false);
+                setAllFiles(null);
+                fetchAllDriveFiles(accessToken, buildVideoQuery(vcData.folders))
+                  .then(files => setAllFiles(files.filter(f => f.id !== fileId)))
+                  .catch(() => setRecLoadFailed(true));
+              }}
+              style={{ fontSize: 12, color: 'var(--vc-accent)', background: 'none', border: 'none', cursor: 'pointer', padding: 0, flexShrink: 0 }}
+            >再試行</button>
+          </div>
+        </div>
+      )}
+      {!recLoadFailed && (sameTagFiles.length > 0 || randomFiles.length > 0) && (
         <div className="vc-recommendations">
           {sameTagFiles.length > 0 && (
             <div className="vc-rec-section">

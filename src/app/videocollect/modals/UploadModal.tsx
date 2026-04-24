@@ -64,6 +64,7 @@ export const UploadModal = ({ accessToken, defaultFolders, onUploaded, onClose, 
   const [selectedFolderId, setSelectedFolderId] = useState<string>(defaultFolders[0]?.id ?? '');
   const [uploading, setUploading] = useState(false);
   const [dragOver, setDragOver] = useState(false);
+  const [confirmCancel, setConfirmCancel] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const xhrRef = useRef<XMLHttpRequest | null>(null);
   const abortedRef = useRef(false);
@@ -178,6 +179,14 @@ export const UploadModal = ({ accessToken, defaultFolders, onUploaded, onClose, 
   };
 
   const handleClose = () => {
+    if (uploading) {
+      setConfirmCancel(true);
+      return;
+    }
+    onClose();
+  };
+
+  const handleConfirmCancel = () => {
     abortedRef.current = true;
     if (xhrRef.current) xhrRef.current.abort();
     onClose();
@@ -294,7 +303,20 @@ export const UploadModal = ({ accessToken, defaultFolders, onUploaded, onClose, 
               <option key={f.id} value={f.id}>{f.name}</option>
             ))}
           </select>
+          <p style={{ fontSize: 11, color: 'var(--vc-text-secondary)', marginTop: 4 }}>
+            キューに入っているファイルすべての保存先になります
+          </p>
         </div>
+
+        {confirmCancel && (
+          <div style={{ padding: '10px 14px', background: 'rgba(239,68,68,0.1)', borderRadius: 8, border: '1px solid rgba(239,68,68,0.3)' }}>
+            <p style={{ fontSize: 13, color: '#ef4444', margin: '0 0 8px' }}>アップロード中です。中断しますか？</p>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <Button variant="outline" size="sm" className="flex-1" onClick={() => setConfirmCancel(false)}>続ける</Button>
+              <Button size="sm" className="flex-1" style={{ background: '#ef4444', color: '#fff' }} onClick={handleConfirmCancel}>中断する</Button>
+            </div>
+          </div>
+        )}
 
         <div className="flex gap-2 mt-2">
           <Button variant="outline" className="flex-1" onClick={handleClose}>

@@ -73,9 +73,12 @@ export const VideoCard = ({ file, tags, accessToken, onTagEdit }: Props) => {
       <div className="vc-card-body">
         <p
           className={`vc-card-name${previewing ? ' vc-card-name--previewing' : ''}`}
-          title={file.name}
+          title={previewing ? 'クリックしてプレビューを閉じる' : 'クリックしてプレビュー'}
         >
           {file.name}
+          <span className="vc-card-preview-hint" aria-hidden="true">
+            {previewing ? '▶ プレビュー中' : '▶ プレビュー'}
+          </span>
         </p>
         <p className="vc-card-date">{formatDate(file.modifiedTime)}</p>
 

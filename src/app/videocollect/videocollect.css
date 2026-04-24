@@ -102,6 +102,25 @@
   color: var(--vc-accent);
 }
 
+.vc-card-preview-hint {
+  display: block;
+  font-size: 10px;
+  font-weight: 400;
+  color: var(--vc-text-secondary);
+  margin-top: 2px;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.vc-card:hover .vc-card-preview-hint {
+  opacity: 1;
+}
+
+.vc-card-name--previewing .vc-card-preview-hint {
+  color: var(--vc-accent);
+  opacity: 1;
+}
+
 .vc-card-date {
   font-size: 11px;
   color: var(--vc-text-secondary);
@@ -376,6 +395,13 @@
 .vc-player-controls-center > *,
 .vc-player-controls-bottom > * {
   pointer-events: auto;
+}
+
+/* 非表示時は子要素も含めてクリック不可にする（pointer-events:noneは子に継承されないため明示的に指定） */
+.vc-player-controls--hidden .vc-player-controls-top > *,
+.vc-player-controls--hidden .vc-player-controls-center > *,
+.vc-player-controls--hidden .vc-player-controls-bottom > * {
+  pointer-events: none;
 }
 
 .vc-seek-bar {
@@ -659,6 +685,12 @@
   padding: 0;
   font-size: 13px;
   text-decoration: underline;
+}
+
+.vc-breadcrumb-current {
+  font-size: 13px;
+  color: var(--vc-text-primary);
+  font-weight: 600;
 }
 
 .vc-folder-list {

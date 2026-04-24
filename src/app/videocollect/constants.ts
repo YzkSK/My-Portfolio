@@ -76,13 +76,17 @@ export function formatSize(bytes: string): string {
   return `${Math.round(n / 1e3)} KB`;
 }
 
+export function formatTime(s: number): string {
+  if (isNaN(s) || !isFinite(s)) return '0:00';
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = Math.floor(s % 60);
+  if (h > 0) return `${h}:${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
+  return `${m}:${String(sec).padStart(2, '0')}`;
+}
+
 export function formatDuration(ms: string): string {
-  const secs = Math.floor(parseInt(ms, 10) / 1000);
-  const h = Math.floor(secs / 3600);
-  const m = Math.floor((secs % 3600) / 60);
-  const s = secs % 60;
-  if (h > 0) return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
-  return `${m}:${String(s).padStart(2, '0')}`;
+  return formatTime(Math.floor(parseInt(ms, 10) / 1000));
 }
 
 export function formatDate(iso: string): string {
@@ -93,13 +97,10 @@ export function formatDate(iso: string): string {
   });
 }
 
-export function formatTime(s: number): string {
-  if (isNaN(s) || !isFinite(s)) return '0:00';
-  const h = Math.floor(s / 3600);
-  const m = Math.floor((s % 3600) / 60);
-  const sec = Math.floor(s % 60);
-  if (h > 0) return `${h}:${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
-  return `${m}:${String(sec).padStart(2, '0')}`;
+export function buildVideoQuery(folders: DriveFolder[]): string {
+  if (folders.length === 0) return "mimeType contains 'video/' and trashed=false";
+  const clauses = folders.map(f => `'${f.id}' in parents`).join(' or ');
+  return `(${clauses}) and mimeType contains 'video/' and trashed=false`;
 }
 
 /** Drive API から全ページを取得してマージ */

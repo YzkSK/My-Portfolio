@@ -16,7 +16,6 @@ type Props = {
 
 export const FolderModal = ({ selectedFolders, accessToken, onSave, onClose, onError }: Props) => {
   const [folders, setFolders] = useState<DriveFolder[]>([]);
-  const [checked, setChecked] = useState<Set<string>>(new Set(selectedFolders.map(f => f.id)));
   const [checkedNames, setCheckedNames] = useState<Map<string, string>>(
     new Map(selectedFolders.map(f => [f.id, f.name])),
   );
@@ -35,15 +34,6 @@ export const FolderModal = ({ selectedFolders, accessToken, onSave, onClose, onE
   }, [breadcrumb]);
 
   const toggleFolder = (folder: DriveFolder) => {
-    setChecked(prev => {
-      const next = new Set(prev);
-      if (next.has(folder.id)) {
-        next.delete(folder.id);
-      } else {
-        next.add(folder.id);
-      }
-      return next;
-    });
     setCheckedNames(prev => {
       const next = new Map(prev);
       if (next.has(folder.id)) {
@@ -64,11 +54,7 @@ export const FolderModal = ({ selectedFolders, accessToken, onSave, onClose, onE
   };
 
   const handleSave = () => {
-    const result: DriveFolder[] = Array.from(checked).map(id => ({
-      id,
-      name: checkedNames.get(id) ?? id,
-    }));
-    onSave(result);
+    onSave(Array.from(checkedNames.entries()).map(([id, name]) => ({ id, name })));
   };
 
   return (
@@ -82,14 +68,13 @@ export const FolderModal = ({ selectedFolders, accessToken, onSave, onClose, onE
           {breadcrumb.map((crumb, i) => (
             <span key={i} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
               {i > 0 && <span style={{ color: 'var(--vc-text-secondary)' }}>›</span>}
-              <button
-                className="vc-breadcrumb-btn"
-                onClick={() => navigateToCrumb(i)}
-                disabled={i === breadcrumb.length - 1}
-                style={{ opacity: i === breadcrumb.length - 1 ? 1 : undefined, textDecoration: i === breadcrumb.length - 1 ? 'none' : undefined, cursor: i === breadcrumb.length - 1 ? 'default' : undefined }}
-              >
-                {crumb.name}
-              </button>
+              {i === breadcrumb.length - 1 ? (
+                <span className="vc-breadcrumb-current">{crumb.name}</span>
+              ) : (
+                <button className="vc-breadcrumb-btn" onClick={() => navigateToCrumb(i)}>
+                  {crumb.name}
+                </button>
+              )}
             </span>
           ))}
         </div>
@@ -108,7 +93,7 @@ export const FolderModal = ({ selectedFolders, accessToken, onSave, onClose, onE
                 <input
                   type="checkbox"
                   id="folder-root"
-                  checked={checked.has('root')}
+                  checked={checkedNames.has('root')}
                   onChange={() => toggleFolder(root)}
                   style={{ flexShrink: 0 }}
                 />
@@ -131,7 +116,7 @@ export const FolderModal = ({ selectedFolders, accessToken, onSave, onClose, onE
               <input
                 type="checkbox"
                 id={`folder-${folder.id}`}
-                checked={checked.has(folder.id)}
+                checked={checkedNames.has(folder.id)}
                 onChange={() => toggleFolder(folder)}
                 style={{ flexShrink: 0 }}
               />
@@ -150,9 +135,9 @@ export const FolderModal = ({ selectedFolders, accessToken, onSave, onClose, onE
           ))}
         </div>
 
-        {checked.size > 0 && (
+        {checkedNames.size > 0 && (
           <p style={{ fontSize: 12, color: 'var(--vc-text-secondary)', marginTop: 4 }}>
-            {checked.size} 件のフォルダを選択中
+            {checkedNames.size} 件のフォルダを選択中
           </p>
         )}
 
