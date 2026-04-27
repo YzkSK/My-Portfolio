@@ -370,11 +370,19 @@ html.dark {
 
 .app-header {
   background: var(--app-bg-card);
-  padding: 1rem 2rem;
+  padding: 0.75rem 1.25rem;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 8px;
   border-bottom: 1px solid var(--app-border);
+  min-width: 0;
+}
+
+@media (min-width: 640px) {
+  .app-header {
+    padding: 1rem 2rem;
+    gap: 12px;
+  }
 }
 
 .app-header h1 {
@@ -431,7 +439,13 @@ html.dark {
 }
 
 .app-main {
-  padding: 2rem;
+  padding: 1.25rem 1rem 4rem;
+}
+
+@media (min-width: 640px) {
+  .app-main {
+    padding: 2rem 2rem 4rem;
+  }
 }
 
 .app-grid {
@@ -464,6 +478,27 @@ html.dark {
 .app-card-desc {
   font-size: 0.8rem;
   color: var(--app-text-muted);
+}
+
+.app-card--add {
+  border-style: dashed;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  opacity: 0.6;
+  transition: opacity 0.15s, border-color 0.15s;
+}
+
+.app-card--add:hover {
+  opacity: 1;
+}
+
+.app-card-add-icon {
+  font-size: 1.6rem;
+  line-height: 1;
+  color: var(--app-text-secondary);
 }
 
 /* Settings */
@@ -718,3 +753,54 @@ html.dark {
 
 .app-toast--error   { background: #7f1d1d; }
 .app-toast--warning { background: #78350f; }
+
+/* ── AppLayout ─────────────────────────────────────────────── */
+
+.app-page {
+  min-height: 100vh;
+  background: var(--app-bg);
+  color: var(--app-text);
+}
+
+.app-page-title {
+  flex: 1;
+  min-width: 0;               /* flex 子要素が縮小できるように */
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--app-text-primary);
+  letter-spacing: 0.05em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.app-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+@media (min-width: 640px) {
+  .app-header-actions {
+    gap: 0.75rem;
+  }
+}
+
+/* ── AppHeader (戻るボタン付きヘッダー) ─────────────────────── */
+
+.app-header-back-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 0.85rem;
+  color: var(--app-text-secondary);
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: color 0.15s;
+}
+
+.app-header-back-btn:hover {
+  color: var(--app-text-primary);
+}

@@ -11,6 +11,10 @@ vi.mock('@/app/auth/AuthContext', () => ({
   useAuth: vi.fn(),
 }));
 
+vi.mock('@/app/platform/InstalledAppsContext', () => ({
+  useInstalledApps: vi.fn(() => ({ isInstalled: () => true })),
+}));
+
 const mockUseAuth = vi.mocked(useAuth);
 
 const renderRoute = (children = <p>保護されたコンテンツ</p>) =>

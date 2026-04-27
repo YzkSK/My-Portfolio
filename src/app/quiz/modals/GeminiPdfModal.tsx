@@ -1,6 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
 import { useBlocker } from 'react-router-dom';
-import { GoogleGenerativeAI } from '@google/generative-ai';
 import { type Problem, type ProblemSet, newProblem } from '../constants';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -315,6 +314,7 @@ export const GeminiPdfModal = ({ sets, onImportNew, onImportExisting, onClose, a
       );
 
       const apiKey = import.meta.env.VITE_GOOGLE_GEMINI_API_KEY as string;
+      const { GoogleGenerativeAI } = await import('@google/generative-ai');
       const model = new GoogleGenerativeAI(apiKey).getGenerativeModel({ model: 'gemini-3.1-flash-lite-preview' });
       const prompt = files.every(isImageFile) ? PROMPT_IMAGE : PROMPT_PDF;
 

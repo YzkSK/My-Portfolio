@@ -8,7 +8,6 @@ import { useNavigate } from 'react-router-dom';
 import { signOut } from 'firebase/auth';
 import '../shared/app.css';
 import './timetable.css';
-import { AppFooter } from '../shared/AppFooter';
 import {
   DEFAULT_PERIODS, DAY_LABELS, NOTIFY_OPTIONS,
   MS_PER_MINUTE, TOAST_DURATION_MS,
@@ -22,9 +21,9 @@ import { WeekView } from './views/WeekView';
 import { DayView } from './views/DayView';
 import { EventModal } from './modals/EventModal';
 import { SettingsModal } from './modals/SettingsModal';
-import { AppMenu } from '../shared/AppMenu';
 import { usePageTitle } from '../shared/usePageTitle';
-import { DbErrorBanner } from '../shared/DbErrorBanner';
+import { AppLayout } from '../platform/AppLayout';
+import { AppMenu } from '../shell/AppMenu';
 import { Button } from '@/components/ui/button';
 
 const NOTIFY_ERROR_CODES = {
@@ -415,26 +414,17 @@ export const Timetable = () => {
   if (loading) return null;
 
   return (
-    <div className="tt-page">
-      {dbError && <DbErrorBanner />}
-
-      {/* Toast */}
-      <div className="tt-toast-container">
-        {toasts.map(t => (
-          <div key={t.id} className={`tt-toast tt-toast--${t.type}`}>{t.msg}</div>
-        ))}
-      </div>
-
-
-      <div className="tt-inner">
-
-        {/* ヘッダー */}
-        <div className="tt-header">
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <AppMenu />
-            <h1 className="tt-title">時間割</h1>
-          </div>
-          <div className="tt-controls">
+    <AppLayout
+      pageClassName="tt-page"
+      className="tt-main"
+      dbError={dbError}
+      toasts={toasts}
+      header={
+        <header className="app-header">
+          <AppMenu />
+          <h1 className="app-page-title">時間割</h1>
+          {/* 通知コントロール: モバイルで2行目へ */}
+          <div className="tt-controls tt-header-notify">
             <div className="tt-notify">
               <span className="tt-notify-icon">{notifyEnabled ? '🔔' : '🔕'}</span>
               <div onClick={notifyToggling ? undefined : toggleNotify} className="tt-toggle" style={{ background: notifyEnabled ? 'var(--tt-tab-active-bg)' : 'var(--tt-border)', opacity: notifyToggling ? 0.4 : 1, cursor: notifyToggling ? 'not-allowed' : 'pointer' }}>
@@ -445,10 +435,13 @@ export const Timetable = () => {
               </div>
             </div>
             <Button variant="outline" onClick={openSettings}>⚙️ 時間設定</Button>
-            <Button variant="outline" onClick={async () => { await signOut(auth); navigate('/app/login'); }}>ログアウト</Button>
           </div>
-        </div>
-
+          {/* ログアウト: 常に1行目の右端 */}
+          <Button variant="outline" className="tt-header-logout" onClick={async () => { await signOut(auth); navigate('/app/login'); }}>ログアウト</Button>
+        </header>
+      }
+    >
+      <div className="tt-inner">
         {/* 次の通知予定 */}
         {notifyEnabled && nextNotify && (
           <div className="tt-next-notify">
@@ -551,7 +544,6 @@ export const Timetable = () => {
       )}
 
       <style>{`@keyframes fadeUp { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }`}</style>
-      <AppFooter />
-    </div>
+    </AppLayout>
   );
 };

@@ -7,9 +7,8 @@ import { usePageTitle } from '../shared/usePageTitle';
 import { useToast } from '../shared/useToast';
 import { useFirestoreData } from '../shared/useFirestoreData';
 import { useFirestoreSave } from '../shared/useFirestoreSave';
-import { AppMenu } from '../shared/AppMenu';
-import { AppFooter } from '../shared/AppFooter';
-import { DbErrorBanner } from '../shared/DbErrorBanner';
+import { AppMenu } from '../shell/AppMenu';
+import { AppLayout } from '../platform/AppLayout';
 import { Button } from '@/components/ui/button';
 import '../shared/app.css';
 import './videocollect.css';
@@ -162,34 +161,27 @@ export const Videocollect = () => {
     if (accessToken) fetchFiles(accessToken, data.folders);
   };
 
+  const vcHeader = (
+    <header className="app-header">
+      <AppMenu />
+      <h1 className="app-page-title">動画</h1>
+    </header>
+  );
+
   if (pageState.status === 'unauthenticated') {
     return (
-      <div className="vc-page">
-        <header className="app-header">
-          <AppMenu />
-          <h1>動画</h1>
-          <div style={{ width: 36 }} />
-        </header>
+      <AppLayout pageClassName="vc-page" header={vcHeader}>
         <div className="vc-unauth">
           <p className="vc-unauth-title">Google Drive が連携されていません</p>
           <p className="vc-unauth-desc">設定画面から Google Drive に接続してください</p>
           <Link to="/app/settings" className="vc-unauth-link">設定へ</Link>
         </div>
-        <AppFooter />
-      </div>
+      </AppLayout>
     );
   }
 
   return (
-    <div className="vc-page">
-      {dbError && <DbErrorBanner />}
-
-      <header className="app-header">
-        <AppMenu />
-        <h1>動画</h1>
-        <div style={{ width: 36 }} />
-      </header>
-
+    <AppLayout pageClassName="vc-page" className="" dbError={dbError} toasts={toasts} header={vcHeader}>
       <main style={{ padding: '16px', paddingBottom: 80 }}>
         <div style={{ display: 'flex', gap: 8, marginBottom: 16, alignItems: 'center' }}>
           <button
@@ -287,15 +279,6 @@ export const Videocollect = () => {
         )}
       </main>
 
-      <AppFooter />
-
-      {/* トースト */}
-      <div className="vc-toast-container">
-        {toasts.map(t => (
-          <div key={t.id} className={`vc-toast vc-toast--${t.type}`}>{t.msg}</div>
-        ))}
-      </div>
-
       {/* モーダル */}
       {modal?.type === 'filter' && (
         <FilterModal
@@ -333,6 +316,6 @@ export const Videocollect = () => {
           onClose={() => setModal(null)}
         />
       )}
-    </div>
+    </AppLayout>
   );
 };

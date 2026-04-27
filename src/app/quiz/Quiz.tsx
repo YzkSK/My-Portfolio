@@ -5,7 +5,6 @@ import { ref, deleteObject, listAll } from 'firebase/storage';
 import { auth, storage } from '../shared/firebase';
 import { useAuth } from '../auth/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { AppFooter } from '../shared/AppFooter';
 import '../shared/app.css';
 import './quiz.css';
 import {
@@ -23,9 +22,9 @@ import { ShareModal } from './modals/ShareModal';
 import { ImportModal } from './modals/ImportModal';
 import { GeminiPdfModal } from './modals/GeminiPdfModal';
 import { Button } from '@/components/ui/button';
-import { AppMenu } from '../shared/AppMenu';
+import { AppMenu } from '../shell/AppMenu';
 import { usePageTitle } from '../shared/usePageTitle';
-import { DbErrorBanner } from '../shared/DbErrorBanner';
+import { AppLayout } from '../platform/AppLayout';
 
 export const Quiz = () => {
   const { currentUser } = useAuth();
@@ -358,25 +357,37 @@ export const Quiz = () => {
 
   if (loading) return null;
 
-  return (
-    <div className="min-h-screen bg-[#f8f9fa] dark:bg-[#111] text-[#1a1a1a] dark:text-[#e0e0e0] px-[14px] pt-5 pb-[120px]">
-      {dbError && <DbErrorBanner />}
-      <div className="qz-toast-container">
-        {toasts.map(t => <div key={t.id} className="qz-toast">{t.msg}</div>)}
+  const quizHeader = activeSetId === null ? (
+    <header className="app-header">
+      <AppMenu />
+      <h1 className="app-page-title">問題集</h1>
+      <div className="app-header-actions">
+        <Button variant="outline" onClick={handleLogout}>ログアウト</Button>
       </div>
+    </header>
+  ) : (
+    <header className="app-header">
+      <AppMenu />
+      <h1 className="app-page-title">{activeSet?.name}</h1>
+      <div className="app-header-actions">
+        <Button variant="outline" size="sm" onClick={() => setModal({ type: 'set-edit', setId: activeSetId! })}>名前変更</Button>
+        <Button variant="outline" onClick={() => setActiveSetId(null)}>← 一覧</Button>
+      </div>
+    </header>
+  );
+
+  return (
+    <AppLayout
+      className="px-[14px] pt-5 pb-[120px]"
+      dbError={dbError}
+      toasts={toasts}
+      header={quizHeader}
+    >
 
       <div className="max-w-[640px] mx-auto">
         {activeSetId === null ? (
           // ── 問題集一覧 ─────────────────────────────────────
           <>
-            <div className="flex items-center justify-between mb-5">
-              <div className="flex items-center gap-2">
-                <AppMenu />
-                <h1 className="text-[1.3rem] font-black m-0 text-[#1a1a1a] dark:text-[#e0e0e0]">問題集</h1>
-              </div>
-              <Button variant="outline" onClick={handleLogout}>ログアウト</Button>
-            </div>
-
             <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
               <div className="text-sm font-black text-[#1a1a1a] dark:text-[#e0e0e0]">マイ問題集 ({sets.length}件)</div>
               <div className="flex flex-wrap gap-2">
@@ -509,23 +520,6 @@ export const Quiz = () => {
         ) : (
           // ── 問題一覧（アクティブセット内）──────────────────
           <>
-            <div className="flex items-center justify-between mb-5">
-              <div className="flex items-center gap-2">
-                <AppMenu />
-                <h1 className="text-[1.3rem] font-black m-0 text-[#1a1a1a] dark:text-[#e0e0e0]">{activeSet?.name}</h1>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setModal({ type: 'set-edit', setId: activeSetId! })}
-                >
-                  名前変更
-                </Button>
-              </div>
-              <div className="flex gap-2">
-                <Button variant="outline" onClick={() => setActiveSetId(null)}>← 一覧</Button>
-              </div>
-            </div>
-
             <ProblemList
               problems={problems}
               onAdd={openAdd}
@@ -613,7 +607,6 @@ export const Quiz = () => {
         </div>
       )}
 
-      <AppFooter />
-    </div>
+    </AppLayout>
   );
 };

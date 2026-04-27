@@ -23,6 +23,8 @@ export type VcAuth = {
   accessToken: string;
   refreshToken: string;
   tokenExpiry: number;
+  connectedEmail?: string;
+  connectedName?: string;
 };
 
 export const VC_INITIAL_DATA: VcData = { folders: [], tags: {} };

@@ -2,7 +2,6 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useToast } from '../shared/useToast';
 import { useAuth } from '../auth/AuthContext';
 import { useNavigate, useSearchParams, useBlocker } from 'react-router-dom';
-import { AppFooter } from '../shared/AppFooter';
 import '../shared/app.css';
 import './quiz.css';
 import {
@@ -18,10 +17,10 @@ import { useFirestoreData } from '../shared/useFirestoreData';
 import { useFirestoreSave } from '../shared/useFirestoreSave';
 import { QuizSession } from './views/QuizSession';
 import { Button } from '@/components/ui/button';
-import { AppMenu } from '../shared/AppMenu';
+import { AppMenu } from '../shell/AppMenu';
 import { usePageTitle } from '../shared/usePageTitle';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { DbErrorBanner } from '../shared/DbErrorBanner';
+import { AppLayout } from '../platform/AppLayout';
 
 type QuizPlayData = { sets: ProblemSet[]; recentConfigs: RecentConfig[] };
 
@@ -283,23 +282,42 @@ export const QuizPlay = () => {
 
   if (loading) return null;
 
+  const playHeader =
+    session !== null ? (
+      <header className="app-header">
+        <AppMenu />
+        <h1 className="app-page-title">{session.mode === 'oneByOne' ? '一問一答' : '試験'}</h1>
+      </header>
+    ) : configConfirmed ? (
+      <header className="app-header">
+        <AppMenu />
+        <h1 className="app-page-title">{selectedSets.map(s => s.name).join(' + ')}</h1>
+        <div className="app-header-actions">
+          <Button variant="outline" onClick={() => setConfigConfirmed(false)}>← 戻る</Button>
+        </div>
+      </header>
+    ) : (
+      <header className="app-header">
+        <AppMenu />
+        <h1 className="app-page-title">出題する</h1>
+        <div className="app-header-actions">
+          <Button variant="outline" onClick={() => navigate('/app/quiz')}>← 問題集一覧</Button>
+        </div>
+      </header>
+    );
+
   return (
-    <div className="min-h-screen bg-[#f8f9fa] dark:bg-[#111] text-[#1a1a1a] dark:text-[#e0e0e0] px-[14px] pt-5 pb-[120px]">
-      {dbError && <DbErrorBanner />}
-      <div className="qz-toast-container">
-        {toasts.map(t => <div key={t.id} className="qz-toast">{t.msg}</div>)}
-      </div>
+    <AppLayout
+      className="px-[14px] pt-5 pb-[120px]"
+      dbError={dbError}
+      toasts={toasts}
+      header={playHeader}
+    >
 
       <div className="max-w-[640px] mx-auto">
         {session !== null ? (
           // ── 回答中 ─────────────────────────────────────
           <>
-            <div className="flex items-center justify-between mb-5">
-              <div className="flex items-center gap-2">
-                <AppMenu />
-                <h1 className="text-[1.3rem] font-black m-0 text-[#1a1a1a] dark:text-[#e0e0e0]">{session.mode === 'oneByOne' ? '一問一答' : '試験'}</h1>
-              </div>
-            </div>
             <QuizSession
               session={session}
               problems={problems}
@@ -326,16 +344,6 @@ export const QuizPlay = () => {
         ) : configConfirmed ? (
           // ── 出題設定 ──────────────────────────────────
           <>
-            <div className="flex items-center justify-between mb-5">
-              <div className="flex items-center gap-2">
-                <AppMenu />
-                <h1 className="text-[15px] font-black m-0 text-[#1a1a1a] dark:text-[#e0e0e0]">
-                  {selectedSets.map(s => s.name).join(' + ')}
-                </h1>
-              </div>
-              <Button variant="outline" onClick={() => setConfigConfirmed(false)}>← 戻る</Button>
-            </div>
-
             <div className="bg-white dark:bg-[#1a1a1a] border border-[#e8e8e8] dark:border-[#333] rounded-[14px] p-[18px_16px] mb-5">
               <div className="text-[12px] font-bold text-[#888] mb-3 uppercase tracking-[0.05em]">出題設定</div>
 
@@ -387,14 +395,6 @@ export const QuizPlay = () => {
         ) : (
           // ── 問題集選択 ────────────────────────────────
           <>
-            <div className="flex items-center justify-between mb-5">
-              <div className="flex items-center gap-2">
-                <AppMenu />
-                <h1 className="text-[1.3rem] font-black m-0 text-[#1a1a1a] dark:text-[#e0e0e0]">出題する</h1>
-              </div>
-              <Button variant="outline" onClick={() => navigate('/app/quiz')}>← 問題集一覧</Button>
-            </div>
-
             {/* 直近の記録 */}
             {recentConfigs.length > 0 && (
               <div className="mb-5">
@@ -489,8 +489,6 @@ export const QuizPlay = () => {
         )}
       </div>
 
-      <AppFooter />
-
       {/* 離脱確認ダイアログ */}
       {blocker.state === 'blocked' && (
         <Dialog open={true} onOpenChange={() => blocker.reset?.()}>
@@ -512,6 +510,6 @@ export const QuizPlay = () => {
           </DialogContent>
         </Dialog>
       )}
-    </div>
+    </AppLayout>
   );
 };
