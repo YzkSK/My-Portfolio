@@ -24,12 +24,17 @@ import {
   fetchAllDriveFiles,
   loadAccessToken,
   buildVideoQuery,
+  renameFile,
+  trashFile,
 } from './constants';
 import { VideoGrid } from './views/VideoGrid';
+import { VideoList } from './views/VideoList';
 import { FolderModal } from './modals/FolderModal';
 import { FilterModal } from './modals/FilterModal';
 import { TagModal } from './modals/TagModal';
 import { UploadModal } from './modals/UploadModal';
+import { RenameModal } from './modals/RenameModal';
+import { DeleteModal } from './modals/DeleteModal';
 
 type PageState =
   | { status: 'unauthenticated' }
@@ -43,7 +48,9 @@ type Modal =
   | { type: 'folder' }
   | { type: 'upload' }
   | { type: 'filter' }
-  | { type: 'tag'; file: DriveFile };
+  | { type: 'tag'; file: DriveFile }
+  | { type: 'rename'; file: DriveFile }
+  | { type: 'delete'; file: DriveFile };
 
 export const Videocollect = () => {
   const { currentUser } = useAuth();
@@ -55,6 +62,10 @@ export const Videocollect = () => {
   const [activeTags, setActiveTags] = useState<string[]>([]);
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [sortKey, setSortKey] = useState<'date-desc' | 'date-asc' | 'name-asc' | 'name-desc' | 'size-desc' | 'size-asc'>('date-desc');
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>(() =>
+    (localStorage.getItem('vc-view-mode') as 'grid' | 'list') ?? 'grid',
+  );
+  const [playingId] = useState<string | null>(() => localStorage.getItem('vc-playing-id'));
 
   const { data, setData, loading, dbError } = useFirestoreData({
     currentUser,
@@ -161,6 +172,43 @@ export const Videocollect = () => {
     if (accessToken) fetchFiles(accessToken, data.folders);
   };
 
+  const handleRename = async (file: DriveFile, newName: string) => {
+    if (!accessToken) return;
+    try {
+      await renameFile(accessToken, file.id, newName);
+      setPageState(prev => {
+        if (prev.status !== 'loaded') return prev;
+        return { ...prev, files: prev.files.map(f => f.id === file.id ? { ...f, name: newName } : f) };
+      });
+      setModal(null);
+      addToast('ファイル名を変更しました', 'normal');
+    } catch (e) {
+      console.error('ファイル名変更エラー:', e);
+      addToast(`ファイル名の変更に失敗しました [${VC_ERROR_CODES.RENAME}]`, 'error');
+    }
+  };
+
+  const handleDelete = async (file: DriveFile) => {
+    if (!accessToken) return;
+    try {
+      await trashFile(accessToken, file.id);
+      setPageState(prev => {
+        if (prev.status !== 'loaded') return prev;
+        const files = prev.files.filter(f => f.id !== file.id);
+        return files.length > 0 ? { ...prev, files } : { status: 'empty' };
+      });
+      const next = { ...data, tags: { ...data.tags } };
+      delete next.tags[file.id];
+      setData(next);
+      saveData(next);
+      setModal(null);
+      addToast('ゴミ箱に移動しました', 'normal');
+    } catch (e) {
+      console.error('ファイル削除エラー:', e);
+      addToast(`削除に失敗しました [${VC_ERROR_CODES.DELETE}]`, 'error');
+    }
+  };
+
   const vcHeader = (
     <header className="app-header">
       <div className="app-header-left">
@@ -230,6 +278,28 @@ export const Videocollect = () => {
             )}
           </button>
 
+          <div className="vc-view-toggle" style={{ marginLeft: 'auto' }}>
+            <button
+              className={`vc-view-btn${viewMode === 'grid' ? ' vc-view-btn--active' : ''}`}
+              onClick={() => { setViewMode('grid'); localStorage.setItem('vc-view-mode', 'grid'); }}
+              aria-label="グリッド表示"
+              title="グリッド表示"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M3 3h8v8H3zm10 0h8v8h-8zM3 13h8v8H3zm10 0h8v8h-8z" />
+              </svg>
+            </button>
+            <button
+              className={`vc-view-btn${viewMode === 'list' ? ' vc-view-btn--active' : ''}`}
+              onClick={() => { setViewMode('list'); localStorage.setItem('vc-view-mode', 'list'); }}
+              aria-label="リスト表示"
+              title="リスト表示"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z" />
+              </svg>
+            </button>
+          </div>
         </div>
 
         {pageState.status === 'loading' && (
@@ -271,12 +341,26 @@ export const Videocollect = () => {
             >フィルターを解除</button>
           </div>
         )}
-        {pageState.status === 'loaded' && filteredFiles.length > 0 && (
+        {pageState.status === 'loaded' && filteredFiles.length > 0 && viewMode === 'grid' && (
           <VideoGrid
             files={filteredFiles}
             tags={data.tags}
             accessToken={accessToken!}
+            playingId={playingId}
             onTagEdit={file => setModal({ type: 'tag', file })}
+            onRename={file => setModal({ type: 'rename', file })}
+            onDelete={file => setModal({ type: 'delete', file })}
+          />
+        )}
+        {pageState.status === 'loaded' && filteredFiles.length > 0 && viewMode === 'list' && (
+          <VideoList
+            files={filteredFiles}
+            tags={data.tags}
+            accessToken={accessToken!}
+            playingId={playingId}
+            onTagEdit={file => setModal({ type: 'tag', file })}
+            onRename={file => setModal({ type: 'rename', file })}
+            onDelete={file => setModal({ type: 'delete', file })}
           />
         )}
       </main>
@@ -315,6 +399,20 @@ export const Videocollect = () => {
           currentTags={data.tags[modal.file.id] ?? []}
           allTags={allTags}
           onSave={tags => handleTagSave(modal.file, tags)}
+          onClose={() => setModal(null)}
+        />
+      )}
+      {modal?.type === 'rename' && (
+        <RenameModal
+          file={modal.file}
+          onRename={newName => handleRename(modal.file, newName)}
+          onClose={() => setModal(null)}
+        />
+      )}
+      {modal?.type === 'delete' && (
+        <DeleteModal
+          file={modal.file}
+          onDelete={() => handleDelete(modal.file)}
           onClose={() => setModal(null)}
         />
       )}

@@ -1,8 +1,9 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import type { DriveFolder } from '../constants';
-import { fetchDriveFolders, VC_ERROR_CODES } from '../constants';
+import { VC_ERROR_CODES } from '../constants';
+import { FolderPickerModal } from './FolderPickerModal';
 
 type FileStatus = {
   file: File;
@@ -60,24 +61,14 @@ type Props = {
 
 export const UploadModal = ({ accessToken, defaultFolders, onUploaded, onClose, onError }: Props) => {
   const [fileStatuses, setFileStatuses] = useState<FileStatus[]>([]);
-  const [folders, setFolders] = useState<DriveFolder[]>([]);
-  const [selectedFolderId, setSelectedFolderId] = useState<string>(defaultFolders[0]?.id ?? '');
+  const [selectedFolder, setSelectedFolder] = useState<DriveFolder | null>(defaultFolders[0] ?? null);
+  const [showFolderPicker, setShowFolderPicker] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const [confirmCancel, setConfirmCancel] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const xhrRef = useRef<XMLHttpRequest | null>(null);
   const abortedRef = useRef(false);
-
-  useEffect(() => {
-    fetchDriveFolders(accessToken)
-      .then(result => {
-        setFolders(result);
-        if (!selectedFolderId && result.length > 0) setSelectedFolderId(result[0].id);
-      })
-      .catch(() => { /* フォルダ取得失敗は警告のみ */ });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   const addFiles = (incoming: FileList | File[]) => {
     const arr = Array.from(incoming).filter(f => f.type.startsWith('video/'));
@@ -105,7 +96,7 @@ export const UploadModal = ({ accessToken, defaultFolders, onUploaded, onClose, 
       name: fs.file.name,
       mimeType: fs.file.type || 'video/mp4',
     };
-    if (selectedFolderId) metadata['parents'] = [selectedFolderId];
+    if (selectedFolder?.id) metadata['parents'] = [selectedFolder.id];
 
     try {
       const initResp = await fetch(
@@ -284,9 +275,8 @@ export const UploadModal = ({ accessToken, defaultFolders, onUploaded, onClose, 
           <label style={{ display: 'block', fontSize: 13, marginBottom: 6, color: 'var(--app-text-secondary)' }}>
             保存先フォルダ
           </label>
-          <select
-            value={selectedFolderId}
-            onChange={e => setSelectedFolderId(e.target.value)}
+          <button
+            onClick={() => setShowFolderPicker(true)}
             disabled={uploading}
             style={{
               width: '100%',
@@ -296,17 +286,39 @@ export const UploadModal = ({ accessToken, defaultFolders, onUploaded, onClose, 
               border: '1px solid var(--app-border-input)',
               background: 'var(--app-input-bg)',
               color: 'var(--app-text)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              cursor: uploading ? 'not-allowed' : 'pointer',
+              opacity: uploading ? 0.5 : 1,
+              textAlign: 'left',
             }}
           >
-            <option value="">マイドライブ（ルート）</option>
-            {folders.map(f => (
-              <option key={f.id} value={f.id}>{f.name}</option>
-            ))}
-          </select>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" style={{ color: selectedFolder ? '#f59e0b' : '#6366f1', flexShrink: 0 }}>
+              {selectedFolder
+                ? <path d="M10 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-8l-2-2z" />
+                : <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z" />
+              }
+            </svg>
+            <span style={{ flex: 1 }}>{selectedFolder?.name ?? 'マイドライブ（ルート）'}</span>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ color: 'var(--vc-text-secondary)', flexShrink: 0 }}>
+              <path d="M9 18l6-6-6-6" />
+            </svg>
+          </button>
           <p style={{ fontSize: 11, color: 'var(--vc-text-secondary)', marginTop: 4 }}>
             キューに入っているファイルすべての保存先になります
           </p>
         </div>
+
+        {showFolderPicker && (
+          <FolderPickerModal
+            accessToken={accessToken}
+            selectedFolder={selectedFolder}
+            onSelect={folder => { setSelectedFolder(folder); setShowFolderPicker(false); }}
+            onClose={() => setShowFolderPicker(false)}
+            onError={onError}
+          />
+        )}
 
         {confirmCancel && (
           <div style={{ padding: '10px 14px', background: 'rgba(239,68,68,0.1)', borderRadius: 8, border: '1px solid rgba(239,68,68,0.3)' }}>
