@@ -121,6 +121,39 @@ export const MyApp = () => {
 - `/app/myapp` のルートが有効になる
 - 既存ユーザーは `migrateCheckPath` のドキュメントがあれば自動導入済みとなる
 
+### Step 5 (任意): 設定セクションを追加する
+
+アプリ固有の設定（通知・時限など）を設定ページに表示したい場合は `SettingsSection` を実装する。
+
+```tsx
+// src/app/myapp/MyAppSettings.tsx
+import type { SettingsSectionProps } from '../platform/registry';
+
+export const MyAppSettings = ({ addToast }: SettingsSectionProps) => {
+  // Firestore データの読み書きは useFirestoreData / useFirestoreSave を使う
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      {/* 設定 UI */}
+    </div>
+  );
+};
+```
+
+```typescript
+// registry.ts の AppMeta に追加
+{
+  id: 'myapp',
+  // ...
+  SettingsSection: lazy(() =>
+    import('../myapp/MyAppSettings').then(m => ({ default: m.MyAppSettings }))
+  ),
+}
+```
+
+- `SettingsSection` は `lazy()` でラップして遅延読み込みにすること（設定ページの初回ロードを軽くするため）
+- `addToast` はトースト表示専用の prop。データ保存は `useFirestoreData` / `useFirestoreSave` を内部で呼ぶ
+- 設定ページには `id="settings-{appId}"` のアンカーで自動スクロール対応のサイドバーリンクが追加される
+
 ---
 
 ## アプリ導入最低テスト基準（規約）
