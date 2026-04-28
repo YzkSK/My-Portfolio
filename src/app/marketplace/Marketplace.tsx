@@ -16,11 +16,6 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 
-const UNINSTALL_ERROR_CODES = {
-  FAILED: 'E031',
-  INSTALL_FAILED: 'E032',
-} as const;
-
 type UninstallTarget = {
   app: AppMeta;
   deleteData: boolean;
@@ -41,30 +36,18 @@ export const Marketplace = () => {
 
   const handleInstall = async (id: string) => {
     setProcessing(true);
-    try {
-      await install(id);
-      addToast('導入しました');
-    } catch (e) {
-      console.error('[Marketplace] install failed', e);
-      addToast(`導入に失敗しました [${UNINSTALL_ERROR_CODES.INSTALL_FAILED}]`, 'error');
-    } finally {
-      setProcessing(false);
-    }
+    await install(id);
+    addToast('導入しました');
+    setProcessing(false);
   };
 
   const handleUninstallConfirm = async () => {
     if (!uninstallTarget) return;
     setProcessing(true);
-    try {
-      await uninstall(uninstallTarget.app.id, { deleteData: uninstallTarget.deleteData });
-      addToast('アンインストールしました');
-    } catch (e) {
-      console.error('[Marketplace] uninstall failed', e);
-      addToast(`アンインストールに失敗しました [${UNINSTALL_ERROR_CODES.FAILED}]`, 'error');
-    } finally {
-      setProcessing(false);
-      setUninstallTarget(null);
-    }
+    await uninstall(uninstallTarget.app.id, { deleteData: uninstallTarget.deleteData });
+    addToast('アンインストールしました');
+    setProcessing(false);
+    setUninstallTarget(null);
   };
 
   return (

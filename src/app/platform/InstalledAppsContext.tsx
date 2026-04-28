@@ -4,6 +4,8 @@ import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '../shared/firebase';
 import { useAuth } from '../auth/AuthContext';
 import { useSetLoading } from '../shared/AppLoadingContext';
+import { useToast } from '../shared/useToast';
+import '../shared/app.css';
 import {
   APP_REGISTRY,
   SHELL_REGISTRY,
@@ -11,6 +13,12 @@ import {
   type AppMeta,
   type ShellMeta,
 } from './registry';
+
+const ERROR_CODES = {
+  INSTALL_SAVE:       'E031',
+  UNINSTALL_CLEANUP:  'E032',
+  UNINSTALL_SAVE:     'E033',
+} as const;
 
 type MenuSections = {
   top: ShellMeta[];
@@ -39,6 +47,7 @@ export const useInstalledApps = () => {
 export const InstalledAppsProvider = ({ children }: { children: ReactNode }) => {
   const { currentUser } = useAuth();
   const setLoading = useSetLoading();
+  const { toasts, addToast } = useToast();
   const [installedIds, setInstalledIds] = useState<Set<string>>(new Set());
   const [loading, setLocalLoading] = useState(true);
 
@@ -100,6 +109,7 @@ export const InstalledAppsProvider = ({ children }: { children: ReactNode }) => 
     } catch (e) {
       console.error('[InstalledAppsContext] failed to save install', e);
       setInstalledIds(prev);
+      addToast(`導入の保存に失敗しました [${ERROR_CODES.INSTALL_SAVE}]`, 'error');
     }
   };
 
@@ -113,6 +123,7 @@ export const InstalledAppsProvider = ({ children }: { children: ReactNode }) => 
         await app.onUninstall({ deleteData: opts.deleteData, uid: currentUser.uid });
       } catch (e) {
         console.error('[InstalledAppsContext] onUninstall failed', e);
+        addToast(`クリーンアップに失敗しました [${ERROR_CODES.UNINSTALL_CLEANUP}]`, 'warning');
       }
     }
 
@@ -120,12 +131,13 @@ export const InstalledAppsProvider = ({ children }: { children: ReactNode }) => 
     next.delete(id);
     setInstalledIds(next);
 
-    // Firestore 保存失敗時もUI はアンインストール済みのまま維持
+    // Firestore 保存失敗時も UI はアンインストール済みのまま維持
     // （onUninstall でデータが削除済みの可能性があるためロールバックしない）
     try {
       await saveInstalledIds(currentUser.uid, next);
     } catch (e) {
       console.error('[InstalledAppsContext] failed to save uninstall', e);
+      addToast(`アンインストールの保存に失敗しました [${ERROR_CODES.UNINSTALL_SAVE}]`, 'error');
     }
   };
 
@@ -142,6 +154,13 @@ export const InstalledAppsProvider = ({ children }: { children: ReactNode }) => 
       value={{ installedIds, loading, install, uninstall, isInstalled, dashboardApps, menuSections }}
     >
       {children}
+      {toasts.length > 0 && (
+        <div className="app-toast-container">
+          {toasts.map(t => (
+            <div key={t.id} className={`app-toast app-toast--${t.type}`}>{t.msg}</div>
+          ))}
+        </div>
+      )}
     </InstalledAppsContext.Provider>
   );
 };
