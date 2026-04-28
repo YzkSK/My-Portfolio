@@ -22,7 +22,8 @@ async function fetchGoogleUserInfo(accessToken: string): Promise<ConnectedAccoun
     if (!res.ok) return null;
     const data = await res.json() as { email?: string; name?: string };
     return data.email ? { email: data.email, name: data.name } : null;
-  } catch {
+  } catch (e) {
+    console.error('[VideocollectSettings] fetchGoogleUserInfo failed', e);
     return null;
   }
 }

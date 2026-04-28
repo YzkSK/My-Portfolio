@@ -46,6 +46,7 @@ export const InstalledAppsProvider = ({ children }: { children: ReactNode }) => 
     if (!currentUser) {
       setInstalledIds(new Set());
       setLocalLoading(false);
+      setLoading('installedApps', false);
       return;
     }
 
