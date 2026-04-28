@@ -163,8 +163,10 @@ export const Videocollect = () => {
 
   const vcHeader = (
     <header className="app-header">
-      <AppMenu />
-      <h1 className="app-page-title">動画</h1>
+      <div className="app-header-left">
+        <AppMenu />
+        <h1 className="app-page-title">動画</h1>
+      </div>
     </header>
   );
 

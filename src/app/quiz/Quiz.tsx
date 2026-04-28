@@ -359,16 +359,20 @@ export const Quiz = () => {
 
   const quizHeader = activeSetId === null ? (
     <header className="app-header">
-      <AppMenu />
-      <h1 className="app-page-title">問題集</h1>
+      <div className="app-header-left">
+        <AppMenu />
+        <h1 className="app-page-title">問題集</h1>
+      </div>
       <div className="app-header-actions">
         <Button variant="outline" onClick={handleLogout}>ログアウト</Button>
       </div>
     </header>
   ) : (
     <header className="app-header">
-      <AppMenu />
-      <h1 className="app-page-title">{activeSet?.name}</h1>
+      <div className="app-header-left">
+        <AppMenu />
+        <h1 className="app-page-title">{activeSet?.name}</h1>
+      </div>
       <div className="app-header-actions">
         <Button variant="outline" size="sm" onClick={() => setModal({ type: 'set-edit', setId: activeSetId! })}>名前変更</Button>
         <Button variant="outline" onClick={() => setActiveSetId(null)}>← 一覧</Button>

@@ -44,8 +44,10 @@ export const AppLayout = ({
     <div className={pageClass}>
       {header ?? (
         <header className="app-header">
-          {headerLeft !== undefined ? headerLeft : <AppMenu />}
-          {title && <h1 className="app-page-title">{title}</h1>}
+          <div className="app-header-left">
+            {headerLeft !== undefined ? headerLeft : <AppMenu />}
+            {title && <h1 className="app-page-title">{title}</h1>}
+          </div>
           {headerActions && <div className="app-header-actions">{headerActions}</div>}
         </header>
       )}

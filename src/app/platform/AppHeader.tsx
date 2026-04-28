@@ -21,14 +21,16 @@ export const AppHeader = ({
   showMenu = true,
 }: AppHeaderProps) => (
   <header className="app-header">
-    {onBack ? (
-      <button className="app-header-back-btn" onClick={onBack}>
-        {backLabel}
-      </button>
-    ) : showMenu ? (
-      <AppMenu />
-    ) : null}
-    <h1 className="app-page-title">{title}</h1>
+    <div className="app-header-left">
+      {onBack ? (
+        <button className="app-header-back-btn" onClick={onBack}>
+          {backLabel}
+        </button>
+      ) : showMenu ? (
+        <AppMenu />
+      ) : null}
+      <h1 className="app-page-title">{title}</h1>
+    </div>
     {actions && <div className="app-header-actions">{actions}</div>}
   </header>
 );

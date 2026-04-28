@@ -285,21 +285,27 @@ export const QuizPlay = () => {
   const playHeader =
     session !== null ? (
       <header className="app-header">
-        <AppMenu />
-        <h1 className="app-page-title">{session.mode === 'oneByOne' ? '一問一答' : '試験'}</h1>
+        <div className="app-header-left">
+          <AppMenu />
+          <h1 className="app-page-title">{session.mode === 'oneByOne' ? '一問一答' : '試験'}</h1>
+        </div>
       </header>
     ) : configConfirmed ? (
       <header className="app-header">
-        <AppMenu />
-        <h1 className="app-page-title">{selectedSets.map(s => s.name).join(' + ')}</h1>
+        <div className="app-header-left">
+          <AppMenu />
+          <h1 className="app-page-title">{selectedSets.map(s => s.name).join(' + ')}</h1>
+        </div>
         <div className="app-header-actions">
           <Button variant="outline" onClick={() => setConfigConfirmed(false)}>← 戻る</Button>
         </div>
       </header>
     ) : (
       <header className="app-header">
-        <AppMenu />
-        <h1 className="app-page-title">出題する</h1>
+        <div className="app-header-left">
+          <AppMenu />
+          <h1 className="app-page-title">出題する</h1>
+        </div>
         <div className="app-header-actions">
           <Button variant="outline" onClick={() => navigate('/app/quiz')}>← 問題集一覧</Button>
         </div>

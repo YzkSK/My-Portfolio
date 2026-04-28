@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useToast } from '../shared/useToast';
-import { doc, getDoc, setDoc, deleteDoc } from 'firebase/firestore';
-import { getToken, deleteToken, onMessage } from 'firebase/messaging';
+import { doc, getDoc } from 'firebase/firestore';
+import { getToken, onMessage } from 'firebase/messaging';
 import { auth, db, messaging } from '../shared/firebase';
 import { useAuth } from '../auth/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -9,7 +9,7 @@ import { signOut } from 'firebase/auth';
 import '../shared/app.css';
 import './timetable.css';
 import {
-  DEFAULT_PERIODS, DAY_LABELS, NOTIFY_OPTIONS,
+  DEFAULT_PERIODS, DAY_LABELS,
   MS_PER_MINUTE, TOAST_DURATION_MS,
   toKey, addDays, startOfWeek, timeToMin, isEventModal, firestorePaths,
   type TimetableEvent, type Period, type Events, type Modal, type Form,
@@ -20,19 +20,9 @@ import { MonthView } from './views/MonthView';
 import { WeekView } from './views/WeekView';
 import { DayView } from './views/DayView';
 import { EventModal } from './modals/EventModal';
-import { SettingsModal } from './modals/SettingsModal';
 import { usePageTitle } from '../shared/usePageTitle';
 import { AppLayout } from '../platform/AppLayout';
-import { AppMenu } from '../shell/AppMenu';
 import { Button } from '@/components/ui/button';
-
-const NOTIFY_ERROR_CODES = {
-  SW_NOT_READY:    'E001',
-  TOKEN_FETCH:     'E002',
-  TOKEN_SAVE:      'E003',
-  TOKEN_DELETE:    'E004',
-  TOKEN_DB_DELETE: 'E005',
-} as const;
 
 export const Timetable = () => {
   const { currentUser } = useAuth();
@@ -48,24 +38,19 @@ export const Timetable = () => {
   const [modal, setModal] = useState<Modal>(null);
   const [form, setForm] = useState<Form>({ name: '', room: '', note: '', colorIdx: 0 });
   const [formError, setFormError] = useState('');
-  const [settingsError, setSettingsError] = useState('');
   const [isEditing, setIsEditing] = useState(false);
-  const [notifyEnabled, setNotifyEnabled] = useState(() => {
+  const [notifyEnabled] = useState(() => {
     const saved = localStorage.getItem('notifyEnabled') === 'true';
     const perm = typeof Notification !== 'undefined' ? Notification.permission : 'default';
     return saved && perm === 'granted';
   });
-  const [permission, setPermission] = useState<NotificationPermission>(
+  const [permission] = useState<NotificationPermission>(
     typeof Notification !== 'undefined' ? Notification.permission : 'default'
   );
   const { toasts, addToast } = useToast(TOAST_DURATION_MS);
-  const [showNotifyPicker, setShowNotifyPicker] = useState(false);
-  const [settingsPeriods, setSettingsPeriods] = useState<Period[]>(DEFAULT_PERIODS);
   const [nextNotify, setNextNotify] = useState<{
     label: string; name: string; start: string; notifyAt: string; pushReady: boolean;
   } | null>(null);
-  const [tokenVersion, setTokenVersion] = useState(0);
-  const [notifyToggling, setNotifyToggling] = useState(false);
   const scheduledRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   const currentTokenRef = useRef<string>('');
 
@@ -74,7 +59,6 @@ export const Timetable = () => {
   const saveToFirestore = useFirestoreSave<TimetableData>({
     currentUser,
     path: firestorePaths.timetableData(currentUser?.uid ?? ''),
-    onSuccess: () => setTokenVersion(v => v + 1),
   });
   const { data: ttData, setData: setTtData, loading, dbError } = useFirestoreData<TimetableData>({
     currentUser,
@@ -111,8 +95,6 @@ export const Timetable = () => {
       events: typeof updater === 'function' ? updater(prev.events) : updater,
     }));
   };
-  const setPeriods = (p: Period[]) => setTtData(prev => ({ ...prev, periods: p }));
-  const setNotifyBefore = (n: number) => setTtData(prev => ({ ...prev, notifyBefore: n }));
 
   // ── Service Worker 登録 ─────────────────────────────────
   useEffect(() => {
@@ -139,93 +121,6 @@ export const Timetable = () => {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── 通知 ────────────────────────────────────────────────
-  const requestPermission = async () => {
-    if (typeof Notification === 'undefined') {
-      addToast('このブラウザは通知非対応です');
-      return false;
-    }
-    const r = await Notification.requestPermission();
-    setPermission(r);
-    return r === 'granted';
-  };
-
-  const savePushToken = async (token: string) => {
-    if (!currentUser) return;
-    currentTokenRef.current = token;
-    const ref = doc(db, firestorePaths.pushTokenDoc(currentUser.uid, token));
-    await setDoc(ref, { token, notifyBefore });
-  };
-
-  const removePushToken = async () => {
-    if (!currentUser || !currentTokenRef.current) return;
-    const ref = doc(db, firestorePaths.pushTokenDoc(currentUser.uid, currentTokenRef.current));
-    await deleteDoc(ref);
-    currentTokenRef.current = '';
-  };
-
-  const toggleNotify = async () => {
-    setNotifyToggling(true);
-    try {
-      if (!notifyEnabled) {
-        const granted = permission === 'granted' || await requestPermission();
-        if (granted) {
-          let sw: ServiceWorkerRegistration;
-          try {
-            sw = await navigator.serviceWorker.ready;
-          } catch (e) {
-            console.error('SW準備失敗:', e);
-            addToast(`通知の設定に失敗しました [${NOTIFY_ERROR_CODES.SW_NOT_READY}]`, 'error');
-            return;
-          }
-          let token: string;
-          try {
-            token = await getToken(messaging, {
-              vapidKey: import.meta.env.VITE_FIREBASE_VAPID_KEY,
-              serviceWorkerRegistration: sw,
-            });
-            currentTokenRef.current = token;
-          } catch (e) {
-            console.error('FCMトークン取得失敗:', e);
-            addToast(`通知の設定に失敗しました [${NOTIFY_ERROR_CODES.TOKEN_FETCH}]`, 'error');
-            return;
-          }
-          try {
-            await savePushToken(token);
-          } catch (e) {
-            console.error('トークン保存失敗:', e);
-            addToast(`通知の設定に失敗しました [${NOTIFY_ERROR_CODES.TOKEN_SAVE}]`, 'error');
-            return;
-          }
-          setNotifyEnabled(true);
-          localStorage.setItem('notifyEnabled', 'true');
-          setTokenVersion(v => v + 1);
-          addToast('通知をオンにしました');
-        } else {
-          addToast('通知が許可されていません', 'warning');
-        }
-      } else {
-        setNotifyEnabled(false);
-        localStorage.setItem('notifyEnabled', 'false');
-        Object.values(scheduledRef.current).forEach(clearTimeout);
-        scheduledRef.current = {};
-        try {
-          await deleteToken(messaging);
-        } catch (e) {
-          console.error('FCMトークン削除失敗:', e);
-          addToast(`クリーンアップに失敗しました [${NOTIFY_ERROR_CODES.TOKEN_DELETE}]`, 'warning');
-        }
-        try {
-          await removePushToken();
-        } catch (e) {
-          console.error('Firestoreトークン削除失敗:', e);
-          addToast(`クリーンアップに失敗しました [${NOTIFY_ERROR_CODES.TOKEN_DB_DELETE}]`, 'warning');
-        }
-        addToast('通知をオフにしました');
-      }
-    } finally {
-      setNotifyToggling(false);
-    }
-  };
 
   useEffect(() => {
     const unsub = onMessage(messaging, (payload) => {
@@ -286,7 +181,7 @@ export const Timetable = () => {
     compute();
     const id = setInterval(compute, 60_000);
     return () => clearInterval(id);
-  }, [notifyEnabled, permission, events, periods, notifyBefore, currentUser, tokenVersion]);
+  }, [notifyEnabled, permission, events, periods, notifyBefore, currentUser]);
 
   useEffect(() => {
     Object.values(scheduledRef.current).forEach(clearTimeout);
@@ -362,36 +257,6 @@ export const Timetable = () => {
     setModal(null);
   };
 
-  // ── 設定 ────────────────────────────────────────────────
-  const openSettings = () => {
-    setSettingsPeriods((periods.length > 0 ? periods : DEFAULT_PERIODS).map(p => ({ ...p })));
-    setSettingsError('');
-    setModal({ type: 'settings' });
-  };
-
-  const saveSettings = () => {
-    if (settingsPeriods.length === 0) { setSettingsError('時限を1つ以上追加してください'); return; }
-    for (const p of settingsPeriods) {
-      if (!p.label.trim()) { setSettingsError('時限名を入力してください'); return; }
-      if (!p.start || !p.end) { setSettingsError('開始・終了時刻を入力してください'); return; }
-      if (p.start >= p.end) { setSettingsError('開始時刻は終了時刻より前にしてください'); return; }
-    }
-    for (let i = 0; i < settingsPeriods.length; i++) {
-      for (let j = i + 1; j < settingsPeriods.length; j++) {
-        const a = settingsPeriods[i], b = settingsPeriods[j];
-        if (a.start < b.end && a.end > b.start) {
-          setSettingsError(`「${a.label}」と「${b.label}」の時間が重複しています`);
-          return;
-        }
-      }
-    }
-    setSettingsError('');
-    setPeriods(settingsPeriods);
-    saveToFirestore({ events, periods: settingsPeriods, notifyBefore });
-    setModal(null);
-    addToast('時間設定を保存しました');
-  };
-
   // ── ナビゲーション ───────────────────────────────────────
   const moveCursor = (dir: number) => {
     const d = new Date(cursor);
@@ -417,29 +282,12 @@ export const Timetable = () => {
     <AppLayout
       pageClassName="tt-page"
       className="tt-main"
+      title="時間割"
+      headerActions={
+        <Button variant="outline" className="tt-header-logout" onClick={async () => { await signOut(auth); navigate('/app/login'); }}>ログアウト</Button>
+      }
       dbError={dbError}
       toasts={toasts}
-      header={
-        <header className="app-header">
-          <AppMenu />
-          <h1 className="app-page-title">時間割</h1>
-          {/* 通知コントロール: モバイルで2行目へ */}
-          <div className="tt-controls tt-header-notify">
-            <div className="tt-notify">
-              <span className="tt-notify-icon">{notifyEnabled ? '🔔' : '🔕'}</span>
-              <div onClick={notifyToggling ? undefined : toggleNotify} className="tt-toggle" style={{ background: notifyEnabled ? 'var(--tt-tab-active-bg)' : 'var(--tt-border)', opacity: notifyToggling ? 0.4 : 1, cursor: notifyToggling ? 'not-allowed' : 'pointer' }}>
-                <div className="tt-toggle-thumb" style={{ left: notifyEnabled ? 20 : 2, background: notifyEnabled ? 'var(--tt-tab-active-text)' : '#fff' }} />
-              </div>
-              <div onClick={() => setShowNotifyPicker(true)} className="tt-notify-picker-btn">
-                {notifyBefore}分前
-              </div>
-            </div>
-            <Button variant="outline" onClick={openSettings}>⚙️ 時間設定</Button>
-          </div>
-          {/* ログアウト: 常に1行目の右端 */}
-          <Button variant="outline" className="tt-header-logout" onClick={async () => { await signOut(auth); navigate('/app/login'); }}>ログアウト</Button>
-        </header>
-      }
     >
       <div className="tt-inner">
         {/* 次の通知予定 */}
@@ -492,17 +340,6 @@ export const Timetable = () => {
         )}
       </div>
 
-      {/* 設定モーダル */}
-      {modal?.type === 'settings' && (
-        <SettingsModal
-          settingsPeriods={settingsPeriods}
-          settingsError={settingsError}
-          onPeriodsChange={setSettingsPeriods}
-          onSave={saveSettings}
-          onClose={() => setModal(null)}
-        />
-      )}
-
       {/* イベントモーダル */}
       {isEventModal(modal) && (
         <EventModal
@@ -517,30 +354,6 @@ export const Timetable = () => {
           onDelete={deleteEvent}
           onClose={() => setModal(null)}
         />
-      )}
-
-      {/* 通知タイミング選択 */}
-      {showNotifyPicker && (
-        <div className="tt-modal-overlay" onClick={() => setShowNotifyPicker(false)}>
-          <div className="tt-modal tt-modal-notify" onClick={e => e.stopPropagation()}>
-            <div style={{ fontSize: 15, fontWeight: 800, marginBottom: 16, color: 'var(--tt-text)' }}>通知タイミング</div>
-            {NOTIFY_OPTIONS.map(o => (
-              <div key={o.value} onClick={async () => {
-                setNotifyBefore(o.value);
-                setShowNotifyPicker(false);
-                saveToFirestore({ events, periods, notifyBefore: o.value });
-                if (notifyEnabled && currentUser && currentTokenRef.current) {
-                  const ref = doc(db, firestorePaths.pushTokenDoc(currentUser.uid, currentTokenRef.current));
-                  await setDoc(ref, { notifyBefore: o.value }, { merge: true });
-                  setTokenVersion(v => v + 1);
-                }
-              }}
-                className={`tt-notify-option${notifyBefore === o.value ? ' tt-notify-option--active' : ''}`}>
-                {o.label}
-              </div>
-            ))}
-          </div>
-        </div>
       )}
 
       <style>{`@keyframes fadeUp { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }`}</style>
