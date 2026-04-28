@@ -16,11 +16,12 @@ import {
 } from './constants';
 
 const NOTIFY_ERROR_CODES = {
-  SW_NOT_READY:    'E001',
-  TOKEN_FETCH:     'E002',
-  TOKEN_SAVE:      'E003',
-  TOKEN_DELETE:    'E004',
-  TOKEN_DB_DELETE: 'E005',
+  SW_NOT_READY:        'E001',
+  TOKEN_FETCH:         'E002',
+  TOKEN_SAVE:          'E003',
+  TOKEN_DELETE:        'E004',
+  TOKEN_DB_DELETE:     'E005',
+  NOTIFY_BEFORE_UPDATE: 'E006',
 } as const;
 
 type TimetableSettingsData = {
@@ -77,7 +78,8 @@ export const TimetableSettings = ({ addToast }: SettingsSectionProps) => {
     path: currentUser ? firestorePaths.timetableData(currentUser.uid) : '',
   });
 
-  // 既存トークン取得（通知が有効な場合）
+  // マウント時に一度だけ既存トークンを currentTokenRef に復元する。
+  // notifyEnabled は localStorage から復元済みの初期値を参照するため deps 省略は意図的。
   useEffect(() => {
     if (!notifyEnabled || !('serviceWorker' in navigator)) return;
     const params = new URLSearchParams({
@@ -195,6 +197,7 @@ export const TimetableSettings = ({ addToast }: SettingsSectionProps) => {
         await setDoc(ref, { notifyBefore: value }, { merge: true });
       } catch (e) {
         console.error('通知タイミング更新失敗:', e);
+        addToast(`通知タイミングの同期に失敗しました [${NOTIFY_ERROR_CODES.NOTIFY_BEFORE_UPDATE}]`, 'warning');
       }
     }
   };
@@ -263,7 +266,7 @@ export const TimetableSettings = ({ addToast }: SettingsSectionProps) => {
           className="app-switch"
           style={{ opacity: notifyToggling ? 0.4 : 1, cursor: notifyToggling ? 'not-allowed' : 'pointer' }}
         >
-          <input type="checkbox" checked={notifyEnabled} onChange={notifyToggling ? undefined : toggleNotify} readOnly={notifyToggling} />
+          <input type="checkbox" checked={notifyEnabled} onChange={notifyToggling ? () => {} : toggleNotify} disabled={notifyToggling} />
           <span className="app-switch-track">
             <span className="app-switch-thumb" />
           </span>

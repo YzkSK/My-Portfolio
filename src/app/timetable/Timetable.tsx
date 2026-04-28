@@ -120,7 +120,7 @@ export const Timetable = () => {
     }).catch(console.error);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── 通知 ────────────────────────────────────────────────
+  // ── フォアグラウンド通知受信（通知設定は Settings の TimetableSettings で管理） ──
 
   useEffect(() => {
     const unsub = onMessage(messaging, (payload) => {
