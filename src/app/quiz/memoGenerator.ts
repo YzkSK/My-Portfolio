@@ -1,5 +1,3 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
-
 import { MemoGenError, MEMO_GEN_ERROR_CODES } from './constants';
 
 const MODEL = 'gemini-3.1-flash-lite-preview';
@@ -23,6 +21,7 @@ export const generateMemoExplanation = async (
   const apiKey = import.meta.env.VITE_GOOGLE_GEMINI_API_KEY as string;
   if (!apiKey) throw new MemoGenError('no_api_key');
 
+  const { GoogleGenerativeAI } = await import('@google/generative-ai');
   const model = new GoogleGenerativeAI(apiKey).getGenerativeModel({ model: MODEL });
   const result = await model.generateContentStream(PROMPT(question, answer));
 

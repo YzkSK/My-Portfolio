@@ -2,24 +2,40 @@
 
 ## 概要
 
-プロフィール情報の閲覧とアピアランス設定。プロフィール編集へのエントリーポイント。
+プロフィール情報の閲覧・アピアランス設定、および導入済みアプリの設定。
+PC（768px以上）はサイドバー＋コンテンツの2ペインレイアウト、モバイルはスクロールリスト。
 
 ## コンポーネント構成
 
 ```
 Settings.tsx
 ├── <header class="app-header">
-│   ├── <h1> 「設定」
+│   ├── app-header-left
+│   │   ├── AppMenu (ハンバーガーメニュー)
+│   │   └── <h1>「設定」</h1>
 │   └── 「戻る」ボタン (app-logout-btn) → navigate('/app/dashboard')
-└── <main class="app-settings-main">
-    ├── <section> プロフィール
-    │   ├── 「ユーザー名」ラベル + username 表示 (null の場合「未設定」)
-    │   ├── 「メールアドレス」ラベル + currentUser.email 表示
-    │   └── 「ユーザー情報を変更」リンク (app-settings-edit-link) → /app/settings/edit
-    │         └── › 矢印 (app-settings-edit-arrow)
-    └── <section> 外観
-        └── 「ダークモード」ラベル + トグルスイッチ (app-switch)
+└── <main class="app-settings-body">
+    └── <div class="app-settings-layout">
+        ├── <nav class="app-settings-sidebar">  ← PC のみ表示
+        │   ├── プロフィール (#settings-profile)
+        │   ├── 外観 (#settings-appearance)
+        │   └── 導入済みアプリのリンク (#settings-{appId})
+        └── <div class="app-settings-content">
+            ├── <section id="settings-profile">
+            │   ├── ユーザー名 / メールアドレス表示
+            │   └── 「ユーザー情報を変更」リンク → /app/settings/edit
+            ├── <section id="settings-appearance">
+            │   └── ダークモードトグル (app-switch)
+            └── <section id="settings-{appId}"> （導入済みアプリ分だけ繰り返し）
+                └── <Suspense> → AppMeta.SettingsSection コンポーネント
 ```
+
+## レイアウト仕様
+
+| 画面幅 | レイアウト |
+|---|---|
+| < 768px (モバイル) | サイドバー非表示。セクションが縦に並ぶスクロールリスト |
+| ≥ 768px (PC) | 左サイドバー (220px) + 右コンテンツの2ペイン。両ペインが独立スクロール。フッター非表示 |
 
 ## 状態管理
 
@@ -31,6 +47,25 @@ Settings.tsx
 | `useAuth()` | `username` | ユーザー名 (`undefined`=読み込み中, `null`=未設定, `string`=設定済み) |
 | `useTheme()` | `darkMode` | ダークモード状態 |
 | `useTheme()` | `toggleDarkMode` | ダークモード切替関数 |
+| `useInstalledApps()` | `isInstalled` | アプリの導入状態 |
+
+## アプリ設定セクション
+
+`APP_REGISTRY` の各アプリが `SettingsSection` コンポーネントを持つ場合、導入済みであれば設定ページに自動表示される。
+
+```typescript
+// registry.ts の AppMeta
+SettingsSection?: LazyExoticComponent<ComponentType<SettingsSectionProps>>
+
+// SettingsSectionProps
+type SettingsSectionProps = {
+  addToast: (msg: string, type?: 'normal' | 'error' | 'warning') => void;
+};
+```
+
+現在の導入済みアプリの設定:
+- **時間割 (`TimetableSettings`)**: 通知 ON/OFF、通知タイミング、時限設定
+- **動画 (`VideocollectSettings`)**: Google Drive 連携
 
 ## ページタイトル
 

@@ -11,6 +11,7 @@ import {
 import { doc, setDoc } from 'firebase/firestore';
 import { db } from '../shared/firebase';
 import { useAuth } from '../auth/AuthContext';
+import { AppLayout } from '../platform/AppLayout';
 
 const Section = ({
   title,
@@ -158,14 +159,14 @@ export const EditProfile = () => {
   };
 
   return (
-    <div className="app-settings">
-      <header className="app-header">
-        <h1>ユーザー情報の変更</h1>
-        <button onClick={() => navigate('/app/settings')} className="app-logout-btn">
-          戻る
-        </button>
-      </header>
-      <main className="app-settings-main">
+    <AppLayout
+      pageClassName="app-settings"
+      className="app-settings-main"
+      title="ユーザー情報の変更"
+      headerActions={
+        <button onClick={() => navigate('/app/settings')} className="app-logout-btn">戻る</button>
+      }
+    >
         <Section title="ユーザー名" onSubmit={handleUsername} {...usernameMsg}>
           <div className="app-field">
             <input
@@ -247,7 +248,6 @@ export const EditProfile = () => {
             </button>
           </Section>
         )}
-      </main>
-    </div>
+    </AppLayout>
   );
 };

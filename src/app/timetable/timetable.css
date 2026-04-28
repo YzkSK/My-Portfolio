@@ -6,6 +6,15 @@
   padding: 20px 14px 48px;
 }
 
+/* AppLayout 内で使う場合は padding をリセット（app-header が外に出たため） */
+.app-page.tt-page {
+  padding: 0;
+}
+
+.tt-main {
+  padding: 14px 14px 48px;
+}
+
 .tt-header {
   display: flex;
   align-items: center;
@@ -285,4 +294,49 @@
   .tt-controls { width: 100%; justify-content: flex-start; }
   .tt-nav { gap: 6px; }
   .tt-modal { padding: 18px 14px; border-radius: 12px; }
+}
+
+/* tt-header-notify: デスクトップではインライン表示 */
+.tt-header-notify {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+/* tt-header-logout: 常に flex-shrink しない */
+.tt-header-logout {
+  flex-shrink: 0;
+}
+
+@media (max-width: 600px) {
+  /*
+    モバイル2行レイアウト:
+    1行目: [☰] [時間割________] [ログアウト]
+    2行目: [🔔 toggle X分前] [⚙️ 時間設定]
+  */
+  .app-page.tt-page .app-header {
+    flex-wrap: wrap;
+    padding: 10px 12px 8px;
+    gap: 4px;
+    align-items: center;
+  }
+
+  /* 通知コントロールを2行目へ (order で最後尾 → wrap) */
+  .tt-header-notify {
+    order: 10;
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    padding-bottom: 4px;
+  }
+
+  .tt-header-notify::-webkit-scrollbar {
+    display: none;
+  }
+
+  .tt-main {
+    padding: 10px 10px 48px;
+  }
 }

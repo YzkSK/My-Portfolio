@@ -1,9 +1,5 @@
 // ── ユーティリティ ────────────────────────────────────────────
-export const getErrorCode = (e: unknown): string => {
-  if (e != null && typeof e === 'object' && 'code' in e) return String((e as { code: unknown }).code);
-  if (e instanceof Error) return e.message;
-  return String(e);
-};
+export { getErrorCode } from '../platform/errors';
 
 
 // ── 型定義 ──────────────────────────────────────────────────
