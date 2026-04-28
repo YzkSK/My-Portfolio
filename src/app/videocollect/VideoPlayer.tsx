@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { useSearchParams, Link } from 'react-router-dom';
+import { useSearchParams, Link, useNavigate } from 'react-router-dom';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../shared/firebase';
 import { useAuth } from '../auth/AuthContext';
@@ -11,9 +11,11 @@ import { type DriveFile, type VcAuth, type VcData, VC_INITIAL_DATA, firestorePat
 import { TagModal } from './modals/TagModal';
 
 const SPEEDS = [0.5, 0.75, 1, 1.25, 1.5, 2];
+const AUTOPLAY_SECONDS = 5;
 
 export const VideoPlayer = () => {
   const { currentUser } = useAuth();
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const fileId = searchParams.get('id') ?? '';
   const fileName = searchParams.get('name') ?? '動画';
@@ -31,6 +33,12 @@ export const VideoPlayer = () => {
   const [expandedSameTag, setExpandedSameTag] = useState(false);
   const [expandedRandom, setExpandedRandom] = useState(false);
   const REC_INITIAL = 12;
+
+  const [autoplayNext, setAutoplayNext] = useState(() => localStorage.getItem('vc-autoplay-next') === 'true');
+  const [autoplayCountdown, setAutoplayCountdown] = useState<number | null>(null);
+  const [nextupFile, setNextupFile] = useState<DriveFile | null>(null);
+  const autoplayIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const autoplayNavRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const fileTags = vcData.tags[fileId] ?? [];
   const allTags = useMemo(
@@ -171,7 +179,9 @@ export const VideoPlayer = () => {
     setSeekTarget(null);
     setExpandedSameTag(false);
     setExpandedRandom(false);
+    cancelAutoplay();
     window.scrollTo({ top: 0, behavior: 'smooth' });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fileId]);
 
   useEffect(() => {
@@ -187,11 +197,44 @@ export const VideoPlayer = () => {
   }, []);
 
   useEffect(() => {
+    localStorage.setItem('vc-playing-id', fileId);
+  }, [fileId]);
+
+  const cancelAutoplay = useCallback(() => {
+    if (autoplayIntervalRef.current) clearInterval(autoplayIntervalRef.current);
+    if (autoplayNavRef.current) clearTimeout(autoplayNavRef.current);
+    setAutoplayCountdown(null);
+    setNextupFile(null);
+  }, []);
+
+  const startAutoplay = useCallback((file: DriveFile) => {
+    if (autoplayIntervalRef.current) clearInterval(autoplayIntervalRef.current);
+    if (autoplayNavRef.current) clearTimeout(autoplayNavRef.current);
+    setNextupFile(file);
+    setAutoplayCountdown(AUTOPLAY_SECONDS);
+    autoplayIntervalRef.current = setInterval(() => {
+      setAutoplayCountdown(c => {
+        if (c === null || c <= 1) {
+          clearInterval(autoplayIntervalRef.current!);
+          autoplayIntervalRef.current = null;
+          return null;
+        }
+        return c - 1;
+      });
+    }, 1000);
+    autoplayNavRef.current = setTimeout(() => {
+      navigate(`/app/videocollect/play?id=${encodeURIComponent(file.id)}&name=${encodeURIComponent(file.name)}`);
+    }, AUTOPLAY_SECONDS * 1000);
+  }, [navigate]);
+
+  useEffect(() => {
     return () => {
       if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
       if (doubleTapTimerRef.current) clearTimeout(doubleTapTimerRef.current);
       if (previewSeekTimerRef.current) clearTimeout(previewSeekTimerRef.current);
       if (singleTapTimerRef.current) clearTimeout(singleTapTimerRef.current);
+      if (autoplayIntervalRef.current) clearInterval(autoplayIntervalRef.current);
+      if (autoplayNavRef.current) clearTimeout(autoplayNavRef.current);
     };
   }, []);
 
@@ -425,6 +468,14 @@ export const VideoPlayer = () => {
           preload="auto"
           onPlay={() => { setPlaying(true); showControlsTemporary(); }}
           onPause={() => { setPlaying(false); setShowControls(true); }}
+          onEnded={() => {
+            setPlaying(false);
+            setShowControls(true);
+            if (autoplayNext) {
+              const next = sameTagFiles[0] ?? randomFiles[0] ?? null;
+              if (next) startAutoplay(next);
+            }
+          }}
           onTimeUpdate={() => {
             const v = videoRef.current;
             if (!v) return;
@@ -725,6 +776,33 @@ export const VideoPlayer = () => {
           </div>
         )}
 
+        {/* 自動再生カウントダウン */}
+        {nextupFile && autoplayCountdown !== null && (
+          <div className="vc-autoplay-overlay">
+            <div className="vc-autoplay-thumb">
+              {nextupFile.thumbnailLink
+                ? <img src={nextupFile.thumbnailLink} alt="" />
+                : <div style={{ width: '100%', height: '100%', background: '#222' }} />
+              }
+            </div>
+            <div className="vc-autoplay-info">
+              <span className="vc-autoplay-label">次の動画</span>
+              <span className="vc-autoplay-title">{nextupFile.name}</span>
+              <div className="vc-autoplay-row">
+                <div className="vc-autoplay-bar">
+                  <div key={nextupFile.id} className="vc-autoplay-bar-fill" />
+                </div>
+                <span className="vc-autoplay-sec">{autoplayCountdown}秒</span>
+              </div>
+            </div>
+            <button className="vc-autoplay-cancel" onClick={cancelAutoplay} aria-label="自動再生をキャンセル" title="キャンセル">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" />
+              </svg>
+            </button>
+          </div>
+        )}
+
         {/* 設定モーダル（フルスクリーン時も表示されるようコンテナ内に配置） */}
         {showSettingsMenu && (
           <div className="vc-player-settings-overlay" onClick={() => setShowSettingsMenu(false)}>
@@ -752,7 +830,7 @@ export const VideoPlayer = () => {
               </div>
 
               <p className="vc-settings-section-label">ダブルタップスキップ</p>
-              <div className="vc-settings-options">
+              <div className="vc-settings-options" style={{ marginBottom: 20 }}>
                 {[5, 10, 15, 30].map(s => (
                   <button
                     key={s}
@@ -763,6 +841,24 @@ export const VideoPlayer = () => {
                   </button>
                 ))}
               </div>
+
+              <p className="vc-settings-section-label">自動再生</p>
+              <div className="vc-settings-options">
+                <button
+                  className={`vc-settings-option${autoplayNext ? ' vc-settings-option--active' : ''}`}
+                  onClick={() => {
+                    const next = !autoplayNext;
+                    setAutoplayNext(next);
+                    localStorage.setItem('vc-autoplay-next', String(next));
+                    if (!next) cancelAutoplay();
+                  }}
+                >
+                  {autoplayNext ? 'ON' : 'OFF'}
+                </button>
+              </div>
+              <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginTop: 6 }}>
+                動画終了後 {AUTOPLAY_SECONDS} 秒で次の動画を再生します
+              </p>
             </div>
           </div>
         )}
@@ -855,6 +951,12 @@ export const VideoPlayer = () => {
                         ? <img src={f.thumbnailLink} alt="" loading="lazy" />
                         : <div className="vc-rec-thumb-placeholder"><svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M17 10.5V7a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-3.5l4 4v-11l-4 4z"/></svg></div>
                       }
+                      {nextupFile?.id === f.id && autoplayCountdown !== null && (
+                        <div className="vc-rec-nextup-overlay">
+                          <span className="vc-rec-nextup-count">{autoplayCountdown}</span>
+                          <span className="vc-rec-nextup-label">次の動画</span>
+                        </div>
+                      )}
                     </div>
                     <p className="vc-rec-name">{f.name}</p>
                   </Link>
@@ -894,6 +996,12 @@ export const VideoPlayer = () => {
                         ? <img src={f.thumbnailLink} alt="" loading="lazy" />
                         : <div className="vc-rec-thumb-placeholder"><svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M17 10.5V7a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-3.5l4 4v-11l-4 4z"/></svg></div>
                       }
+                      {nextupFile?.id === f.id && autoplayCountdown !== null && (
+                        <div className="vc-rec-nextup-overlay">
+                          <span className="vc-rec-nextup-count">{autoplayCountdown}</span>
+                          <span className="vc-rec-nextup-label">次の動画</span>
+                        </div>
+                      )}
                     </div>
                     <p className="vc-rec-name">{f.name}</p>
                   </Link>

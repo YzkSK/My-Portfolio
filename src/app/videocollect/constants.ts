@@ -60,6 +60,8 @@ export const VC_ERROR_CODES = {
   TOKEN_REFRESH: 'E024',
   UPLOAD_FAILED: 'E025',
   TAG_SAVE: 'E026',
+  RENAME: 'E027',
+  DELETE: 'E028',
 } as const;
 
 export const DRIVE_SCOPES = [
@@ -166,6 +168,45 @@ export async function fetchDriveFolders(
   } while (pageToken);
 
   return allFolders;
+}
+
+/** Drive API でファイル名を変更 */
+export async function renameFile(
+  accessToken: string,
+  fileId: string,
+  newName: string,
+): Promise<void> {
+  const resp = await fetch(
+    `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}`,
+    {
+      method: 'PATCH',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ name: newName }),
+    },
+  );
+  if (!resp.ok) throw new Error(`Drive PATCH error: ${resp.status}`);
+}
+
+/** Drive API でファイルをゴミ箱に移動 */
+export async function trashFile(
+  accessToken: string,
+  fileId: string,
+): Promise<void> {
+  const resp = await fetch(
+    `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}`,
+    {
+      method: 'PATCH',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ trashed: true }),
+    },
+  );
+  if (!resp.ok) throw new Error(`Drive PATCH error: ${resp.status}`);
 }
 
 /** Firestore から Drive 認証情報を読み込み、必要に応じて Worker でリフレッシュ */

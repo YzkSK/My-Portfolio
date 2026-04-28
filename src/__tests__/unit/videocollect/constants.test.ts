@@ -1,10 +1,12 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import {
   formatSize,
   formatDuration,
   formatDate,
   formatTime,
   parseVcData,
+  renameFile,
+  trashFile,
 } from '@/app/videocollect/constants';
 
 describe('formatSize', () => {
@@ -125,5 +127,54 @@ describe('parseVcData', () => {
       tags: { 'file1': ['tag1', 123, null, 'tag2'] },
     });
     expect(result.tags['file1']).toEqual(['tag1', 'tag2']);
+  });
+});
+
+describe('renameFile', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('Drive PATCH を正しいパラメーターで呼び出す', async () => {
+    const mockFetch = vi.fn().mockResolvedValue({ ok: true } as Response);
+    vi.stubGlobal('fetch', mockFetch);
+    await renameFile('token123', 'fileABC', '新しい名前.mp4');
+    expect(mockFetch).toHaveBeenCalledWith(
+      'https://www.googleapis.com/drive/v3/files/fileABC',
+      expect.objectContaining({
+        method: 'PATCH',
+        headers: expect.objectContaining({ Authorization: 'Bearer token123' }),
+        body: JSON.stringify({ name: '新しい名前.mp4' }),
+      }),
+    );
+  });
+
+  it('API エラー時に例外をスロー', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 403 } as Response));
+    await expect(renameFile('token', 'id', 'name')).rejects.toThrow('Drive PATCH error: 403');
+  });
+});
+
+describe('trashFile', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('trashed: true で Drive PATCH を呼び出す', async () => {
+    const mockFetch = vi.fn().mockResolvedValue({ ok: true } as Response);
+    vi.stubGlobal('fetch', mockFetch);
+    await trashFile('token123', 'fileABC');
+    expect(mockFetch).toHaveBeenCalledWith(
+      'https://www.googleapis.com/drive/v3/files/fileABC',
+      expect.objectContaining({
+        method: 'PATCH',
+        body: JSON.stringify({ trashed: true }),
+      }),
+    );
+  });
+
+  it('API エラー時に例外をスロー', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 404 } as Response));
+    await expect(trashFile('token', 'id')).rejects.toThrow('Drive PATCH error: 404');
   });
 });
