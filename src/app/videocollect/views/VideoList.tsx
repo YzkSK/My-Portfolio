@@ -5,7 +5,6 @@ import { formatDuration, formatDate, formatSize } from '../constants';
 type Props = {
   files: DriveFile[];
   tags: Record<string, string[]>;
-  accessToken: string;
   playingId: string | null;
   onTagEdit: (file: DriveFile) => void;
   onRename: (file: DriveFile) => void;

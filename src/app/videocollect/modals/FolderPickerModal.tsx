@@ -26,7 +26,7 @@ export const FolderPickerModal = ({ accessToken, selectedFolder, onSelect, onClo
     setLoading(true);
     fetchDriveFolders(accessToken, currentParentId)
       .then(setFolders)
-      .catch(() => onError(`フォルダの取得に失敗しました [${VC_ERROR_CODES.FOLDERS_FETCH}]`))
+      .catch((e: unknown) => { console.error('FolderPickerModal フォルダ取得エラー:', e); onError(`フォルダの取得に失敗しました [${VC_ERROR_CODES.FOLDERS_FETCH}]`); })
       .finally(() => setLoading(false));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [breadcrumb]);

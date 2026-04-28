@@ -20,8 +20,11 @@ export const RenameModal = ({ file, onRename, onClose }: Props) => {
     e.preventDefault();
     if (!canSubmit) { onClose(); return; }
     setLoading(true);
-    await onRename(trimmed);
-    setLoading(false);
+    try {
+      await onRename(trimmed);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (

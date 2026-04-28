@@ -39,16 +39,20 @@ users/{uid}/videocollect/data   →  VcData { folders: DriveFolder[], tags: Reco
 src/app/videocollect/
   constants.ts          型定義・エラーコード・Drive API 関数・ユーティリティ
   videocollect.css      --vc-* CSS 変数・全スタイル
-  Videocollect.tsx      動画一覧ページ（グリッド・タグ/並べ替えフィルター・モーダル管理）
+  Videocollect.tsx      動画一覧ページ（グリッド/リスト切替・タグ/並べ替えフィルター・モーダル管理）
   VideoPlayer.tsx       動画プレイヤーページ
   views/
     VideoGrid.tsx       グリッドレイアウト
-    VideoCard.tsx       動画カード（サムネイル・プレビュー・タグ）
+    VideoCard.tsx       動画カード（サムネイル・プレビュー・タグ・リネーム/削除ボタン）
+    VideoList.tsx       リストレイアウト（横並びサムネイル・メタ情報・アクションボタン）
   modals/
     FolderModal.tsx     フォルダ選択（パンくずリスト・チェックボックス）
+    FolderPickerModal.tsx  単一フォルダ選択（パンくずリスト・UploadModal で使用）
     FilterModal.tsx     タグ絞り込み・並べ替え設定
     TagModal.tsx        タグ編集（既存タグ選択・オートコンプリート）
     UploadModal.tsx     動画アップロード（複数ファイル・ドラッグ＆ドロップ・resumable upload）
+    RenameModal.tsx     ファイル名変更（Drive PATCH API）
+    DeleteModal.tsx     ファイル削除確認（Drive ゴミ箱移動）
 
 workers/drive-proxy/
   src/index.ts          Cloudflare Worker（ストリーミングプロキシ・OAuth・IDトークン検証）
@@ -130,8 +134,18 @@ type Modal =
   | { type: 'folder' }
   | { type: 'upload' }
   | { type: 'filter' }
-  | { type: 'tag'; file: DriveFile };
+  | { type: 'tag'; file: DriveFile }
+  | { type: 'rename'; file: DriveFile }
+  | { type: 'delete'; file: DriveFile };
 ```
+
+### localStorage キー
+
+| キー | 値 | 説明 |
+|---|---|---|
+| `vc-view-mode` | `'grid'` \| `'list'` | 表示モード（デフォルト: `'grid'`） |
+| `vc-autoplay-next` | `'true'` \| `'false'` | 自動再生設定 |
+| `vc-playing-id` | fileId 文字列 | 現在再生中の動画 ID（VideoPlayer がマウント時に書き込み） |
 
 ### 処理フロー
 
@@ -141,6 +155,18 @@ type Modal =
 4. `loadAccessToken(uid, auth, idToken)` で有効なアクセストークンを取得（必要に応じて Worker でリフレッシュ）
 5. `fetchAllDriveFiles()` でフォルダフィルターを適用して動画一覧を全件取得
 6. タグフィルター・並べ替えはクライアントサイドで適用
+
+### グリッド/リスト切替
+
+ツールバー右にグリッド/リストの切替ボタンを配置。選択した表示モードは `localStorage('vc-view-mode')` で永続化。
+
+- **グリッド（VideoGrid + VideoCard）**: サムネイル主体のカードレイアウト。カードクリックで10秒プレビュー、サムネクリックでプレイヤーへ遷移。
+- **リスト（VideoList）**: 横並びサムネイル（108px）＋タイトル・日付・サイズ・タグのリストレイアウト。
+
+### リネーム・削除
+
+- **リネーム**: RenameModal でファイル名を変更。`renameFile(accessToken, fileId, newName)` が Drive PATCH API を呼び出す。成功時に `pageState` をオプティミスティック更新し、トーストを表示。
+- **削除**: DeleteModal でゴミ箱移動を確認。`trashFile(accessToken, fileId)` が `{ trashed: true }` で Drive PATCH API を呼び出す。成功時に `pageState` から除外し、タグ情報を Firestore から削除。
 
 ### タグフィルター・並べ替え（FilterModal）
 
@@ -163,6 +189,15 @@ type Modal =
 - コントロール 3秒後自動非表示（一時停止中は常時表示）
 - タグ編集（VideoPlayer 画面からも TagModal を開ける）
 - 設定モーダル: フルスクリーン中も表示（container 内に絶対配置）
+- 再生中の動画 ID を `localStorage('vc-playing-id')` に保存（動画一覧の「再生中」バッジ表示に使用）
+
+### 自動再生（autoplay next）
+
+- 設定モーダルの「自動再生」トグルで ON/OFF 切替。設定は `localStorage('vc-autoplay-next')` で永続化。
+- 動画終了時に同タグの動画（優先）またはおすすめ動画から次の動画を選択し、5秒のカウントダウン後に自動遷移。
+- プレイヤー右下に次動画のサムネイル・タイトル・カウントダウンバーを表示。キャンセルボタンで中断可能。
+- レコメンドカード上にも残り秒数オーバーレイ（`.vc-rec-nextup-overlay`）を表示。
+- `const AUTOPLAY_SECONDS = 5`（`videocollect.css` のアニメーション duration と一致させること）
 
 ### エラー表示
 
@@ -208,6 +243,15 @@ type Modal =
 - カードクリック: 10秒間ミュートプレビュー再生（プロキシ経由）
 - サムネクリック: プレイヤーページへ遷移
 - レイアウト: サムネイル → タイトル → 日付 → タグ
+- `isPlaying` が `true` のとき、サムネイル上に「再生中」バッジ（`.vc-now-playing-badge`）を表示
+- タグ行右にリネーム・削除・タグ編集の3つのアイコンボタンを表示
+
+## VideoList（views/VideoList.tsx）
+
+- 横並びサムネイル（108px）＋本文（タイトル・日付・サイズ・タグ）＋アクションボタンのリストレイアウト
+- サムネクリックでプレイヤーへ遷移
+- `isPlaying` が `true` のとき、サムネイル上に「再生中」バッジを表示
+- アクションボタン: リネーム・削除・タグ編集
 
 ---
 
@@ -218,6 +262,7 @@ type Modal =
 - ファイルごとに順番にアップロード（一部失敗しても継続）
 - 全体進捗バー（N/M 完了・%）を表示。ファイル別進捗は折りたたみ展開
 - 推奨形式: H.264 (MP4)。H.265 は Chrome（ハードウェアアクセラレーション無効時）で再生不可
+- 保存先フォルダは `FolderPickerModal` でパンくずナビゲーション付きで選択可能
 
 ---
 
@@ -241,6 +286,8 @@ type Modal =
 | E024 | TOKEN_REFRESH | アクセストークン更新失敗 |
 | E025 | UPLOAD_FAILED | アップロード失敗 |
 | E026 | TAG_SAVE | タグ保存失敗（予約） |
+| E027 | RENAME | ファイル名変更失敗 |
+| E028 | DELETE | ファイル削除失敗 |
 
 ---
 

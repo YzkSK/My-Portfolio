@@ -356,7 +356,6 @@ export const Videocollect = () => {
           <VideoList
             files={filteredFiles}
             tags={data.tags}
-            accessToken={accessToken!}
             playingId={playingId}
             onTagEdit={file => setModal({ type: 'tag', file })}
             onRename={file => setModal({ type: 'rename', file })}

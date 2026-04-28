@@ -14,8 +14,11 @@ export const DeleteModal = ({ file, onDelete, onClose }: Props) => {
 
   const handleDelete = async () => {
     setLoading(true);
-    await onDelete();
-    setLoading(false);
+    try {
+      await onDelete();
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (

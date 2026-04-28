@@ -208,10 +208,19 @@ export const VideoPlayer = () => {
   }, []);
 
   const startAutoplay = useCallback((file: DriveFile) => {
+    if (autoplayIntervalRef.current) clearInterval(autoplayIntervalRef.current);
+    if (autoplayNavRef.current) clearTimeout(autoplayNavRef.current);
     setNextupFile(file);
     setAutoplayCountdown(AUTOPLAY_SECONDS);
     autoplayIntervalRef.current = setInterval(() => {
-      setAutoplayCountdown(c => (c !== null && c > 1 ? c - 1 : null));
+      setAutoplayCountdown(c => {
+        if (c === null || c <= 1) {
+          clearInterval(autoplayIntervalRef.current!);
+          autoplayIntervalRef.current = null;
+          return null;
+        }
+        return c - 1;
+      });
     }, 1000);
     autoplayNavRef.current = setTimeout(() => {
       navigate(`/app/videocollect/play?id=${encodeURIComponent(file.id)}&name=${encodeURIComponent(file.name)}`);
