@@ -11,6 +11,8 @@ import { type DriveFile, type VcAuth, type VcData, VC_INITIAL_DATA, firestorePat
 import { TagModal } from './modals/TagModal';
 import { OfflineSaveModal } from './modals/OfflineSaveModal';
 import { isOfflineSaved, loadOfflineVideo, deleteOfflineVideo } from './offlineStorage';
+import { subscribeTasks, getTasks } from './downloadQueue';
+import { DownloadProgressCard } from './DownloadProgressCard';
 import { useToast } from '../shared/useToast';
 
 const SPEEDS = [0.5, 0.75, 1, 1.25, 1.5, 2];
@@ -429,22 +431,22 @@ export const VideoPlayer = () => {
 
   const proxyUrl = import.meta.env.VITE_DRIVE_PROXY_URL as string;
 
-  const handleOfflineSaved = () => {
-    setOfflineSaved(true);
-    setShowOfflineSaveModal(false);
-    isOfflineSaved(fileId).then(async (saved) => {
-      if (saved) {
-        const blob = await loadOfflineVideo(fileId);
-        if (blob) {
-          setOfflineBlobUrl(prev => {
-            if (prev) URL.revokeObjectURL(prev);
-            return URL.createObjectURL(blob);
-          });
-          setFileSize(String(blob.size));
-        }
-      }
-    }).catch(() => null);
-  };
+  // downloadQueue のダウンロード完了を監視して状態を更新する
+  useEffect(() => {
+    return subscribeTasks(() => {
+      const task = getTasks().get(fileId);
+      if (task?.phase !== 'done') return;
+      setOfflineSaved(true);
+      loadOfflineVideo(fileId).then(blob => {
+        if (!blob) return;
+        setOfflineBlobUrl(prev => {
+          if (prev) URL.revokeObjectURL(prev);
+          return URL.createObjectURL(blob);
+        });
+        setFileSize(String(blob.size));
+      }).catch(() => null);
+    });
+  }, [fileId]);
 
   const handleOfflineDelete = async () => {
     try {
@@ -1127,11 +1129,12 @@ export const VideoPlayer = () => {
           fileSize={fileSize}
           proxyUrl={proxyUrl}
           accessToken={accessToken}
-          onSaved={handleOfflineSaved}
           onClose={() => setShowOfflineSaveModal(false)}
           addToast={addToast}
         />
       )}
+
+      <DownloadProgressCard />
     </div>
   );
 };
