@@ -27,6 +27,7 @@ import {
   renameFile,
   trashFile,
 } from './constants';
+import { listOfflineSavedIds } from './offlineStorage';
 import { VideoGrid } from './views/VideoGrid';
 import { VideoList } from './views/VideoList';
 import { FolderModal } from './modals/FolderModal';
@@ -66,6 +67,8 @@ export const Videocollect = () => {
     (localStorage.getItem('vc-view-mode') as 'grid' | 'list') ?? 'grid',
   );
   const [playingId] = useState<string | null>(() => localStorage.getItem('vc-playing-id'));
+  const [offlineIds, setOfflineIds] = useState<Set<string>>(new Set());
+  const [offlineOnly, setOfflineOnly] = useState(false);
 
   const { data, setData, loading, dbError } = useFirestoreData({
     currentUser,
@@ -79,6 +82,12 @@ export const Videocollect = () => {
     currentUser,
     path: currentUser ? firestorePaths.vcData(currentUser.uid) : '',
   });
+
+  useEffect(() => {
+    listOfflineSavedIds()
+      .then(ids => setOfflineIds(new Set(ids)))
+      .catch(() => null);
+  }, []);
 
   useEffect(() => {
     if (!currentUser) return;
@@ -138,9 +147,10 @@ export const Videocollect = () => {
 
   const filteredFiles = useMemo(() => {
     if (pageState.status !== 'loaded') return [];
-    const files = activeTags.length > 0
+    let files = activeTags.length > 0
       ? pageState.files.filter(f => activeTags.some(t => (data.tags[f.id] ?? []).includes(t)))
       : pageState.files;
+    if (offlineOnly) files = files.filter(f => offlineIds.has(f.id));
     return [...files].sort((a, b) => {
       switch (sortKey) {
         case 'date-desc': return new Date(b.modifiedTime).getTime() - new Date(a.modifiedTime).getTime();
@@ -151,7 +161,7 @@ export const Videocollect = () => {
         case 'size-asc':  return Number(a.size ?? 0) - Number(b.size ?? 0);
       }
     });
-  }, [pageState, activeTags, data.tags, sortKey]);
+  }, [pageState, activeTags, data.tags, sortKey, offlineOnly, offlineIds]);
 
   const handleFolderSave = (folders: DriveFolder[]) => {
     const next = { ...data, folders };
@@ -265,7 +275,7 @@ export const Videocollect = () => {
               <path d="M10 18h4v-2h-4v2zM3 6v2h18V6H3zm3 7h12v-2H6v2z" />
             </svg>
             <span style={{ fontSize: 13 }}>フィルター</span>
-            {activeTags.length > 0 && (
+            {(activeTags.length > 0 || offlineOnly) && (
               <span style={{
                 position: 'absolute', top: -6, right: -6,
                 background: 'var(--vc-accent)', color: '#fff',
@@ -273,7 +283,7 @@ export const Videocollect = () => {
                 minWidth: 18, height: 18, display: 'flex', alignItems: 'center', justifyContent: 'center',
                 padding: '0 4px',
               }}>
-                {activeTags.length}
+                {activeTags.length + (offlineOnly ? 1 : 0)}
               </span>
             )}
           </button>
@@ -325,19 +335,23 @@ export const Videocollect = () => {
             </p>
           </div>
         )}
-        {pageState.status === 'loaded' && filteredFiles.length === 0 && activeTags.length > 0 && (
+        {pageState.status === 'loaded' && filteredFiles.length === 0 && (activeTags.length > 0 || offlineOnly) && (
           <div className="vc-empty">
             <p style={{ fontSize: 14, color: 'var(--vc-text-secondary)', marginBottom: 8 }}>
-              選択したタグの動画がありません
+              {offlineOnly && activeTags.length === 0
+                ? 'オフライン保存済みの動画がありません'
+                : '選択したフィルターに一致する動画がありません'}
             </p>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, justifyContent: 'center' }}>
-              {activeTags.map(tag => (
-                <span key={tag} className="vc-tag">{tag}</span>
-              ))}
-            </div>
+            {activeTags.length > 0 && (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, justifyContent: 'center' }}>
+                {activeTags.map(tag => (
+                  <span key={tag} className="vc-tag">{tag}</span>
+                ))}
+              </div>
+            )}
             <button
               style={{ marginTop: 10, fontSize: 12, color: 'var(--vc-accent)', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', padding: 0 }}
-              onClick={() => setActiveTags([])}
+              onClick={() => { setActiveTags([]); setOfflineOnly(false); }}
             >フィルターを解除</button>
           </div>
         )}
@@ -347,6 +361,7 @@ export const Videocollect = () => {
             tags={data.tags}
             accessToken={accessToken!}
             playingId={playingId}
+            offlineIds={offlineIds}
             onTagEdit={file => setModal({ type: 'tag', file })}
             onRename={file => setModal({ type: 'rename', file })}
             onDelete={file => setModal({ type: 'delete', file })}
@@ -357,6 +372,7 @@ export const Videocollect = () => {
             files={filteredFiles}
             tags={data.tags}
             playingId={playingId}
+            offlineIds={offlineIds}
             onTagEdit={file => setModal({ type: 'tag', file })}
             onRename={file => setModal({ type: 'rename', file })}
             onDelete={file => setModal({ type: 'delete', file })}
@@ -370,7 +386,8 @@ export const Videocollect = () => {
           allTags={allTags}
           activeTags={activeTags}
           sortKey={sortKey}
-          onApply={(tags, sort) => { setActiveTags(tags); setSortKey(sort); }}
+          offlineOnly={offlineOnly}
+          onApply={(tags, sort, offline) => { setActiveTags(tags); setSortKey(sort); setOfflineOnly(offline); }}
           onClose={() => setModal(null)}
         />
       )}

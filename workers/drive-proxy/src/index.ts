@@ -144,7 +144,19 @@ async function verifyIdToken(idToken: string, webApiKey: string): Promise<string
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function corsHeaders(origin: string): Record<string, string> {
+function matchesOrigin(requestOrigin: string, allowed: string): boolean {
+  if (allowed.startsWith('https://*.')) {
+    const suffix = allowed.slice('https://*'.length); // e.g. '.my-portfolio.pages.dev'
+    return requestOrigin.startsWith('https://') && requestOrigin.endsWith(suffix);
+  }
+  return requestOrigin === allowed;
+}
+
+function corsHeaders(requestOrigin: string | null, allowedOrigins: string[]): Record<string, string> {
+  const matched = requestOrigin
+    ? allowedOrigins.find(a => matchesOrigin(requestOrigin, a))
+    : undefined;
+  const origin = matched ? requestOrigin! : allowedOrigins[0];
   return {
     'Access-Control-Allow-Origin': origin,
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
@@ -323,7 +335,8 @@ async function handleRefresh(
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
-    const cors = corsHeaders(env.ALLOWED_ORIGIN);
+    const allowedOrigins = env.ALLOWED_ORIGIN.split(',').map(s => s.trim()).filter(Boolean);
+    const cors = corsHeaders(request.headers.get('Origin'), allowedOrigins);
 
     try {
       const url = new URL(request.url);

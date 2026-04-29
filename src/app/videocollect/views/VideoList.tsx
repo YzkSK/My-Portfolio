@@ -6,12 +6,13 @@ type Props = {
   files: DriveFile[];
   tags: Record<string, string[]>;
   playingId: string | null;
+  offlineIds?: Set<string>;
   onTagEdit: (file: DriveFile) => void;
   onRename: (file: DriveFile) => void;
   onDelete: (file: DriveFile) => void;
 };
 
-export const VideoList = ({ files, tags, playingId, onTagEdit, onRename, onDelete }: Props) => {
+export const VideoList = ({ files, tags, playingId, offlineIds, onTagEdit, onRename, onDelete }: Props) => {
   const navigate = useNavigate();
   const isPlaying = (id: string) => id === playingId;
 
@@ -53,6 +54,9 @@ export const VideoList = ({ files, tags, playingId, onTagEdit, onRename, onDelet
                   <span className="vc-now-playing-dot" />
                   再生中
                 </div>
+              )}
+              {offlineIds?.has(file.id) && (
+                <div className="vc-offline-badge">オフライン</div>
               )}
             </div>
 

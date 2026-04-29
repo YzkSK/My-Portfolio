@@ -9,6 +9,9 @@ import '../shared/app.css';
 import './videocollect.css';
 import { type DriveFile, type VcAuth, type VcData, VC_INITIAL_DATA, firestorePaths, loadAccessToken, formatTime, parseVcData, VC_ERROR_CODES, fetchAllDriveFiles, buildVideoQuery } from './constants';
 import { TagModal } from './modals/TagModal';
+import { OfflineSaveModal } from './modals/OfflineSaveModal';
+import { isOfflineSaved, loadOfflineVideo, deleteOfflineVideo } from './offlineStorage';
+import { useToast } from '../shared/useToast';
 
 const SPEEDS = [0.5, 0.75, 1, 1.25, 1.5, 2];
 const AUTOPLAY_SECONDS = 5;
@@ -21,6 +24,7 @@ export const VideoPlayer = () => {
   const fileName = searchParams.get('name') ?? '動画';
   usePageTitle(fileName);
 
+  const { toasts, addToast } = useToast();
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [videoError, setVideoError] = useState<'processing' | 'codec' | 'error' | null>(null);
@@ -34,6 +38,10 @@ export const VideoPlayer = () => {
   const [expandedRandom, setExpandedRandom] = useState(false);
   const REC_INITIAL = 12;
 
+  const [offlineSaved, setOfflineSaved] = useState(false);
+  const [offlineBlobUrl, setOfflineBlobUrl] = useState<string | null>(null);
+  const [showOfflineSaveModal, setShowOfflineSaveModal] = useState(false);
+  const [fileSize, setFileSize] = useState('0');
   const [autoplayNext, setAutoplayNext] = useState(() => localStorage.getItem('vc-autoplay-next') === 'true');
   const [autoplayCountdown, setAutoplayCountdown] = useState<number | null>(null);
   const [nextupFile, setNextupFile] = useState<DriveFile | null>(null);
@@ -104,6 +112,29 @@ export const VideoPlayer = () => {
   const [isSeeking, setIsSeeking] = useState(false);
   const [seekPreview, setSeekPreview] = useState(0);
   const [seekTarget, setSeekTarget] = useState<number | null>(null);
+
+  // オフライン保存状態をマウント時に確認
+  useEffect(() => {
+    isOfflineSaved(fileId)
+      .then(async (saved) => {
+        setOfflineSaved(saved);
+        if (saved) {
+          const blob = await loadOfflineVideo(fileId);
+          if (blob) {
+            setOfflineBlobUrl(URL.createObjectURL(blob));
+            setFileSize(String(blob.size));
+          }
+        }
+      })
+      .catch(e => console.error('オフライン状態確認エラー:', e));
+    return () => {
+      setOfflineBlobUrl(prev => {
+        if (prev) URL.revokeObjectURL(prev);
+        return null;
+      });
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fileId]);
 
   useEffect(() => {
     if (!currentUser) return;
@@ -398,21 +429,43 @@ export const VideoPlayer = () => {
 
   const proxyUrl = import.meta.env.VITE_DRIVE_PROXY_URL as string;
 
-  const handleDownload = () => {
-    if (!accessToken) return;
-    const a = document.createElement('a');
-    a.href = `${proxyUrl}/stream/${encodeURIComponent(fileId)}?token=${encodeURIComponent(accessToken)}`;
-    a.download = fileName;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+  const handleOfflineSaved = () => {
+    setOfflineSaved(true);
+    setShowOfflineSaveModal(false);
+    isOfflineSaved(fileId).then(async (saved) => {
+      if (saved) {
+        const blob = await loadOfflineVideo(fileId);
+        if (blob) {
+          setOfflineBlobUrl(prev => {
+            if (prev) URL.revokeObjectURL(prev);
+            return URL.createObjectURL(blob);
+          });
+          setFileSize(String(blob.size));
+        }
+      }
+    }).catch(() => null);
   };
 
-  const videoSrc = accessToken
-    ? `${proxyUrl}/stream/${encodeURIComponent(fileId)}?token=${encodeURIComponent(accessToken)}`
-    : '';
+  const handleOfflineDelete = async () => {
+    try {
+      await deleteOfflineVideo(fileId);
+      setOfflineSaved(false);
+      setOfflineBlobUrl(prev => {
+        if (prev) URL.revokeObjectURL(prev);
+        return null;
+      });
+      addToast('オフライン保存を削除しました', 'normal');
+    } catch (e) {
+      console.error('オフライン削除エラー:', e);
+      addToast(`削除に失敗しました [${VC_ERROR_CODES.OFFLINE_SAVE}]`, 'error');
+    }
+  };
 
-  if (loadError) {
+  const videoSrc = offlineBlobUrl ?? (accessToken
+    ? `${proxyUrl}/stream/${encodeURIComponent(fileId)}?token=${encodeURIComponent(accessToken)}`
+    : '');
+
+  if (loadError && !offlineBlobUrl) {
     return (
       <div className="vc-player-page" style={{ alignItems: 'center', justifyContent: 'center', gap: 16 }}>
         <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: 14, textAlign: 'center', padding: '0 24px' }}>
@@ -425,7 +478,7 @@ export const VideoPlayer = () => {
     );
   }
 
-  if (!accessToken) {
+  if (!accessToken && !offlineBlobUrl) {
     return (
       <div className="vc-player-page" style={{ alignItems: 'center', justifyContent: 'center' }}>
         <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 14 }}>読み込み中…</p>
@@ -435,6 +488,19 @@ export const VideoPlayer = () => {
 
   return (
     <div className="vc-player-page">
+      {/* トースト */}
+      <div style={{ position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)', zIndex: 10000, display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'center', pointerEvents: 'none' }}>
+        {toasts.map(t => (
+          <div key={t.id} style={{
+            padding: '8px 18px', borderRadius: 8, fontSize: 13, color: '#fff', pointerEvents: 'none',
+            background: t.type === 'error' ? '#dc2626' : t.type === 'warning' ? '#d97706' : 'rgba(30,30,30,0.95)',
+            boxShadow: '0 2px 12px rgba(0,0,0,0.4)',
+          }}>
+            {t.msg}
+          </div>
+        ))}
+      </div>
+
       {/* ヘッダー */}
       <div style={{
         display: 'flex',
@@ -583,11 +649,18 @@ export const VideoPlayer = () => {
           </div>
         )}
 
+        {/* オフライン再生中バッジ */}
+        {offlineSaved && (
+          <div style={{ position: 'absolute', top: 12, left: 12, zIndex: 10, background: 'rgba(34,197,94,0.85)', borderRadius: 6, padding: '3px 8px', fontSize: 11, color: '#fff', fontWeight: 600, pointerEvents: 'none' }}>
+            オフライン
+          </div>
+        )}
+
         {/* コントロールオーバーレイ */}
         <div
           className={`vc-player-controls${showControls ? '' : ' vc-player-controls--hidden'}`}
         >
-          {/* 上部右: ミュート・設定・ダウンロード・フルスクリーン */}
+          {/* 上部右: ミュート・設定・オフライン保存・フルスクリーン */}
           <div className="vc-player-controls-top">
             <button
               className="vc-player-btn"
@@ -618,11 +691,30 @@ export const VideoPlayer = () => {
                 <path d="M20 5H4c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm-9 3h2v2h-2V8zm0 3h2v2h-2v-2zM8 8h2v2H8V8zm0 3h2v2H8v-2zm-1 5H5v-2h2v2zm10 0H9v-2h8v2zm0-3h-2v-2h2v2zm0-3h-2V8h2v2zm-5 0h-2V8h2v2z"/>
               </svg>
             </button>
-            <button className="vc-player-btn" onClick={handleDownload} aria-label="ダウンロード">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z" />
-              </svg>
-            </button>
+            {offlineSaved ? (
+              <button
+                className="vc-player-btn"
+                onClick={handleOfflineDelete}
+                aria-label="オフライン保存を削除"
+                title="オフライン保存を削除"
+                style={{ color: '#22c55e' }}
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
+                </svg>
+              </button>
+            ) : (
+              <button
+                className="vc-player-btn"
+                onClick={() => setShowOfflineSaveModal(true)}
+                aria-label="オフラインで保存"
+                title="オフラインで保存"
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M19 9h-4V3H9v6H5l7 7 7-7zm0 9H5v2h14v-2z" />
+                </svg>
+              </button>
+            )}
             <button className="vc-player-btn" onClick={toggleFullscreen} aria-label={isFullscreen ? 'フルスクリーン解除' : 'フルスクリーン'}>
               {isFullscreen ? (
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
@@ -859,6 +951,7 @@ export const VideoPlayer = () => {
               <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginTop: 6 }}>
                 動画終了後 {AUTOPLAY_SECONDS} 秒で次の動画を再生します
               </p>
+
             </div>
           </div>
         )}
@@ -1024,6 +1117,19 @@ export const VideoPlayer = () => {
           allTags={allTags}
           onSave={handleTagSave}
           onClose={() => setShowTagModal(false)}
+        />
+      )}
+
+      {showOfflineSaveModal && accessToken && (
+        <OfflineSaveModal
+          fileId={fileId}
+          fileName={fileName}
+          fileSize={fileSize}
+          proxyUrl={proxyUrl}
+          accessToken={accessToken}
+          onSaved={handleOfflineSaved}
+          onClose={() => setShowOfflineSaveModal(false)}
+          addToast={addToast}
         />
       )}
     </div>

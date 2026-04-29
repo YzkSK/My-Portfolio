@@ -17,13 +17,15 @@ type Props = {
   allTags: string[];
   activeTags: string[];
   sortKey: SortKey;
-  onApply: (tags: string[], sort: SortKey) => void;
+  offlineOnly: boolean;
+  onApply: (tags: string[], sort: SortKey, offlineOnly: boolean) => void;
   onClose: () => void;
 };
 
-export const FilterModal = ({ allTags, activeTags, sortKey, onApply, onClose }: Props) => {
+export const FilterModal = ({ allTags, activeTags, sortKey, offlineOnly, onApply, onClose }: Props) => {
   const [selectedTags, setSelectedTags] = useState<string[]>(activeTags);
   const [selectedSort, setSelectedSort] = useState<SortKey>(sortKey);
+  const [selectedOfflineOnly, setSelectedOfflineOnly] = useState(offlineOnly);
 
   const toggleTag = (tag: string) =>
     setSelectedTags(prev => prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag]);
@@ -57,6 +59,18 @@ export const FilterModal = ({ allTags, activeTags, sortKey, onApply, onClose }: 
           ))}
         </div>
 
+        <p style={{ fontSize: 11, color: 'var(--vc-text-secondary)', margin: '12px 0 6px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>その他</p>
+        <button
+          className={`vc-tag vc-tag--filter${selectedOfflineOnly ? ' vc-tag--active' : ''}`}
+          style={{ fontSize: 13, padding: '5px 12px', display: 'inline-flex', alignItems: 'center', gap: 5 }}
+          onClick={() => setSelectedOfflineOnly(v => !v)}
+        >
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
+          </svg>
+          オフライン保存済み
+        </button>
+
         <p style={{ fontSize: 11, color: 'var(--vc-text-secondary)', margin: '12px 0 6px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>タグで絞り込み</p>
         {allTags.length === 0 ? (
           <p style={{ fontSize: 13, color: 'var(--vc-text-secondary)' }}>タグがありません</p>
@@ -76,8 +90,8 @@ export const FilterModal = ({ allTags, activeTags, sortKey, onApply, onClose }: 
         )}
 
         <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 12 }}>
-          <Button variant="outline" size="sm" onClick={() => setSelectedTags([])}>タグクリア</Button>
-          <Button size="sm" onClick={() => { onApply(selectedTags, selectedSort); onClose(); }}>適用</Button>
+          <Button variant="outline" size="sm" onClick={() => { setSelectedTags([]); setSelectedOfflineOnly(false); }}>クリア</Button>
+          <Button size="sm" onClick={() => { onApply(selectedTags, selectedSort, selectedOfflineOnly); onClose(); }}>適用</Button>
         </div>
       </DialogContent>
     </Dialog>
