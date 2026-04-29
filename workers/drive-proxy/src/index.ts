@@ -144,7 +144,10 @@ async function verifyIdToken(idToken: string, webApiKey: string): Promise<string
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function corsHeaders(origin: string): Record<string, string> {
+function corsHeaders(requestOrigin: string | null, allowedOrigins: string[]): Record<string, string> {
+  const origin = requestOrigin && allowedOrigins.includes(requestOrigin)
+    ? requestOrigin
+    : allowedOrigins[0];
   return {
     'Access-Control-Allow-Origin': origin,
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
@@ -323,7 +326,8 @@ async function handleRefresh(
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
-    const cors = corsHeaders(env.ALLOWED_ORIGIN);
+    const allowedOrigins = env.ALLOWED_ORIGIN.split(',').map(s => s.trim()).filter(Boolean);
+    const cors = corsHeaders(request.headers.get('Origin'), allowedOrigins);
 
     try {
       const url = new URL(request.url);
