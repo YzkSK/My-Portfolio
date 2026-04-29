@@ -10,12 +10,13 @@ type Props = {
   tags: string[];
   accessToken: string;
   isPlaying: boolean;
+  isOffline?: boolean;
   onTagEdit: (file: DriveFile) => void;
   onRename: (file: DriveFile) => void;
   onDelete: (file: DriveFile) => void;
 };
 
-export const VideoCard = ({ file, tags, accessToken, isPlaying, onTagEdit, onRename, onDelete }: Props) => {
+export const VideoCard = ({ file, tags, accessToken, isPlaying, isOffline, onTagEdit, onRename, onDelete }: Props) => {
   const navigate = useNavigate();
   const duration = file.videoMediaMetadata?.durationMillis;
   const [previewing, setPreviewing] = useState(false);
@@ -76,6 +77,9 @@ export const VideoCard = ({ file, tags, accessToken, isPlaying, onTagEdit, onRen
             <span className="vc-now-playing-dot" />
             再生中
           </div>
+        )}
+        {isOffline && (
+          <div className="vc-offline-badge">オフライン</div>
         )}
       </div>
 

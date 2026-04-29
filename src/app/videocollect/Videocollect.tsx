@@ -27,6 +27,7 @@ import {
   renameFile,
   trashFile,
 } from './constants';
+import { listOfflineSavedIds } from './offlineStorage';
 import { VideoGrid } from './views/VideoGrid';
 import { VideoList } from './views/VideoList';
 import { FolderModal } from './modals/FolderModal';
@@ -66,6 +67,7 @@ export const Videocollect = () => {
     (localStorage.getItem('vc-view-mode') as 'grid' | 'list') ?? 'grid',
   );
   const [playingId] = useState<string | null>(() => localStorage.getItem('vc-playing-id'));
+  const [offlineIds, setOfflineIds] = useState<Set<string>>(new Set());
 
   const { data, setData, loading, dbError } = useFirestoreData({
     currentUser,
@@ -79,6 +81,12 @@ export const Videocollect = () => {
     currentUser,
     path: currentUser ? firestorePaths.vcData(currentUser.uid) : '',
   });
+
+  useEffect(() => {
+    listOfflineSavedIds()
+      .then(ids => setOfflineIds(new Set(ids)))
+      .catch(() => null);
+  }, []);
 
   useEffect(() => {
     if (!currentUser) return;
@@ -347,6 +355,7 @@ export const Videocollect = () => {
             tags={data.tags}
             accessToken={accessToken!}
             playingId={playingId}
+            offlineIds={offlineIds}
             onTagEdit={file => setModal({ type: 'tag', file })}
             onRename={file => setModal({ type: 'rename', file })}
             onDelete={file => setModal({ type: 'delete', file })}
@@ -357,6 +366,7 @@ export const Videocollect = () => {
             files={filteredFiles}
             tags={data.tags}
             playingId={playingId}
+            offlineIds={offlineIds}
             onTagEdit={file => setModal({ type: 'tag', file })}
             onRename={file => setModal({ type: 'rename', file })}
             onDelete={file => setModal({ type: 'delete', file })}

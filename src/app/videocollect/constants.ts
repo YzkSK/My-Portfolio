@@ -62,6 +62,9 @@ export const VC_ERROR_CODES = {
   TAG_SAVE: 'E026',
   RENAME: 'E027',
   DELETE: 'E028',
+  OFFLINE_SAVE: 'E029',
+  OFFLINE_LOAD: 'E030',
+  COMPRESS: 'E031',
 } as const;
 
 export const DRIVE_SCOPES = [

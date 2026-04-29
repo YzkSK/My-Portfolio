@@ -276,6 +276,54 @@ type Modal =
 
 ---
 
+## オフラインストレージ
+
+動画をブラウザのローカルストレージ（IndexedDB）に圧縮して保存し、オフラインで視聴できる機能。
+
+### ファイル
+
+| ファイル | 説明 |
+|---|---|
+| `src/app/videocollect/offlineStorage.ts` | IndexedDB CRUD（保存・取得・削除・一覧・使用量） |
+| `src/app/videocollect/videoCompressor.ts` | ffmpeg.wasm を使った動画圧縮（CDN からロード） |
+| `src/app/videocollect/modals/OfflineSaveModal.tsx` | 品質選択・進捗表示モーダル |
+
+### IndexedDB スキーマ
+
+- DB 名: `vc-offline-v1`、ストア: `videos`（keyPath: `fileId`）
+- エントリ: `{ fileId: string, fileName: string, blob: Blob, savedAt: number, size: number }`
+
+### 圧縮品質プリセット
+
+| ラベル | CRF | スケール | 推定サイズ比 |
+|---|---|---|---|
+| 高画質 | 23 | 元の解像度 | 約 70% |
+| 中画質 | 28 | 720p | 約 40% |
+| 低画質 | 33 | 480p | 約 20% |
+
+ffmpeg.wasm コア（`@ffmpeg/core@0.11.0`）は CDN（unpkg）から動的ロード（初回のみ ~24 MB）。
+
+### 保存上限設定
+
+- `localStorage('vc-offline-limit-gb')` で保存上限を GB 単位で管理（デフォルト: 5 GB）
+- VideoPlayer 設定モーダルのスライダー（1〜100 GB）で変更可能
+
+### 保存フロー
+
+1. VideoPlayer でオフライン保存ボタンをクリック
+2. `OfflineSaveModal` で品質を選択
+3. プロキシ URL から動画 blob を fetch（進捗表示）
+4. ffmpeg.wasm で圧縮（進捗表示）
+5. IndexedDB に保存 → トースト通知
+
+### オフライン再生フロー
+
+- VideoPlayer マウント時に `isOfflineSaved(fileId)` を確認
+- 保存済みの場合: `URL.createObjectURL(blob)` を `videoSrc` として使用（ネットワーク不要）
+- 動画一覧（Videocollect）でサムネイル右上に「オフライン」バッジを表示
+
+---
+
 ## エラーコード
 
 | コード | 定数 | 説明 |
@@ -288,6 +336,9 @@ type Modal =
 | E026 | TAG_SAVE | タグ保存失敗（予約） |
 | E027 | RENAME | ファイル名変更失敗 |
 | E028 | DELETE | ファイル削除失敗 |
+| E029 | OFFLINE_SAVE | オフライン保存失敗 |
+| E030 | OFFLINE_LOAD | オフライン読み込み失敗（予約） |
+| E031 | COMPRESS | 動画圧縮失敗 |
 
 ---
 
