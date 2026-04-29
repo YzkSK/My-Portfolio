@@ -66,14 +66,30 @@ export const OfflineSaveModal = ({
 
     let rawBlob: Blob;
     try {
+      // Range: bytes=0- を付けることで Drive の大容量ファイル確認ページを回避する
       const resp = await fetch(
         `${proxyUrl}/stream/${encodeURIComponent(fileId)}?token=${encodeURIComponent(accessToken)}`,
-        { signal: abortRef.current.signal },
+        {
+          headers: { Range: 'bytes=0-' },
+          signal: abortRef.current.signal,
+        },
       );
-      if (!resp.ok) throw new Error(`fetch failed: ${resp.status}`);
+      if (!resp.ok && resp.status !== 206) {
+        throw new Error(`fetch failed: ${resp.status}`);
+      }
 
-      const total = parseInt(resp.headers.get('Content-Length') ?? '0', 10);
-      const reader = resp.body!.getReader();
+      // 206 の場合は Content-Range から総バイト数を取る
+      let total = parseInt(resp.headers.get('Content-Length') ?? '0', 10);
+      if (total === 0) {
+        const cr = resp.headers.get('Content-Range');
+        if (cr) {
+          const m = cr.match(/\/(\d+)$/);
+          if (m) total = parseInt(m[1], 10);
+        }
+      }
+
+      const reader = resp.body?.getReader();
+      if (!reader) throw new Error('response body is null');
       const chunks: Uint8Array[] = [];
       let received = 0;
 
@@ -86,11 +102,12 @@ export const OfflineSaveModal = ({
         if (total > 0) setPhase({ type: 'fetching', progress: received / total });
       }
 
-      rawBlob = new Blob(chunks, { type: 'video/mp4' });
+      rawBlob = new Blob(chunks, { type: resp.headers.get('Content-Type') ?? 'video/mp4' });
     } catch (e) {
       if (cancelledRef.current) return;
+      const status = e instanceof Error && e.message.startsWith('fetch failed:') ? e.message : '';
       console.error('オフライン保存: 取得エラー', e);
-      addToast(`動画の取得に失敗しました [${VC_ERROR_CODES.OFFLINE_SAVE}]`, 'error');
+      addToast(`動画の取得に失敗しました [${VC_ERROR_CODES.OFFLINE_SAVE}]${status ? ` (${status})` : ''}`, 'error');
       setPhase({ type: 'select' });
       return;
     }
