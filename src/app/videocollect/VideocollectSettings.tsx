@@ -8,7 +8,10 @@ import { type VcAuth, firestorePaths, DRIVE_SCOPES, VC_ERROR_CODES, formatSize }
 import { getStorageLimitGb, setStorageLimitGb, getOfflineStorageUsage } from './offlineStorage';
 import type { SettingsSectionProps } from '../platform/registry';
 
-const REDIRECT_URI = `${window.location.origin}/app/settings`;
+// VITE_OAUTH_REDIRECT_BASE が設定されていればそのドメイン（固定）を使い、
+// Google Cloud Console に登録した URI と一致させる。未設定なら現在の origin を使う。
+const OAUTH_BASE = (import.meta.env.VITE_OAUTH_REDIRECT_BASE as string | undefined)?.replace(/\/$/, '') ?? window.location.origin;
+const REDIRECT_URI = `${OAUTH_BASE}/app/settings`;
 
 type ConnectedAccount = {
   email: string;

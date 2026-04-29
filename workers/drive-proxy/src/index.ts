@@ -144,10 +144,19 @@ async function verifyIdToken(idToken: string, webApiKey: string): Promise<string
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
+function matchesOrigin(requestOrigin: string, allowed: string): boolean {
+  if (allowed.startsWith('https://*.')) {
+    const suffix = allowed.slice('https://*'.length); // e.g. '.my-portfolio.pages.dev'
+    return requestOrigin.startsWith('https://') && requestOrigin.endsWith(suffix);
+  }
+  return requestOrigin === allowed;
+}
+
 function corsHeaders(requestOrigin: string | null, allowedOrigins: string[]): Record<string, string> {
-  const origin = requestOrigin && allowedOrigins.includes(requestOrigin)
-    ? requestOrigin
-    : allowedOrigins[0];
+  const matched = requestOrigin
+    ? allowedOrigins.find(a => matchesOrigin(requestOrigin, a))
+    : undefined;
+  const origin = matched ? requestOrigin! : allowedOrigins[0];
   return {
     'Access-Control-Allow-Origin': origin,
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
