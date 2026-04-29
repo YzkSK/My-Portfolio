@@ -36,6 +36,7 @@ import { TagModal } from './modals/TagModal';
 import { UploadModal } from './modals/UploadModal';
 import { RenameModal } from './modals/RenameModal';
 import { DeleteModal } from './modals/DeleteModal';
+import { DownloadProgressCard } from './DownloadProgressCard';
 
 type PageState =
   | { status: 'unauthenticated' }
@@ -432,6 +433,7 @@ export const Videocollect = () => {
           onClose={() => setModal(null)}
         />
       )}
+      <DownloadProgressCard />
     </AppLayout>
   );
 };
