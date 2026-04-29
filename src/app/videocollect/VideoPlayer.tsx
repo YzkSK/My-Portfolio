@@ -7,10 +7,10 @@ import { usePageTitle } from '../shared/usePageTitle';
 import { useFirestoreSave } from '../shared/useFirestoreSave';
 import '../shared/app.css';
 import './videocollect.css';
-import { type DriveFile, type VcAuth, type VcData, VC_INITIAL_DATA, firestorePaths, loadAccessToken, formatTime, formatSize, parseVcData, VC_ERROR_CODES, fetchAllDriveFiles, buildVideoQuery } from './constants';
+import { type DriveFile, type VcAuth, type VcData, VC_INITIAL_DATA, firestorePaths, loadAccessToken, formatTime, parseVcData, VC_ERROR_CODES, fetchAllDriveFiles, buildVideoQuery } from './constants';
 import { TagModal } from './modals/TagModal';
 import { OfflineSaveModal } from './modals/OfflineSaveModal';
-import { isOfflineSaved, loadOfflineVideo, deleteOfflineVideo, getStorageLimitGb, setStorageLimitGb, getOfflineStorageUsage } from './offlineStorage';
+import { isOfflineSaved, loadOfflineVideo, deleteOfflineVideo } from './offlineStorage';
 import { useToast } from '../shared/useToast';
 
 const SPEEDS = [0.5, 0.75, 1, 1.25, 1.5, 2];
@@ -42,9 +42,6 @@ export const VideoPlayer = () => {
   const [offlineBlobUrl, setOfflineBlobUrl] = useState<string | null>(null);
   const [showOfflineSaveModal, setShowOfflineSaveModal] = useState(false);
   const [fileSize, setFileSize] = useState('0');
-  const [storageLimitGb, setStorageLimitGbState] = useState(() => getStorageLimitGb());
-  const [storageUsage, setStorageUsage] = useState<{ count: number; totalBytes: number } | null>(null);
-
   const [autoplayNext, setAutoplayNext] = useState(() => localStorage.getItem('vc-autoplay-next') === 'true');
   const [autoplayCountdown, setAutoplayCountdown] = useState<number | null>(null);
   const [nextupFile, setNextupFile] = useState<DriveFile | null>(null);
@@ -130,9 +127,6 @@ export const VideoPlayer = () => {
         }
       })
       .catch(e => console.error('オフライン状態確認エラー:', e));
-    getOfflineStorageUsage()
-      .then(setStorageUsage)
-      .catch(() => null);
     return () => {
       setOfflineBlobUrl(prev => {
         if (prev) URL.revokeObjectURL(prev);
@@ -450,7 +444,6 @@ export const VideoPlayer = () => {
         }
       }
     }).catch(() => null);
-    getOfflineStorageUsage().then(setStorageUsage).catch(() => null);
   };
 
   const handleOfflineDelete = async () => {
@@ -461,7 +454,6 @@ export const VideoPlayer = () => {
         if (prev) URL.revokeObjectURL(prev);
         return null;
       });
-      getOfflineStorageUsage().then(setStorageUsage).catch(() => null);
       addToast('オフライン保存を削除しました', 'normal');
     } catch (e) {
       console.error('オフライン削除エラー:', e);
@@ -960,30 +952,6 @@ export const VideoPlayer = () => {
                 動画終了後 {AUTOPLAY_SECONDS} 秒で次の動画を再生します
               </p>
 
-              <p className="vc-settings-section-label" style={{ marginTop: 20 }}>オフライン保存上限</p>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
-                <input
-                  type="range"
-                  min={1}
-                  max={100}
-                  step={1}
-                  value={storageLimitGb}
-                  onChange={e => {
-                    const v = Number(e.target.value);
-                    setStorageLimitGbState(v);
-                    setStorageLimitGb(v);
-                  }}
-                  style={{ flex: 1, accentColor: '#3b82f6' }}
-                />
-                <span style={{ fontSize: 13, color: '#fff', minWidth: 44, textAlign: 'right' }}>
-                  {storageLimitGb} GB
-                </span>
-              </div>
-              {storageUsage !== null && (
-                <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', margin: 0 }}>
-                  使用中: {formatSize(String(storageUsage.totalBytes))} / {storageLimitGb} GB（{storageUsage.count} 件）
-                </p>
-              )}
             </div>
           </div>
         )}

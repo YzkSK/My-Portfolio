@@ -4,7 +4,8 @@ import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { useGoogleLogin } from '@react-oauth/google';
 import { useAuth } from '../auth/AuthContext';
 import { db } from '../shared/firebase';
-import { type VcAuth, firestorePaths, DRIVE_SCOPES, VC_ERROR_CODES } from './constants';
+import { type VcAuth, firestorePaths, DRIVE_SCOPES, VC_ERROR_CODES, formatSize } from './constants';
+import { getStorageLimitGb, setStorageLimitGb, getOfflineStorageUsage } from './offlineStorage';
 import type { SettingsSectionProps } from '../platform/registry';
 
 const REDIRECT_URI = `${window.location.origin}/app/settings`;
@@ -32,6 +33,12 @@ export const VideocollectSettings = ({ addToast }: SettingsSectionProps) => {
   const { currentUser } = useAuth();
   const location = useLocation();
   const [connected, setConnected] = useState<ConnectedAccount | null>(null);
+  const [storageLimitGb, setStorageLimitGbState] = useState(() => getStorageLimitGb());
+  const [storageUsage, setStorageUsage] = useState<{ count: number; totalBytes: number } | null>(null);
+
+  useEffect(() => {
+    getOfflineStorageUsage().then(setStorageUsage).catch(console.error);
+  }, []);
 
   useEffect(() => {
     if (!currentUser) return;
@@ -126,6 +133,33 @@ export const VideocollectSettings = ({ addToast }: SettingsSectionProps) => {
           連携中: {connected.email}
         </div>
       )}
+
+      <div className="app-settings-row" style={{ alignItems: 'flex-start', flexDirection: 'column', gap: 8 }}>
+        <span className="app-settings-row-label">オフライン保存上限</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%' }}>
+          <input
+            type="range"
+            min={1}
+            max={100}
+            step={1}
+            value={storageLimitGb}
+            onChange={e => {
+              const v = Number(e.target.value);
+              setStorageLimitGbState(v);
+              setStorageLimitGb(v);
+            }}
+            style={{ flex: 1, accentColor: 'var(--app-accent, #3b82f6)' }}
+          />
+          <span style={{ fontSize: 13, minWidth: 44, textAlign: 'right' }}>
+            {storageLimitGb} GB
+          </span>
+        </div>
+        {storageUsage !== null && (
+          <p style={{ fontSize: 12, color: 'var(--app-text-secondary)', margin: 0 }}>
+            使用中: {formatSize(String(storageUsage.totalBytes))} / {storageLimitGb} GB（{storageUsage.count} 件）
+          </p>
+        )}
+      </div>
     </div>
   );
 };
