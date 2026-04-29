@@ -14,7 +14,7 @@ type Props = {
   addToast: (msg: string, type: 'normal' | 'error' | 'warning') => void;
 };
 
-const QUALITIES: Quality[] = ['high', 'medium', 'low'];
+const QUALITIES: Quality[] = ['original', 'high', 'medium', 'low'];
 
 export const OfflineSaveModal = ({
   fileId,
@@ -25,7 +25,7 @@ export const OfflineSaveModal = ({
   onClose,
   addToast,
 }: Props) => {
-  const [quality, setQuality] = useState<Quality>('medium');
+  const [quality, setQuality] = useState<Quality>('original');
   const [usage, setUsage] = useState<{ count: number; totalBytes: number } | null>(null);
 
   useEffect(() => {

@@ -116,15 +116,20 @@ async function run(opts: {
     if (signal.aborted) return cleanup(fileId);
 
     // ── 圧縮 ────────────────────────────────────────────────────────────
-    errorCode = VC_ERROR_CODES.COMPRESS;
-    patch(fileId, { phase: 'loading-ffmpeg', progress: 0 });
-    const compressed = await compressVideo(rawBlob, quality, (ratio) => {
-      if (signal.aborted) return;
-      patch(fileId, ratio < 0
-        ? { phase: 'loading-ffmpeg', progress: 0 }
-        : { phase: 'compressing', progress: Math.max(0, Math.min(1, ratio)) },
-      );
-    });
+    let compressed: Blob;
+    if (quality === 'original') {
+      compressed = rawBlob;
+    } else {
+      errorCode = VC_ERROR_CODES.COMPRESS;
+      patch(fileId, { phase: 'loading-ffmpeg', progress: 0 });
+      compressed = await compressVideo(rawBlob, quality, (ratio) => {
+        if (signal.aborted) return;
+        patch(fileId, ratio < 0
+          ? { phase: 'loading-ffmpeg', progress: 0 }
+          : { phase: 'compressing', progress: Math.max(0, Math.min(1, ratio)) },
+        );
+      });
+    }
 
     if (signal.aborted) return cleanup(fileId);
 
