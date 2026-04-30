@@ -18,9 +18,30 @@ export type DownloadTask = {
   errorCode?: string;
 };
 
-const tasks = new Map<string, DownloadTask>();
+// Minimal inline types for Background Fetch API (not in standard TS lib)
+interface BgFetchRegistration {
+  id: string;
+  downloaded: number;
+  downloadTotal: number;
+  result: '' | 'success' | 'failure';
+  addEventListener(event: 'progress', fn: () => void): void;
+  matchAll(): Promise<Array<{ responseReady: Promise<Response> }>>;
+  abort?(): Promise<boolean>;
+  updateUI?(opts: { title?: string }): Promise<void>;
+}
+interface BgFetchManager {
+  fetch(id: string, requests: RequestInfo[], options?: {
+    title?: string;
+    downloadTotal?: number;
+    icons?: Array<{ src: string; sizes?: string; type?: string }>;
+  }): Promise<BgFetchRegistration>;
+  get(id: string): Promise<BgFetchRegistration | undefined>;
+}
+
+const tasks           = new Map<string, DownloadTask>();
 const abortControllers = new Map<string, AbortController>();
-const listeners = new Set<() => void>();
+const bgFetchRegs     = new Map<string, BgFetchRegistration>();
+const listeners       = new Set<() => void>();
 
 function notify(): void {
   listeners.forEach(fn => fn());
@@ -40,22 +61,58 @@ export function isDownloading(fileId: string): boolean {
   return !!t && t.phase !== 'done' && t.phase !== 'error';
 }
 
+// SW message listener for BG fetch completion (module-level, set up once)
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.addEventListener('message', (event: MessageEvent) => {
+    const data = event.data as { type?: string; fileId?: string } | null;
+    if (!data?.type || !data?.fileId) return;
+    const { fileId } = data;
+    if (data.type === 'vc-bgfetch-done') {
+      bgFetchRegs.delete(fileId);
+      if (tasks.has(fileId)) {
+        abortControllers.delete(fileId);
+        patch(fileId, { phase: 'done', progress: 1 });
+        setTimeout(() => { tasks.delete(fileId); notify(); }, 4000);
+      }
+    } else if (data.type === 'vc-bgfetch-fail') {
+      bgFetchRegs.delete(fileId);
+      if (tasks.has(fileId)) {
+        abortControllers.delete(fileId);
+        patch(fileId, { phase: 'error', progress: 0, errorCode: VC_ERROR_CODES.OFFLINE_SAVE });
+        setTimeout(() => { tasks.delete(fileId); notify(); }, 6000);
+      }
+    }
+  });
+}
+
 export function startDownload(opts: {
   fileId: string;
   fileName: string;
   proxyUrl: string;
   accessToken: string;
   quality: Quality;
+  fileSizeBytes?: number;
 }): void {
   if (tasks.has(opts.fileId)) return;
-  const controller = new AbortController();
-  abortControllers.set(opts.fileId, controller);
   tasks.set(opts.fileId, { fileId: opts.fileId, fileName: opts.fileName, phase: 'fetching', progress: 0 });
   notify();
-  run({ ...opts, signal: controller.signal }).catch(() => {/* handled inside */});
+
+  if (opts.quality === 'original') {
+    launchOriginal(opts);
+    return;
+  }
+
+  const controller = new AbortController();
+  abortControllers.set(opts.fileId, controller);
+  runCompressed({ ...opts, signal: controller.signal }).catch(() => {/* handled inside */});
 }
 
 export function cancelDownload(fileId: string): void {
+  const bgReg = bgFetchRegs.get(fileId);
+  if (bgReg) {
+    bgReg.abort?.();
+    bgFetchRegs.delete(fileId);
+  }
   abortControllers.get(fileId)?.abort();
   abortControllers.delete(fileId);
   tasks.delete(fileId);
@@ -71,11 +128,146 @@ function patch(fileId: string, changes: Partial<DownloadTask>): void {
 
 function cleanup(fileId: string): void {
   abortControllers.delete(fileId);
+  bgFetchRegs.delete(fileId);
   tasks.delete(fileId);
   notify();
 }
 
-async function run(opts: {
+// ─── 'original' quality ─────────────────────────────────────────────────────
+
+function launchOriginal(opts: {
+  fileId: string;
+  fileName: string;
+  proxyUrl: string;
+  accessToken: string;
+  fileSizeBytes?: number;
+}): void {
+  (async () => {
+    if ('serviceWorker' in navigator) {
+      const started = await tryStartBgFetch(opts).catch(() => false);
+      if (started) return;
+    }
+    // Fallback: in-page fetch, no compression
+    const controller = new AbortController();
+    abortControllers.set(opts.fileId, controller);
+    await runOriginalInPage({ ...opts, signal: controller.signal });
+  })().catch(e => {
+    console.error('[downloadQueue] original launch error', e);
+    if (tasks.has(opts.fileId)) {
+      abortControllers.delete(opts.fileId);
+      patch(opts.fileId, { phase: 'error', progress: 0, errorCode: VC_ERROR_CODES.OFFLINE_SAVE });
+      setTimeout(() => { tasks.delete(opts.fileId); notify(); }, 6000);
+    }
+  });
+}
+
+async function tryStartBgFetch(opts: {
+  fileId: string;
+  fileName: string;
+  proxyUrl: string;
+  accessToken: string;
+  fileSizeBytes?: number;
+}): Promise<boolean> {
+  const { fileId, fileName, proxyUrl, accessToken, fileSizeBytes = 0 } = opts;
+  const sw = await navigator.serviceWorker.ready;
+  if (!('backgroundFetch' in sw)) return false;
+
+  const bgFetchApi = (sw as unknown as { backgroundFetch: BgFetchManager }).backgroundFetch;
+  const bgFetchId  = `vc-bg-${fileId}`;
+  const streamUrl  = `${proxyUrl}/stream/${encodeURIComponent(fileId)}?token=${encodeURIComponent(accessToken)}`;
+
+  // Store metadata in Cache API for the SW to read on completion
+  const cache = await caches.open('vc-bgfetch-meta');
+  await cache.put(
+    `/${bgFetchId}`,
+    new Response(JSON.stringify({ fileId, fileName }), {
+      headers: { 'Content-Type': 'application/json' },
+    }),
+  );
+
+  const bgFetch = await bgFetchApi.fetch(
+    bgFetchId,
+    [new Request(streamUrl, { headers: { Range: 'bytes=0-' } })],
+    {
+      title: fileName,
+      ...(fileSizeBytes > 0 ? { downloadTotal: fileSizeBytes } : {}),
+    },
+  );
+
+  bgFetchRegs.set(fileId, bgFetch);
+
+  bgFetch.addEventListener('progress', () => {
+    if (bgFetch.result === 'success') {
+      bgFetchRegs.delete(fileId);
+      patch(fileId, { phase: 'done', progress: 1 });
+      setTimeout(() => { tasks.delete(fileId); notify(); }, 4000);
+    } else if (bgFetch.result === 'failure') {
+      bgFetchRegs.delete(fileId);
+      patch(fileId, { phase: 'error', progress: 0, errorCode: VC_ERROR_CODES.OFFLINE_SAVE });
+      setTimeout(() => { tasks.delete(fileId); notify(); }, 6000);
+    } else if (bgFetch.downloadTotal > 0) {
+      patch(fileId, { phase: 'fetching', progress: bgFetch.downloaded / bgFetch.downloadTotal });
+    }
+  });
+
+  return true;
+}
+
+async function runOriginalInPage(opts: {
+  fileId: string;
+  fileName: string;
+  proxyUrl: string;
+  accessToken: string;
+  signal: AbortSignal;
+}): Promise<void> {
+  const { fileId, fileName, proxyUrl, accessToken, signal } = opts;
+
+  try {
+    const resp = await fetch(
+      `${proxyUrl}/stream/${encodeURIComponent(fileId)}?token=${encodeURIComponent(accessToken)}`,
+      { headers: { Range: 'bytes=0-' }, signal },
+    );
+    if (!resp.ok && resp.status !== 206) throw new Error(`fetch: ${resp.status}`);
+
+    let total = parseInt(resp.headers.get('Content-Length') ?? '0', 10);
+    if (total === 0) {
+      const m = resp.headers.get('Content-Range')?.match(/\/(\d+)$/);
+      if (m) total = parseInt(m[1], 10);
+    }
+
+    const reader = resp.body?.getReader();
+    if (!reader) throw new Error('no body');
+    const chunks: Uint8Array[] = [];
+    let received = 0;
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      chunks.push(value);
+      received += value.length;
+      if (total > 0) patch(fileId, { phase: 'fetching', progress: received / total });
+    }
+
+    if (signal.aborted) { cleanup(fileId); return; }
+
+    const blob = new Blob(chunks, { type: resp.headers.get('Content-Type') ?? 'video/mp4' });
+    patch(fileId, { phase: 'saving', progress: 1 });
+    await saveOfflineVideo(fileId, fileName, blob);
+
+    abortControllers.delete(fileId);
+    patch(fileId, { phase: 'done', progress: 1 });
+    setTimeout(() => { tasks.delete(fileId); notify(); }, 4000);
+  } catch (e) {
+    if (signal.aborted) { cleanup(fileId); return; }
+    console.error('[downloadQueue] original in-page error', e);
+    abortControllers.delete(fileId);
+    patch(fileId, { phase: 'error', progress: 0, errorCode: VC_ERROR_CODES.OFFLINE_SAVE });
+    setTimeout(() => { tasks.delete(fileId); notify(); }, 6000);
+  }
+}
+
+// ─── compressed qualities (high / medium / low) ─────────────────────────────
+
+async function runCompressed(opts: {
   fileId: string;
   fileName: string;
   proxyUrl: string;
@@ -139,7 +331,7 @@ async function run(opts: {
 
   } catch (e) {
     if (signal.aborted) return cleanup(fileId);
-    console.error('[downloadQueue] error', e);
+    console.error('[downloadQueue] compress error', e);
     abortControllers.delete(fileId);
     patch(fileId, { phase: 'error', progress: 0, errorCode });
     setTimeout(() => { tasks.delete(fileId); notify(); }, 6000);

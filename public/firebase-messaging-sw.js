@@ -26,6 +26,97 @@ if (projectId) {
   });
 }
 
+// ─── Background Fetch (オフライン動画保存) ─────────────────────────────────
+
+const VC_DB_NAME      = 'vc-offline-v1';
+const VC_VIDEOS_STORE = 'videos';
+
+function openVcDb() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(VC_DB_NAME, 1);
+    req.onupgradeneeded = () => {
+      if (!req.result.objectStoreNames.contains(VC_VIDEOS_STORE)) {
+        req.result.createObjectStore(VC_VIDEOS_STORE, { keyPath: 'fileId' });
+      }
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror   = () => reject(req.error);
+  });
+}
+
+async function saveVideoToIdb(fileId, fileName, blob) {
+  const db = await openVcDb();
+  return new Promise((resolve, reject) => {
+    const entry = { fileId, fileName, blob, savedAt: Date.now(), size: blob.size };
+    const tx    = db.transaction(VC_VIDEOS_STORE, 'readwrite');
+    const req   = tx.objectStore(VC_VIDEOS_STORE).put(entry);
+    req.onsuccess = () => resolve();
+    req.onerror   = () => reject(req.error);
+  });
+}
+
+async function getBgMeta(bgFetchId) {
+  try {
+    const cache = await caches.open('vc-bgfetch-meta');
+    const resp  = await cache.match('/' + bgFetchId);
+    if (!resp) return null;
+    return resp.json();
+  } catch {
+    return null;
+  }
+}
+
+async function deleteBgMeta(bgFetchId) {
+  try {
+    const cache = await caches.open('vc-bgfetch-meta');
+    await cache.delete('/' + bgFetchId);
+  } catch { /* ignore */ }
+}
+
+async function notifyAllClients(message) {
+  const allClients = await clients.matchAll({ type: 'window', includeUncontrolled: true });
+  allClients.forEach(c => c.postMessage(message));
+}
+
+self.addEventListener('backgroundfetchsuccess', (event) => {
+  const reg = event.registration;
+  event.waitUntil((async () => {
+    const meta = await getBgMeta(reg.id);
+    if (!meta) return;
+    try {
+      const records  = await reg.matchAll();
+      if (records.length === 0) throw new Error('no records');
+      const response = await records[0].responseReady;
+      const blob     = await response.blob();
+      if (blob.size === 0) throw new Error('empty blob');
+
+      await saveVideoToIdb(meta.fileId, meta.fileName, blob);
+      await deleteBgMeta(reg.id);
+      try { await reg.updateUI({ title: `${meta.fileName} を保存しました` }); } catch { /* optional */ }
+      await notifyAllClients({ type: 'vc-bgfetch-done', fileId: meta.fileId, fileName: meta.fileName });
+    } catch (e) {
+      console.error('[SW] backgroundfetchsuccess error', e);
+      await deleteBgMeta(reg.id);
+      await notifyAllClients({ type: 'vc-bgfetch-fail', fileId: meta.fileId });
+    }
+  })());
+});
+
+self.addEventListener('backgroundfetchfail', (event) => {
+  event.waitUntil((async () => {
+    const meta = await getBgMeta(event.registration.id);
+    if (!meta) return;
+    await deleteBgMeta(event.registration.id);
+    await notifyAllClients({ type: 'vc-bgfetch-fail', fileId: meta.fileId });
+  })());
+});
+
+self.addEventListener('backgroundfetchabort', (event) => {
+  event.waitUntil(deleteBgMeta(event.registration.id));
+});
+
+// ─── Notification click ────────────────────────────────────────────────────
+
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
   const url = event.notification.data?.url ?? '/app/timetable';
