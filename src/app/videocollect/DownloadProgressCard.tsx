@@ -2,12 +2,11 @@ import { useState, useEffect, useRef } from 'react';
 import { subscribeTasks, getTasks, cancelDownload, dismissError, type DownloadTask } from './downloadQueue';
 
 const PHASE_LABEL: Record<string, string> = {
-  'fetching':       '取得中',
-  'loading-ffmpeg': '圧縮エンジン読み込み中',
-  'compressing':    '圧縮中',
-  'saving':         '保存中',
-  'done':           '保存完了',
-  'error':          'エラー',
+  'fetching':    '取得中',
+  'compressing': '圧縮中',
+  'saving':      '保存中',
+  'done':        '保存完了',
+  'error':       'エラー',
 };
 
 export const DownloadProgressCard = () => {
