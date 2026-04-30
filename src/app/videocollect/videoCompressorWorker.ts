@@ -40,8 +40,8 @@ interface AudioTrackInfo {
 interface DemuxResult {
   videoTrack: VideoTrackInfo;
   audioTrack: AudioTrackInfo;
-  videoSamples: mp4box.MP4Sample[];
-  audioSamples: mp4box.MP4Sample[];
+  videoSamples: mp4box.Sample[];
+  audioSamples: mp4box.Sample[];
   videoDescription: Uint8Array | undefined;
   audioDescription: Uint8Array | undefined;
 }
@@ -75,8 +75,8 @@ function getAudioDescription(file: mp4box.ISOFile, trackId: number): Uint8Array 
 function demux(arrayBuffer: ArrayBuffer): Promise<DemuxResult> {
   return new Promise((resolve, reject) => {
     const file = mp4box.createFile();
-    const videoSamples: mp4box.MP4Sample[] = [];
-    const audioSamples: mp4box.MP4Sample[] = [];
+    const videoSamples: mp4box.Sample[] = [];
+    const audioSamples: mp4box.Sample[] = [];
     let videoTrack!: VideoTrackInfo;
     let audioTrack!: AudioTrackInfo;
     let totalVideo = 0;
@@ -92,7 +92,7 @@ function demux(arrayBuffer: ArrayBuffer): Promise<DemuxResult> {
       }
     };
 
-    file.onReady = (info: mp4box.MP4Info) => {
+    file.onReady = (info: mp4box.Movie) => {
       if (!info.videoTracks.length) { reject(new Error('映像トラックが見つかりません')); return; }
       if (!info.audioTracks.length) { reject(new Error('音声トラックが見つかりません')); return; }
       videoTrack = info.videoTracks[0] as unknown as VideoTrackInfo;
@@ -104,7 +104,7 @@ function demux(arrayBuffer: ArrayBuffer): Promise<DemuxResult> {
       file.start();
     };
 
-    file.onSamples = (_id: number, user: unknown, samples: mp4box.MP4Sample[]) => {
+    file.onSamples = (_id: number, user: unknown, samples: mp4box.Sample[]) => {
       if (user === 'video') videoSamples.push(...samples);
       else if (user === 'audio') audioSamples.push(...samples);
       tryResolve();
@@ -112,7 +112,7 @@ function demux(arrayBuffer: ArrayBuffer): Promise<DemuxResult> {
 
     file.onError = (e: string) => reject(new Error(e));
 
-    const buf = arrayBuffer as mp4box.MP4ArrayBuffer;
+    const buf = arrayBuffer as mp4box.MP4BoxBuffer;
     buf.fileStart = 0;
     file.appendBuffer(buf);
     file.flush();
@@ -235,7 +235,7 @@ async function runCompress(blob: Blob, quality: WorkerQuality, logs: string[]): 
       type:      sample.is_sync ? 'key' : 'delta',
       timestamp: Math.round((sample.cts      / videoTrack.timescale) * 1_000_000),
       duration:  Math.round((sample.duration / videoTrack.timescale) * 1_000_000),
-      data:      sample.data,
+      data:      sample.data!,
     }));
   }
 
@@ -244,7 +244,7 @@ async function runCompress(blob: Blob, quality: WorkerQuality, logs: string[]): 
       type:      sample.is_sync ? 'key' : 'delta',
       timestamp: Math.round((sample.cts      / audioTrack.timescale) * 1_000_000),
       duration:  Math.round((sample.duration / audioTrack.timescale) * 1_000_000),
-      data:      sample.data,
+      data:      sample.data!,
     }));
   }
 
