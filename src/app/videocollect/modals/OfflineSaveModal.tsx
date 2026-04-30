@@ -14,7 +14,7 @@ type Props = {
   addToast: (msg: string, type: 'normal' | 'error' | 'warning') => void;
 };
 
-const QUALITIES: Quality[] = ['high', 'medium', 'low'];
+const QUALITIES: Quality[] = ['original', 'high', 'medium', 'low'];
 
 export const OfflineSaveModal = ({
   fileId,
@@ -25,7 +25,7 @@ export const OfflineSaveModal = ({
   onClose,
   addToast,
 }: Props) => {
-  const [quality, setQuality] = useState<Quality>('medium');
+  const [quality, setQuality] = useState<Quality>('original');
   const [usage, setUsage] = useState<{ count: number; totalBytes: number } | null>(null);
 
   useEffect(() => {
@@ -46,7 +46,7 @@ export const OfflineSaveModal = ({
       addToast(`保存上限（${limitGb} GB）を超えます。上限を増やすか既存の動画を削除してください。`, 'warning');
       return;
     }
-    startDownload({ fileId, fileName, proxyUrl, accessToken, quality });
+    startDownload({ fileId, fileName, proxyUrl, accessToken, quality, fileSizeBytes: originalBytes });
     onClose();
   };
 
