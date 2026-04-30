@@ -16,6 +16,10 @@ type WorkerOutMessage =
   | { type: 'done'; blob: Blob }
   | { type: 'error'; message: string; logs: string[] };
 
+const DECODE_BATCH_SIZE = 16;
+const PROGRESS_STEP_PCT = 1;
+const YIELD_DELAY_MS = 0;
+
 const PRESETS: Record<WorkerQuality, {
   maxWidth: number; maxHeight: number;
   videoBitrate: number; audioBitrate: number;
@@ -70,6 +74,10 @@ function getAudioDescription(file: mp4box.ISOFile, trackId: number): Uint8Array 
   } catch {
     return undefined;
   }
+}
+
+function yieldToMainThread(): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, YIELD_DELAY_MS));
 }
 
 function demux(arrayBuffer: ArrayBuffer): Promise<DemuxResult> {
@@ -173,6 +181,19 @@ async function runCompress(blob: Blob, quality: WorkerQuality, logs: string[]): 
   const totalFrames = videoSamples.length;
   let frameIndex = 0;
   const needsScale = outW !== videoTrack.video.width || outH !== videoTrack.video.height;
+  let lastProgressPct = -1;
+  let lastProgressAt = 0;
+
+  const reportProgress = (ratio: number) => {
+    const clamped = Math.max(0, Math.min(1, ratio));
+    const pct = Math.floor(clamped * 100);
+    const now = Date.now();
+    if (pct < 100 && pct < lastProgressPct + PROGRESS_STEP_PCT && now - lastProgressAt < 250) return;
+    if (pct === lastProgressPct) return;
+    lastProgressPct = pct;
+    lastProgressAt = now;
+    post({ type: 'progress', ratio: clamped });
+  };
 
   const videoEncoder = new VideoEncoder({
     output: (chunk, meta) => muxer.addVideoChunk(chunk, meta),
@@ -201,7 +222,7 @@ async function runCompress(blob: Blob, quality: WorkerQuality, logs: string[]): 
         }
         videoEncoder.encode(encodeFrame, { keyFrame: frameIndex % 60 === 0 });
         frameIndex++;
-        post({ type: 'progress', ratio: frameIndex / totalFrames });
+        reportProgress(frameIndex / totalFrames);
       } catch (e) {
         setCodecError('VideoPipeline', e);
       } finally {
@@ -252,24 +273,28 @@ async function runCompress(blob: Blob, quality: WorkerQuality, logs: string[]): 
     ...(audioDescription ? { description: audioDescription } : {}),
   });
 
-  for (const sample of videoSamples) {
+  for (let i = 0; i < videoSamples.length; i++) {
     if (firstCodecError) break;
+    const sample = videoSamples[i];
     videoDecoder.decode(new EncodedVideoChunk({
       type:      sample.is_sync ? 'key' : 'delta',
       timestamp: Math.round((sample.cts      / videoTrack.timescale) * 1_000_000),
       duration:  Math.round((sample.duration / videoTrack.timescale) * 1_000_000),
       data:      sample.data!,
     }));
+    if ((i + 1) % DECODE_BATCH_SIZE === 0) await yieldToMainThread();
   }
 
-  for (const sample of audioSamples) {
+  for (let i = 0; i < audioSamples.length; i++) {
     if (firstCodecError) break;
+    const sample = audioSamples[i];
     audioDecoder.decode(new EncodedAudioChunk({
       type:      sample.is_sync ? 'key' : 'delta',
       timestamp: Math.round((sample.cts      / audioTrack.timescale) * 1_000_000),
       duration:  Math.round((sample.duration / audioTrack.timescale) * 1_000_000),
       data:      sample.data!,
     }));
+    if ((i + 1) % DECODE_BATCH_SIZE === 0) await yieldToMainThread();
   }
 
   try {
