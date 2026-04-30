@@ -6,6 +6,7 @@ const DEFAULT_LIMIT_GB = 5;
 // Separate DB for raw (uncompressed) blobs pending in-app compression
 const RAW_DB_NAME  = 'vc-offline-raw-v1';
 const RAW_STORE    = 'raws';
+const RAW_CHUNKS_STORE = 'rawChunks';
 
 type OfflineEntry = {
   fileId: string;
@@ -133,6 +134,10 @@ function openRawDb(): Promise<IDBDatabase> {
     const req = indexedDB.open(RAW_DB_NAME, 1);
     req.onupgradeneeded = () => {
       req.result.createObjectStore(RAW_STORE, { keyPath: 'fileId' });
+      // rawChunks stores individual chunks while streaming; key is `${fileId}:${seq}`
+      if (!req.result.objectStoreNames.contains(RAW_CHUNKS_STORE)) {
+        req.result.createObjectStore(RAW_CHUNKS_STORE, { keyPath: 'id' });
+      }
     };
     req.onsuccess = () => resolve(req.result);
     req.onerror = () => {
@@ -141,6 +146,64 @@ function openRawDb(): Promise<IDBDatabase> {
     };
   });
   return rawDbPromise;
+}
+
+export async function writeRawChunk(fileId: string, seq: number, chunk: Blob): Promise<void> {
+  const db = await openRawDb();
+  return new Promise((resolve, reject) => {
+    const id = `${fileId}:${seq}`;
+    const entry = { id, fileId, seq, data: chunk };
+    const tx = db.transaction(RAW_CHUNKS_STORE, 'readwrite');
+    const req = tx.objectStore(RAW_CHUNKS_STORE).put(entry);
+    req.onsuccess = () => resolve();
+    req.onerror = () => reject(req.error);
+  });
+}
+
+export async function finalizeRawFromChunks(fileId: string, fileName: string, quality: string): Promise<void> {
+  const db = await openRawDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction([RAW_CHUNKS_STORE], 'readwrite');
+    const store = tx.objectStore(RAW_CHUNKS_STORE);
+    const req = store.getAll();
+    req.onsuccess = async () => {
+      try {
+        const all = req.result as Array<{ id: string; fileId: string; seq: number; data: Blob }>;
+        const parts = all
+          .filter(e => e.fileId === fileId)
+          .sort((a, b) => a.seq - b.seq)
+          .map(e => e.data);
+        if (parts.length === 0) return resolve();
+        const rawBlob = new Blob(parts, { type: 'video/mp4' });
+        await saveRawVideo(fileId, fileName, rawBlob, quality);
+        // delete chunk entries
+        for (const e of all.filter(x => x.fileId === fileId)) {
+          try { store.delete(e.id); } catch { /* ignore */ }
+        }
+        resolve();
+      } catch (e) {
+        reject(e);
+      }
+    };
+    req.onerror = () => reject(req.error);
+  });
+}
+
+export async function deleteRawChunks(fileId: string): Promise<void> {
+  const db = await openRawDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(RAW_CHUNKS_STORE, 'readwrite');
+    const store = tx.objectStore(RAW_CHUNKS_STORE);
+    const req = store.getAll();
+    req.onsuccess = () => {
+      const all = req.result as Array<{ id: string; fileId: string }>;
+      for (const e of all.filter(x => x.fileId === fileId)) {
+        try { store.delete(e.id); } catch { /* ignore */ }
+      }
+      resolve();
+    };
+    req.onerror = () => reject(req.error);
+  });
 }
 
 export async function saveRawVideo(fileId: string, fileName: string, rawBlob: Blob, quality: string): Promise<void> {

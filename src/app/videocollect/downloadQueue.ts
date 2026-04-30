@@ -1,5 +1,6 @@
 import { compressVideo, type Quality } from './videoCompressor';
-import { saveOfflineVideo, loadRawVideo, deleteRawVideo, listPendingRaws } from './offlineStorage';
+import { acquireWakeLock, releaseWakeLock, isWakeLockActive, isConstrainedDevice } from './wakeLock';
+import { saveOfflineVideo, loadRawVideo, deleteRawVideo, listPendingRaws, writeRawChunk, finalizeRawFromChunks, deleteRawChunks } from './offlineStorage';
 import { VC_ERROR_CODES } from './constants';
 
 export type DownloadPhase =
@@ -115,6 +116,17 @@ export function startDownload(opts: {
   tasks.set(opts.fileId, { fileId: opts.fileId, fileName: opts.fileName, phase: 'fetching', progress: 0 });
   notify();
 
+  // Wake Lock を試行（ブラウザが対応していれば画面が暗くなるのを防ぐ）
+  acquireWakeLock().catch(() => {});
+
+  // モバイルかつ低メモリ環境では in-page の圧縮でクラッシュしやすいため
+  // 自動的にオリジナル（圧縮なし）へフォールバックする
+  const constrained = isConstrainedDevice();
+  if (constrained && opts.quality !== 'original') {
+    console.warn('[downloadQueue] constrained device detected — forcing original (no-compress)', { fileId: opts.fileId });
+    opts = { ...opts, quality: 'original' };
+  }
+
   if (opts.quality === 'original') {
     launchWithBgFetch(opts);
   } else {
@@ -170,6 +182,11 @@ function cleanup(fileId: string): void {
   bgFetchRegs.delete(fileId);
   tasks.delete(fileId);
   notify();
+  // タスクが残っていなければ Wake Lock を解放
+  const hasActive = Array.from(tasks.values()).some(t => t.phase === 'fetching' || t.phase === 'compressing' || t.phase === 'saving');
+  if (!hasActive && isWakeLockActive()) {
+    releaseWakeLock().catch(() => {});
+  }
 }
 
 function setError(fileId: string, errorCode: string, logs?: string[]): void {
@@ -479,31 +496,40 @@ async function runInPageFetchAndCompress(opts: {
 
     const reader = resp.body?.getReader();
     if (!reader) throw new Error('no body');
-    const chunks: Uint8Array[] = [];
     let received = 0;
     let lastLoggedPct = -1;
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      chunks.push(value);
-      received += value.length;
-      if (hasContentLength && total > 0) {
-        const ratio = received / total;
-        patch(fileId, { phase: 'fetching', progress: ratio });
-        const pct = Math.floor(ratio * 100);
-        if (pct >= lastLoggedPct + 10) {
-          lastLoggedPct = pct;
-          console.info('[downloadQueue] runInPageFetchAndCompress progress', { fileId, quality, received, total, pct });
+    let seq = 0;
+    // Stream chunks to IndexedDB to avoid OOM on constrained devices
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        const chunk = new Blob([value]);
+        await writeRawChunk(fileId, seq++, chunk);
+        received += value.length;
+        if (hasContentLength && total > 0) {
+          const ratio = received / total;
+          patch(fileId, { phase: 'fetching', progress: ratio });
+          const pct = Math.floor(ratio * 100);
+          if (pct >= lastLoggedPct + 10) {
+            lastLoggedPct = pct;
+            console.info('[downloadQueue] runInPageFetchAndCompress progress', { fileId, quality, received, total, pct });
+          }
+        } else {
+          const logEvery = 10 * 1024 * 1024; // 10MB
+          if (received % logEvery === 0 || Math.floor(received / logEvery) > Math.floor((received - value.length) / logEvery)) {
+            console.info('[downloadQueue] runInPageFetchAndCompress progress (no Content-Length)', { fileId, quality, received });
+          }
         }
-      } else if (!hasContentLength) {
-        // Content-Length がない場合はログのみで進捗UI更新せず
-        const logEvery = 10 * 1024 * 1024; // 10MB ごと
-        if (received % logEvery === 0 || Math.floor(received / logEvery) > Math.floor((received - value.length) / logEvery)) {
-          console.info('[downloadQueue] runInPageFetchAndCompress progress (no Content-Length)', { fileId, quality, received });
+        if (signal.aborted) {
+          await deleteRawChunks(fileId).catch(() => {});
+          return cleanup(fileId);
         }
       }
+    } catch (e) {
+      await deleteRawChunks(fileId).catch(() => {});
+      throw e;
     }
-    const rawBlob = new Blob(chunks, { type: resp.headers.get('Content-Type') ?? 'video/mp4' });
 
     if (signal.aborted) return cleanup(fileId);
 
@@ -511,27 +537,11 @@ async function runInPageFetchAndCompress(opts: {
       console.warn('[downloadQueue] runInPageFetchAndCompress completed fetch without Content-Length', { fileId, quality, received });
     }
 
+    // Finalize raw from chunks and then compress from raw store
+    await finalizeRawFromChunks(fileId, fileName, quality);
     errorCode = VC_ERROR_CODES.COMPRESS;
     patch(fileId, { phase: 'compressing', progress: 0 });
-    const compressed = await compressVideo(
-      rawBlob,
-      quality,
-      (ratio) => {
-        if (signal.aborted) return;
-        patch(fileId, { phase: 'compressing', progress: Math.max(0, Math.min(1, ratio)) });
-      },
-      (line) => { logs.push(line); },
-    );
-
-    if (signal.aborted) return cleanup(fileId);
-
-    errorCode = VC_ERROR_CODES.OFFLINE_SAVE;
-    patch(fileId, { phase: 'saving', progress: 1 });
-    await saveOfflineVideo(fileId, fileName, compressed);
-
-    abortControllers.delete(fileId);
-    patch(fileId, { phase: 'done', progress: 1 });
-    setTimeout(() => { tasks.delete(fileId); notify(); }, 4000);
+    await runCompressionFromRaw({ fileId, fileName, quality });
   } catch (e) {
     if (signal.aborted) return cleanup(fileId);
     console.error('[downloadQueue] in-page fetch+compress error', e);
