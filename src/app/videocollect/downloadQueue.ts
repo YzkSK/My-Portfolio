@@ -4,7 +4,6 @@ import { VC_ERROR_CODES } from './constants';
 
 export type DownloadPhase =
   | 'fetching'
-  | 'loading-ffmpeg'
   | 'compressing'
   | 'saving'
   | 'done'
@@ -78,10 +77,10 @@ if ('serviceWorker' in navigator) {
     } else if (data.type === 'vc-bgfetch-raw-done') {
       bgFetchRegs.delete(fileId);
       if (!tasks.has(fileId)) {
-        tasks.set(fileId, { fileId, fileName, phase: 'loading-ffmpeg', progress: 0 });
+        tasks.set(fileId, { fileId, fileName, phase: 'compressing', progress: 0 });
         notify();
       } else {
-        patch(fileId, { phase: 'loading-ffmpeg', progress: 0 });
+        patch(fileId, { phase: 'compressing', progress: 0 });
       }
       runCompressionFromRaw({ fileId, fileName, quality }).catch(() => {});
     } else if (data.type === 'vc-bgfetch-fail') {
@@ -144,7 +143,7 @@ export async function resumePendingCompressions(): Promise<void> {
   const pending = await listPendingRaws().catch(() => [] as Array<{ fileId: string; fileName: string; quality: string }>);
   for (const entry of pending) {
     if (tasks.has(entry.fileId)) continue;
-    tasks.set(entry.fileId, { fileId: entry.fileId, fileName: entry.fileName, phase: 'loading-ffmpeg', progress: 0 });
+    tasks.set(entry.fileId, { fileId: entry.fileId, fileName: entry.fileName, phase: 'compressing', progress: 0 });
     notify();
     runCompressionFromRaw(entry).catch(() => {});
   }
@@ -258,7 +257,7 @@ async function tryStartBgFetch(opts: {
     if (bgFetch.result === 'success') {
       bgFetchRegs.delete(fileId);
       if (quality !== 'original') {
-        patch(fileId, { phase: 'loading-ffmpeg', progress: 0 });
+        patch(fileId, { phase: 'compressing', progress: 0 });
       } else {
         patch(fileId, { phase: 'done', progress: 1 });
         setTimeout(() => { tasks.delete(fileId); notify(); }, 4000);
@@ -283,15 +282,12 @@ async function runCompressionFromRaw(opts: { fileId: string; fileName: string; q
     const raw = await loadRawVideo(fileId);
     if (!raw) throw new Error('raw blob not found');
 
-    patch(fileId, { phase: 'loading-ffmpeg', progress: 0 });
+    patch(fileId, { phase: 'compressing', progress: 0 });
     const compressed = await compressVideo(
       raw.rawBlob,
       quality as Quality,
       (ratio) => {
-        patch(fileId, ratio < 0
-          ? { phase: 'loading-ffmpeg', progress: 0 }
-          : { phase: 'compressing', progress: Math.max(0, Math.min(1, ratio)) },
-        );
+        patch(fileId, { phase: 'compressing', progress: Math.max(0, Math.min(1, ratio)) });
       },
       (line) => { logs.push(line); },
     );
@@ -402,16 +398,13 @@ async function runInPageFetchAndCompress(opts: {
     if (signal.aborted) return cleanup(fileId);
 
     errorCode = VC_ERROR_CODES.COMPRESS;
-    patch(fileId, { phase: 'loading-ffmpeg', progress: 0 });
+    patch(fileId, { phase: 'compressing', progress: 0 });
     const compressed = await compressVideo(
       rawBlob,
       quality,
       (ratio) => {
         if (signal.aborted) return;
-        patch(fileId, ratio < 0
-          ? { phase: 'loading-ffmpeg', progress: 0 }
-          : { phase: 'compressing', progress: Math.max(0, Math.min(1, ratio)) },
-        );
+        patch(fileId, { phase: 'compressing', progress: Math.max(0, Math.min(1, ratio)) });
       },
       (line) => { logs.push(line); },
     );

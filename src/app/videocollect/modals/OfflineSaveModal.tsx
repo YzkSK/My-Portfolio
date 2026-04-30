@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { type Quality, QUALITY_INFO, estimatedSizeRatio } from '../videoCompressor';
+import { type Quality, QUALITY_INFO, estimatedSizeRatio, isWebCodecsSupported } from '../videoCompressor';
 import { getOfflineStorageUsage, getStorageLimitGb, checkQuota } from '../offlineStorage';
 import { startDownload } from '../downloadQueue';
 import { formatSize } from '../constants';
@@ -32,6 +32,12 @@ export const OfflineSaveModal = ({
     getOfflineStorageUsage().then(setUsage).catch(() => null);
   }, []);
 
+  const [webCodecsSupported, setWebCodecsSupported] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    isWebCodecsSupported().then(setWebCodecsSupported).catch(() => setWebCodecsSupported(false));
+  }, []);
+
   const originalBytes = parseInt(fileSize, 10) || 0;
   const limitGb    = getStorageLimitGb();
   const limitBytes = limitGb * 1024 * 1024 * 1024;
@@ -41,6 +47,7 @@ export const OfflineSaveModal = ({
   const wouldExceed    = usedBytes + estimatedBytes > limitBytes;
 
   const handleSave = async () => {
+    if (quality !== 'original' && webCodecsSupported !== true) return;
     const quota = await checkQuota(estimatedBytes).catch(() => 'ok' as const);
     if (quota === 'over-limit') {
       addToast(`保存上限（${limitGb} GB）を超えます。上限を増やすか既存の動画を削除してください。`, 'warning');
@@ -84,13 +91,17 @@ export const OfflineSaveModal = ({
           {QUALITIES.map(q => {
             const info = QUALITY_INFO[q];
             const est  = Math.round(originalBytes * estimatedSizeRatio(q));
+            const isDisabled = q !== 'original' && webCodecsSupported !== true;
             return (
               <button
                 key={q}
                 onClick={() => setQuality(q)}
+                disabled={isDisabled}
                 style={{
                   display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                  padding: '10px 12px', borderRadius: 8, border: 'none', cursor: 'pointer',
+                  padding: '10px 12px', borderRadius: 8, border: 'none',
+                  cursor: isDisabled ? 'not-allowed' : 'pointer',
+                  opacity: isDisabled ? 0.4 : 1,
                   background: quality === q ? 'rgba(96,165,250,0.2)' : 'rgba(255,255,255,0.05)',
                   outline: quality === q ? '1px solid rgba(96,165,250,0.6)' : 'none',
                 }}
@@ -107,6 +118,11 @@ export const OfflineSaveModal = ({
           })}
         </div>
 
+        {webCodecsSupported === false && (
+          <p style={{ fontSize: 12, color: '#fbbf24', marginBottom: 12 }}>
+            このブラウザでは圧縮に対応していません（iOS 16.4 以上が必要です）。オリジナル画質のみ保存できます。
+          </p>
+        )}
         {wouldExceed && (
           <p style={{ fontSize: 12, color: '#fbbf24', marginBottom: 12 }}>
             保存上限（{limitGb} GB）を超える可能性があります
