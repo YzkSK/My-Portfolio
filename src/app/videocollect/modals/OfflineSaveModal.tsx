@@ -48,6 +48,17 @@ export const OfflineSaveModal = ({
 
   const handleSave = async () => {
     if (quality !== 'original' && webCodecsSupported !== true) return;
+    console.info('[OfflineSaveModal] handleSave', {
+      fileId,
+      fileName,
+      quality,
+      originalBytes,
+      estimatedBytes,
+      limitGb,
+      usedBytes,
+      wouldExceed,
+      webCodecsSupported,
+    });
     const quota = await checkQuota(estimatedBytes).catch(() => 'ok' as const);
     if (quota === 'over-limit') {
       addToast(`保存上限（${limitGb} GB）を超えます。上限を増やすか既存の動画を削除してください。`, 'warning');

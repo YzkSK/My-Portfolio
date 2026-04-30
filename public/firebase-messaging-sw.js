@@ -105,13 +105,33 @@ async function notifyAllClients(message) {
 self.addEventListener('backgroundfetchsuccess', (event) => {
   const reg = event.registration;
   event.waitUntil((async () => {
+    console.info('[SW] backgroundfetchsuccess', { id: reg.id });
     const meta = await getBgMeta(reg.id);
     if (!meta) return;
     try {
       const records  = await reg.matchAll();
+      console.info('[SW] backgroundfetchsuccess records', {
+        id: reg.id,
+        fileId: meta.fileId,
+        quality: meta.quality,
+        count: records.length,
+      });
       if (records.length === 0) throw new Error('no records');
       const response = await records[0].responseReady;
+      console.info('[SW] backgroundfetchsuccess response', {
+        id: reg.id,
+        status: response.status,
+        contentType: response.headers.get('Content-Type'),
+        contentLength: response.headers.get('Content-Length'),
+        contentRange: response.headers.get('Content-Range'),
+      });
       const blob     = await response.blob();
+      console.info('[SW] backgroundfetchsuccess blob', {
+        id: reg.id,
+        fileId: meta.fileId,
+        quality: meta.quality,
+        size: blob.size,
+      });
       if (blob.size === 0) throw new Error('empty blob');
 
       const quality = meta.quality ?? 'original';
@@ -121,12 +141,21 @@ self.addEventListener('backgroundfetchsuccess', (event) => {
         await saveVideoToIdb(meta.fileId, meta.fileName, blob);
         await deleteBgMeta(reg.id);
         try { await reg.updateUI({ title: `${meta.fileName} を保存しました` }); } catch { /* optional */ }
+        console.info('[SW] backgroundfetchsuccess saved original', {
+          id: reg.id,
+          fileId: meta.fileId,
+        });
         await notifyAllClients({ type: 'vc-bgfetch-done', fileId: meta.fileId, fileName: meta.fileName });
       } else {
         // Raw blob — save to pending-compression store; app will compress on next open
         await saveRawToIdb(meta.fileId, meta.fileName, blob, quality);
         await deleteBgMeta(reg.id);
         try { await reg.updateUI({ title: `${meta.fileName} ダウンロード完了（圧縮待ち）` }); } catch { /* optional */ }
+        console.info('[SW] backgroundfetchsuccess saved raw', {
+          id: reg.id,
+          fileId: meta.fileId,
+          quality,
+        });
         await notifyAllClients({ type: 'vc-bgfetch-raw-done', fileId: meta.fileId, fileName: meta.fileName, quality });
       }
     } catch (e) {
@@ -139,6 +168,7 @@ self.addEventListener('backgroundfetchsuccess', (event) => {
 
 self.addEventListener('backgroundfetchfail', (event) => {
   event.waitUntil((async () => {
+    console.error('[SW] backgroundfetchfail', { id: event.registration.id });
     const meta = await getBgMeta(event.registration.id);
     if (!meta) return;
     await deleteBgMeta(event.registration.id);
@@ -147,6 +177,7 @@ self.addEventListener('backgroundfetchfail', (event) => {
 });
 
 self.addEventListener('backgroundfetchabort', (event) => {
+  console.warn('[SW] backgroundfetchabort', { id: event.registration.id });
   event.waitUntil(deleteBgMeta(event.registration.id));
 });
 
