@@ -20,9 +20,9 @@ const PRESETS: Record<WorkerQuality, {
   maxWidth: number; maxHeight: number;
   videoBitrate: number; audioBitrate: number;
 }> = {
-  high:   { maxWidth: Infinity, maxHeight: Infinity, videoBitrate: 4_000_000, audioBitrate: 128_000 },
-  medium: { maxWidth: 1280,     maxHeight: 720,      videoBitrate: 2_000_000, audioBitrate: 96_000  },
-  low:    { maxWidth: 854,      maxHeight: 480,      videoBitrate: 800_000,   audioBitrate: 64_000  },
+  high:   { maxWidth: Infinity, maxHeight: Infinity, videoBitrate: 4_000_000, audioBitrate: 160_000 },
+  medium: { maxWidth: 1280,     maxHeight: 720,      videoBitrate: 2_000_000, audioBitrate: 128_000 },
+  low:    { maxWidth: 854,      maxHeight: 480,      videoBitrate: 800_000,   audioBitrate: 96_000  },
 };
 
 // ─── Demux ───────────────────────────────────────────────────────────────────
