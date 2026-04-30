@@ -388,6 +388,7 @@ async function runOriginalInPage(opts: {
       const m = resp.headers.get('Content-Range')?.match(/\/(\d+)$/);
       if (m) total = parseInt(m[1], 10);
     }
+    const hasContentLength = total > 0;
 
     const reader = resp.body?.getReader();
     if (!reader) throw new Error('no body');
@@ -399,7 +400,7 @@ async function runOriginalInPage(opts: {
       if (done) break;
       chunks.push(value);
       received += value.length;
-      if (total > 0) {
+      if (hasContentLength && total > 0) {
         const ratio = received / total;
         patch(fileId, { phase: 'fetching', progress: ratio });
         const pct = Math.floor(ratio * 100);
@@ -407,12 +408,26 @@ async function runOriginalInPage(opts: {
           lastLoggedPct = pct;
           console.info('[downloadQueue] runOriginalInPage progress', { fileId, received, total, pct });
         }
+      } else if (!hasContentLength) {
+        // Content-Length がない場合はログのみで進捗UI更新せず（至少 0% からは動く）
+        const logEvery = 10 * 1024 * 1024; // 10MB ごと
+        if (received % logEvery === 0 || Math.floor(received / logEvery) > Math.floor((received - value.length) / logEvery)) {
+          console.info('[downloadQueue] runOriginalInPage progress (no Content-Length)', { fileId, received });
+        }
       }
     }
 
     if (signal.aborted) { cleanup(fileId); return; }
 
-    patch(fileId, { phase: 'saving', progress: 1 });
+    // Content-Length がなかった場合、最終的に blob.size から進捗を確定させる
+    if (!hasContentLength) {
+      console.warn('[downloadQueue] runOriginalInPage completed without Content-Length', { fileId, received });
+      // ここで progress を 1 に設定することで「完了」状態に移す
+      patch(fileId, { phase: 'saving', progress: 1 });
+    } else {
+      patch(fileId, { phase: 'saving', progress: 1 });
+    }
+
     await saveOfflineVideo(fileId, fileName, new Blob(chunks, { type: resp.headers.get('Content-Type') ?? 'video/mp4' }));
 
     abortControllers.delete(fileId);
@@ -460,6 +475,7 @@ async function runInPageFetchAndCompress(opts: {
       const m = resp.headers.get('Content-Range')?.match(/\/(\d+)$/);
       if (m) total = parseInt(m[1], 10);
     }
+    const hasContentLength = total > 0;
 
     const reader = resp.body?.getReader();
     if (!reader) throw new Error('no body');
@@ -471,19 +487,29 @@ async function runInPageFetchAndCompress(opts: {
       if (done) break;
       chunks.push(value);
       received += value.length;
-      if (total > 0) {
+      if (hasContentLength && total > 0) {
         const ratio = received / total;
         patch(fileId, { phase: 'fetching', progress: ratio });
         const pct = Math.floor(ratio * 100);
         if (pct >= lastLoggedPct + 10) {
           lastLoggedPct = pct;
-          console.info('[downloadQueue] runInPageFetchAndCompress progress', { fileId, received, total, pct });
+          console.info('[downloadQueue] runInPageFetchAndCompress progress', { fileId, quality, received, total, pct });
+        }
+      } else if (!hasContentLength) {
+        // Content-Length がない場合はログのみで進捗UI更新せず
+        const logEvery = 10 * 1024 * 1024; // 10MB ごと
+        if (received % logEvery === 0 || Math.floor(received / logEvery) > Math.floor((received - value.length) / logEvery)) {
+          console.info('[downloadQueue] runInPageFetchAndCompress progress (no Content-Length)', { fileId, quality, received });
         }
       }
     }
     const rawBlob = new Blob(chunks, { type: resp.headers.get('Content-Type') ?? 'video/mp4' });
 
     if (signal.aborted) return cleanup(fileId);
+
+    if (!hasContentLength) {
+      console.warn('[downloadQueue] runInPageFetchAndCompress completed fetch without Content-Length', { fileId, quality, received });
+    }
 
     errorCode = VC_ERROR_CODES.COMPRESS;
     patch(fileId, { phase: 'compressing', progress: 0 });

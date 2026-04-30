@@ -139,6 +139,32 @@ export async function fetchAllDriveFiles(
   return allFiles;
 }
 
+/** Drive API から単一ファイルのメタデータを取得（fileSize、duration など） */
+export async function fetchDriveFileMetadata(
+  accessToken: string,
+  fileId: string,
+): Promise<DriveFile | null> {
+  try {
+    const params = new URLSearchParams({
+      fields: DRIVE_FILES_FIELDS,
+    });
+    const resp = await fetch(
+      `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}?${params}`,
+      { headers: { Authorization: `Bearer ${accessToken}` } },
+    );
+    if (!resp.ok) {
+      console.warn('[fetchDriveFileMetadata] API error', { fileId, status: resp.status });
+      return null;
+    }
+    const file = await resp.json() as DriveFile;
+    console.info('[fetchDriveFileMetadata] success', { fileId, size: file.size, duration: file.videoMediaMetadata?.durationMillis });
+    return file;
+  } catch (e) {
+    console.error('[fetchDriveFileMetadata] error', { fileId, error: e });
+    return null;
+  }
+}
+
 /** Drive API からフォルダ一覧を取得 */
 export async function fetchDriveFolders(
   accessToken: string,

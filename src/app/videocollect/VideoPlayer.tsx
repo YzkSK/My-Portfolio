@@ -7,7 +7,7 @@ import { usePageTitle } from '../shared/usePageTitle';
 import { useFirestoreSave } from '../shared/useFirestoreSave';
 import '../shared/app.css';
 import './videocollect.css';
-import { type DriveFile, type VcAuth, type VcData, VC_INITIAL_DATA, firestorePaths, loadAccessToken, formatTime, parseVcData, VC_ERROR_CODES, fetchAllDriveFiles, buildVideoQuery } from './constants';
+import { type DriveFile, type VcAuth, type VcData, VC_INITIAL_DATA, firestorePaths, loadAccessToken, formatTime, parseVcData, VC_ERROR_CODES, fetchAllDriveFiles, buildVideoQuery, fetchDriveFileMetadata } from './constants';
 import { TagModal } from './modals/TagModal';
 import { OfflineSaveModal } from './modals/OfflineSaveModal';
 import { isOfflineSaved, loadOfflineVideo, deleteOfflineVideo } from './offlineStorage';
@@ -194,6 +194,20 @@ export const VideoPlayer = () => {
       .catch(() => { setRecLoadFailed(true); setRecLoading(false); });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [accessToken]);
+
+  // 現在のファイルのメタデータ（ファイルサイズなど）を取得
+  useEffect(() => {
+    if (!accessToken || !fileId) return;
+    fetchDriveFileMetadata(accessToken, fileId)
+      .then(file => {
+        if (file && file.size) {
+          setFileSize(file.size);
+          console.info('[VideoPlayer] fileSize updated', { fileId, size: file.size });
+        }
+      })
+      .catch(e => console.error('[VideoPlayer] failed to fetch file metadata', e));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [accessToken, fileId]);
 
   // レコメンドから別動画に遷移した際にプレイヤー状態をリセットしてスクロール
   useEffect(() => {
