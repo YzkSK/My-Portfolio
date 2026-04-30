@@ -28,6 +28,7 @@ import {
   trashFile,
 } from './constants';
 import { listOfflineSavedIds } from './offlineStorage';
+import { resumePendingCompressions } from './downloadQueue';
 import { VideoGrid } from './views/VideoGrid';
 import { VideoList } from './views/VideoList';
 import { FolderModal } from './modals/FolderModal';
@@ -88,6 +89,7 @@ export const Videocollect = () => {
     listOfflineSavedIds()
       .then(ids => setOfflineIds(new Set(ids)))
       .catch(() => null);
+    resumePendingCompressions().catch(() => null);
   }, []);
 
   useEffect(() => {

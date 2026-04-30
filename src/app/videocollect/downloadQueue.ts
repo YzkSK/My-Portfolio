@@ -1,5 +1,5 @@
 import { compressVideo, type Quality } from './videoCompressor';
-import { saveOfflineVideo } from './offlineStorage';
+import { saveOfflineVideo, loadRawVideo, deleteRawVideo, listPendingRaws } from './offlineStorage';
 import { VC_ERROR_CODES } from './constants';
 
 export type DownloadPhase =
@@ -25,7 +25,6 @@ interface BgFetchRegistration {
   downloadTotal: number;
   result: '' | 'success' | 'failure';
   addEventListener(event: 'progress', fn: () => void): void;
-  matchAll(): Promise<Array<{ responseReady: Promise<Response> }>>;
   abort?(): Promise<boolean>;
   updateUI?(opts: { title?: string }): Promise<void>;
 }
@@ -38,10 +37,10 @@ interface BgFetchManager {
   get(id: string): Promise<BgFetchRegistration | undefined>;
 }
 
-const tasks           = new Map<string, DownloadTask>();
+const tasks            = new Map<string, DownloadTask>();
 const abortControllers = new Map<string, AbortController>();
-const bgFetchRegs     = new Map<string, BgFetchRegistration>();
-const listeners       = new Set<() => void>();
+const bgFetchRegs      = new Map<string, BgFetchRegistration>();
+const listeners        = new Set<() => void>();
 
 function notify(): void {
   listeners.forEach(fn => fn());
@@ -61,19 +60,31 @@ export function isDownloading(fileId: string): boolean {
   return !!t && t.phase !== 'done' && t.phase !== 'error';
 }
 
-// SW message listener for BG fetch completion (module-level, set up once)
+// SW message listener — handles BG fetch completion for all qualities
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.addEventListener('message', (event: MessageEvent) => {
-    const data = event.data as { type?: string; fileId?: string } | null;
+    const data = event.data as { type?: string; fileId?: string; fileName?: string; quality?: string } | null;
     if (!data?.type || !data?.fileId) return;
-    const { fileId } = data;
+    const { fileId, fileName = '', quality = 'original' } = data;
+
     if (data.type === 'vc-bgfetch-done') {
+      // 'original': raw == final, already saved by SW
       bgFetchRegs.delete(fileId);
       if (tasks.has(fileId)) {
         abortControllers.delete(fileId);
         patch(fileId, { phase: 'done', progress: 1 });
         setTimeout(() => { tasks.delete(fileId); notify(); }, 4000);
       }
+    } else if (data.type === 'vc-bgfetch-raw-done') {
+      // compressed quality: raw blob saved by SW → start in-page compression
+      bgFetchRegs.delete(fileId);
+      if (!tasks.has(fileId)) {
+        tasks.set(fileId, { fileId, fileName, phase: 'loading-ffmpeg', progress: 0 });
+        notify();
+      } else {
+        patch(fileId, { phase: 'loading-ffmpeg', progress: 0 });
+      }
+      runCompressionFromRaw({ fileId, fileName, quality }).catch(() => {});
     } else if (data.type === 'vc-bgfetch-fail') {
       bgFetchRegs.delete(fileId);
       if (tasks.has(fileId)) {
@@ -84,6 +95,8 @@ if ('serviceWorker' in navigator) {
     }
   });
 }
+
+// ─── Public API ──────────────────────────────────────────────────────────────
 
 export function startDownload(opts: {
   fileId: string;
@@ -98,13 +111,10 @@ export function startDownload(opts: {
   notify();
 
   if (opts.quality === 'original') {
-    launchOriginal(opts);
-    return;
+    launchWithBgFetch(opts);
+  } else {
+    launchCompressed(opts);
   }
-
-  const controller = new AbortController();
-  abortControllers.set(opts.fileId, controller);
-  runCompressed({ ...opts, signal: controller.signal }).catch(() => {/* handled inside */});
 }
 
 export function cancelDownload(fileId: string): void {
@@ -117,7 +127,21 @@ export function cancelDownload(fileId: string): void {
   abortControllers.delete(fileId);
   tasks.delete(fileId);
   notify();
+  deleteRawVideo(fileId).catch(() => {});
 }
+
+/** Called on mount to resume any compressions interrupted by a browser close */
+export async function resumePendingCompressions(): Promise<void> {
+  const pending = await listPendingRaws().catch(() => [] as Array<{ fileId: string; fileName: string; quality: string }>);
+  for (const entry of pending) {
+    if (tasks.has(entry.fileId)) continue;
+    tasks.set(entry.fileId, { fileId: entry.fileId, fileName: entry.fileName, phase: 'loading-ffmpeg', progress: 0 });
+    notify();
+    runCompressionFromRaw(entry).catch(() => {});
+  }
+}
+
+// ─── Internal helpers ────────────────────────────────────────────────────────
 
 function patch(fileId: string, changes: Partial<DownloadTask>): void {
   const t = tasks.get(fileId);
@@ -133,13 +157,14 @@ function cleanup(fileId: string): void {
   notify();
 }
 
-// ─── 'original' quality ─────────────────────────────────────────────────────
+// ─── 'original' quality: BG Fetch or in-page fallback ───────────────────────
 
-function launchOriginal(opts: {
+function launchWithBgFetch(opts: {
   fileId: string;
   fileName: string;
   proxyUrl: string;
   accessToken: string;
+  quality: Quality;
   fileSizeBytes?: number;
 }): void {
   (async () => {
@@ -161,14 +186,46 @@ function launchOriginal(opts: {
   });
 }
 
+// ─── compressed qualities: BG Fetch (download) + in-page (compress) ─────────
+
+function launchCompressed(opts: {
+  fileId: string;
+  fileName: string;
+  proxyUrl: string;
+  accessToken: string;
+  quality: Quality;
+  fileSizeBytes?: number;
+}): void {
+  (async () => {
+    if ('serviceWorker' in navigator) {
+      const started = await tryStartBgFetch(opts).catch(() => false);
+      if (started) return; // SW will save raw blob and notify us to compress
+    }
+    // Fallback: in-page fetch + compress
+    const controller = new AbortController();
+    abortControllers.set(opts.fileId, controller);
+    await runInPageFetchAndCompress({ ...opts, signal: controller.signal });
+  })().catch(e => {
+    console.error('[downloadQueue] compressed launch error', e);
+    if (tasks.has(opts.fileId)) {
+      abortControllers.delete(opts.fileId);
+      patch(opts.fileId, { phase: 'error', progress: 0, errorCode: VC_ERROR_CODES.OFFLINE_SAVE });
+      setTimeout(() => { tasks.delete(opts.fileId); notify(); }, 6000);
+    }
+  });
+}
+
+// ─── Background Fetch (shared by all qualities) ──────────────────────────────
+
 async function tryStartBgFetch(opts: {
   fileId: string;
   fileName: string;
   proxyUrl: string;
   accessToken: string;
+  quality: Quality;
   fileSizeBytes?: number;
 }): Promise<boolean> {
-  const { fileId, fileName, proxyUrl, accessToken, fileSizeBytes = 0 } = opts;
+  const { fileId, fileName, proxyUrl, accessToken, quality, fileSizeBytes = 0 } = opts;
   const sw = await navigator.serviceWorker.ready;
   if (!('backgroundFetch' in sw)) return false;
 
@@ -176,11 +233,11 @@ async function tryStartBgFetch(opts: {
   const bgFetchId  = `vc-bg-${fileId}`;
   const streamUrl  = `${proxyUrl}/stream/${encodeURIComponent(fileId)}?token=${encodeURIComponent(accessToken)}`;
 
-  // Store metadata in Cache API for the SW to read on completion
+  // Store metadata (including quality) in Cache API for the SW to read on completion
   const cache = await caches.open('vc-bgfetch-meta');
   await cache.put(
     `/${bgFetchId}`,
-    new Response(JSON.stringify({ fileId, fileName }), {
+    new Response(JSON.stringify({ fileId, fileName, quality }), {
       headers: { 'Content-Type': 'application/json' },
     }),
   );
@@ -198,9 +255,15 @@ async function tryStartBgFetch(opts: {
 
   bgFetch.addEventListener('progress', () => {
     if (bgFetch.result === 'success') {
+      // SW will handle saving and send postMessage; just reflect fetching=done here
       bgFetchRegs.delete(fileId);
-      patch(fileId, { phase: 'done', progress: 1 });
-      setTimeout(() => { tasks.delete(fileId); notify(); }, 4000);
+      if (quality !== 'original') {
+        // compression will be triggered via SW message
+        patch(fileId, { phase: 'loading-ffmpeg', progress: 0 });
+      } else {
+        patch(fileId, { phase: 'done', progress: 1 });
+        setTimeout(() => { tasks.delete(fileId); notify(); }, 4000);
+      }
     } else if (bgFetch.result === 'failure') {
       bgFetchRegs.delete(fileId);
       patch(fileId, { phase: 'error', progress: 0, errorCode: VC_ERROR_CODES.OFFLINE_SAVE });
@@ -213,6 +276,39 @@ async function tryStartBgFetch(opts: {
   return true;
 }
 
+// ─── Compression from raw blob (after BG Fetch or on resume) ────────────────
+
+async function runCompressionFromRaw(opts: { fileId: string; fileName: string; quality: string }): Promise<void> {
+  const { fileId, fileName, quality } = opts;
+  try {
+    const raw = await loadRawVideo(fileId);
+    if (!raw) throw new Error('raw blob not found');
+
+    patch(fileId, { phase: 'loading-ffmpeg', progress: 0 });
+    const compressed = await compressVideo(raw.rawBlob, quality as Quality, (ratio) => {
+      patch(fileId, ratio < 0
+        ? { phase: 'loading-ffmpeg', progress: 0 }
+        : { phase: 'compressing', progress: Math.max(0, Math.min(1, ratio)) },
+      );
+    });
+
+    patch(fileId, { phase: 'saving', progress: 1 });
+    await saveOfflineVideo(fileId, fileName, compressed);
+    await deleteRawVideo(fileId);
+
+    abortControllers.delete(fileId);
+    patch(fileId, { phase: 'done', progress: 1 });
+    setTimeout(() => { tasks.delete(fileId); notify(); }, 4000);
+  } catch (e) {
+    console.error('[downloadQueue] compression from raw error', e);
+    abortControllers.delete(fileId);
+    patch(fileId, { phase: 'error', progress: 0, errorCode: VC_ERROR_CODES.COMPRESS });
+    setTimeout(() => { tasks.delete(fileId); notify(); }, 6000);
+  }
+}
+
+// ─── In-page fallback: original (no compression) ────────────────────────────
+
 async function runOriginalInPage(opts: {
   fileId: string;
   fileName: string;
@@ -221,7 +317,6 @@ async function runOriginalInPage(opts: {
   signal: AbortSignal;
 }): Promise<void> {
   const { fileId, fileName, proxyUrl, accessToken, signal } = opts;
-
   try {
     const resp = await fetch(
       `${proxyUrl}/stream/${encodeURIComponent(fileId)}?token=${encodeURIComponent(accessToken)}`,
@@ -265,9 +360,9 @@ async function runOriginalInPage(opts: {
   }
 }
 
-// ─── compressed qualities (high / medium / low) ─────────────────────────────
+// ─── In-page fallback: fetch + compress (BG Fetch unavailable) ──────────────
 
-async function runCompressed(opts: {
+async function runInPageFetchAndCompress(opts: {
   fileId: string;
   fileName: string;
   proxyUrl: string;
@@ -279,7 +374,6 @@ async function runCompressed(opts: {
   let errorCode: string = VC_ERROR_CODES.OFFLINE_SAVE;
 
   try {
-    // ── フェッチ ────────────────────────────────────────────────────────
     const resp = await fetch(
       `${proxyUrl}/stream/${encodeURIComponent(fileId)}?token=${encodeURIComponent(accessToken)}`,
       { headers: { Range: 'bytes=0-' }, signal },
@@ -307,7 +401,6 @@ async function runCompressed(opts: {
 
     if (signal.aborted) return cleanup(fileId);
 
-    // ── 圧縮 ────────────────────────────────────────────────────────────
     errorCode = VC_ERROR_CODES.COMPRESS;
     patch(fileId, { phase: 'loading-ffmpeg', progress: 0 });
     const compressed = await compressVideo(rawBlob, quality, (ratio) => {
@@ -320,7 +413,6 @@ async function runCompressed(opts: {
 
     if (signal.aborted) return cleanup(fileId);
 
-    // ── 保存 ────────────────────────────────────────────────────────────
     errorCode = VC_ERROR_CODES.OFFLINE_SAVE;
     patch(fileId, { phase: 'saving', progress: 1 });
     await saveOfflineVideo(fileId, fileName, compressed);
@@ -328,10 +420,9 @@ async function runCompressed(opts: {
     abortControllers.delete(fileId);
     patch(fileId, { phase: 'done', progress: 1 });
     setTimeout(() => { tasks.delete(fileId); notify(); }, 4000);
-
   } catch (e) {
     if (signal.aborted) return cleanup(fileId);
-    console.error('[downloadQueue] compress error', e);
+    console.error('[downloadQueue] in-page fetch+compress error', e);
     abortControllers.delete(fileId);
     patch(fileId, { phase: 'error', progress: 0, errorCode });
     setTimeout(() => { tasks.delete(fileId); notify(); }, 6000);

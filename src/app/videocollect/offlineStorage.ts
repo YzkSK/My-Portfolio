@@ -3,6 +3,10 @@ const STORE_NAME = 'videos';
 const STORAGE_LIMIT_KEY = 'vc-offline-limit-gb';
 const DEFAULT_LIMIT_GB = 5;
 
+// Separate DB for raw (uncompressed) blobs pending in-app compression
+const RAW_DB_NAME  = 'vc-offline-raw-v1';
+const RAW_STORE    = 'raws';
+
 type OfflineEntry = {
   fileId: string;
   fileName: string;
@@ -109,4 +113,75 @@ export async function checkQuota(newBytes: number): Promise<'ok' | 'over-limit'>
   const { totalBytes } = await getOfflineStorageUsage();
   const limitBytes = getStorageLimitGb() * 1024 * 1024 * 1024;
   return totalBytes + newBytes <= limitBytes ? 'ok' : 'over-limit';
+}
+
+// ─── Raw (pending compression) store ────────────────────────────────────────
+
+type RawEntry = {
+  fileId:  string;
+  fileName: string;
+  rawBlob: Blob;
+  quality: string;
+  savedAt: number;
+};
+
+let rawDbPromise: Promise<IDBDatabase> | null = null;
+
+function openRawDb(): Promise<IDBDatabase> {
+  if (rawDbPromise) return rawDbPromise;
+  rawDbPromise = new Promise((resolve, reject) => {
+    const req = indexedDB.open(RAW_DB_NAME, 1);
+    req.onupgradeneeded = () => {
+      req.result.createObjectStore(RAW_STORE, { keyPath: 'fileId' });
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => {
+      rawDbPromise = null;
+      reject(req.error);
+    };
+  });
+  return rawDbPromise;
+}
+
+export async function saveRawVideo(fileId: string, fileName: string, rawBlob: Blob, quality: string): Promise<void> {
+  const db = await openRawDb();
+  return new Promise((resolve, reject) => {
+    const entry: RawEntry = { fileId, fileName, rawBlob, quality, savedAt: Date.now() };
+    const tx  = db.transaction(RAW_STORE, 'readwrite');
+    const req = tx.objectStore(RAW_STORE).put(entry);
+    req.onsuccess = () => resolve();
+    req.onerror   = () => reject(req.error);
+  });
+}
+
+export async function loadRawVideo(fileId: string): Promise<{ rawBlob: Blob; quality: string; fileName: string } | null> {
+  const db = await openRawDb();
+  return new Promise((resolve, reject) => {
+    const req = db.transaction(RAW_STORE, 'readonly').objectStore(RAW_STORE).get(fileId);
+    req.onsuccess = () => {
+      const e = req.result as RawEntry | undefined;
+      resolve(e ? { rawBlob: e.rawBlob, quality: e.quality, fileName: e.fileName } : null);
+    };
+    req.onerror = () => reject(req.error);
+  });
+}
+
+export async function deleteRawVideo(fileId: string): Promise<void> {
+  const db = await openRawDb();
+  return new Promise((resolve, reject) => {
+    const req = db.transaction(RAW_STORE, 'readwrite').objectStore(RAW_STORE).delete(fileId);
+    req.onsuccess = () => resolve();
+    req.onerror   = () => reject(req.error);
+  });
+}
+
+export async function listPendingRaws(): Promise<Array<{ fileId: string; fileName: string; quality: string }>> {
+  const db = await openRawDb();
+  return new Promise((resolve, reject) => {
+    const req = db.transaction(RAW_STORE, 'readonly').objectStore(RAW_STORE).getAll();
+    req.onsuccess = () => {
+      resolve((req.result as RawEntry[]).map(e => ({ fileId: e.fileId, fileName: e.fileName, quality: e.quality })));
+    };
+    req.onerror = () => reject(req.error);
+  });
 }
