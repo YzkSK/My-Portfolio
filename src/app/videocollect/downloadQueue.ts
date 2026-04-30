@@ -16,6 +16,7 @@ export type DownloadTask = {
   phase: DownloadPhase;
   progress: number;
   errorCode?: string;
+  logs?: string[];
 };
 
 // Minimal inline types for Background Fetch API (not in standard TS lib)
@@ -68,7 +69,6 @@ if ('serviceWorker' in navigator) {
     const { fileId, fileName = '', quality = 'original' } = data;
 
     if (data.type === 'vc-bgfetch-done') {
-      // 'original': raw == final, already saved by SW
       bgFetchRegs.delete(fileId);
       if (tasks.has(fileId)) {
         abortControllers.delete(fileId);
@@ -76,7 +76,6 @@ if ('serviceWorker' in navigator) {
         setTimeout(() => { tasks.delete(fileId); notify(); }, 4000);
       }
     } else if (data.type === 'vc-bgfetch-raw-done') {
-      // compressed quality: raw blob saved by SW → start in-page compression
       bgFetchRegs.delete(fileId);
       if (!tasks.has(fileId)) {
         tasks.set(fileId, { fileId, fileName, phase: 'loading-ffmpeg', progress: 0 });
@@ -89,8 +88,8 @@ if ('serviceWorker' in navigator) {
       bgFetchRegs.delete(fileId);
       if (tasks.has(fileId)) {
         abortControllers.delete(fileId);
+        // No auto-remove: user must dismiss
         patch(fileId, { phase: 'error', progress: 0, errorCode: VC_ERROR_CODES.OFFLINE_SAVE });
-        setTimeout(() => { tasks.delete(fileId); notify(); }, 6000);
       }
     }
   });
@@ -130,6 +129,16 @@ export function cancelDownload(fileId: string): void {
   deleteRawVideo(fileId).catch(() => {});
 }
 
+/** Dismiss a stuck error card and clean up any pending raw blob */
+export function dismissError(fileId: string): void {
+  const t = tasks.get(fileId);
+  if (t?.phase === 'error') {
+    tasks.delete(fileId);
+    notify();
+    deleteRawVideo(fileId).catch(() => {});
+  }
+}
+
 /** Called on mount to resume any compressions interrupted by a browser close */
 export async function resumePendingCompressions(): Promise<void> {
   const pending = await listPendingRaws().catch(() => [] as Array<{ fileId: string; fileName: string; quality: string }>);
@@ -157,6 +166,12 @@ function cleanup(fileId: string): void {
   notify();
 }
 
+function setError(fileId: string, errorCode: string, logs?: string[]): void {
+  abortControllers.delete(fileId);
+  // No auto-remove timeout: user must dismiss the card explicitly
+  patch(fileId, { phase: 'error', progress: 0, errorCode, ...(logs ? { logs } : {}) });
+}
+
 // ─── 'original' quality: BG Fetch or in-page fallback ───────────────────────
 
 function launchWithBgFetch(opts: {
@@ -172,17 +187,12 @@ function launchWithBgFetch(opts: {
       const started = await tryStartBgFetch(opts).catch(() => false);
       if (started) return;
     }
-    // Fallback: in-page fetch, no compression
     const controller = new AbortController();
     abortControllers.set(opts.fileId, controller);
     await runOriginalInPage({ ...opts, signal: controller.signal });
   })().catch(e => {
     console.error('[downloadQueue] original launch error', e);
-    if (tasks.has(opts.fileId)) {
-      abortControllers.delete(opts.fileId);
-      patch(opts.fileId, { phase: 'error', progress: 0, errorCode: VC_ERROR_CODES.OFFLINE_SAVE });
-      setTimeout(() => { tasks.delete(opts.fileId); notify(); }, 6000);
-    }
+    if (tasks.has(opts.fileId)) setError(opts.fileId, VC_ERROR_CODES.OFFLINE_SAVE);
   });
 }
 
@@ -199,19 +209,14 @@ function launchCompressed(opts: {
   (async () => {
     if ('serviceWorker' in navigator) {
       const started = await tryStartBgFetch(opts).catch(() => false);
-      if (started) return; // SW will save raw blob and notify us to compress
+      if (started) return;
     }
-    // Fallback: in-page fetch + compress
     const controller = new AbortController();
     abortControllers.set(opts.fileId, controller);
     await runInPageFetchAndCompress({ ...opts, signal: controller.signal });
   })().catch(e => {
     console.error('[downloadQueue] compressed launch error', e);
-    if (tasks.has(opts.fileId)) {
-      abortControllers.delete(opts.fileId);
-      patch(opts.fileId, { phase: 'error', progress: 0, errorCode: VC_ERROR_CODES.OFFLINE_SAVE });
-      setTimeout(() => { tasks.delete(opts.fileId); notify(); }, 6000);
-    }
+    if (tasks.has(opts.fileId)) setError(opts.fileId, VC_ERROR_CODES.OFFLINE_SAVE);
   });
 }
 
@@ -233,7 +238,6 @@ async function tryStartBgFetch(opts: {
   const bgFetchId  = `vc-bg-${fileId}`;
   const streamUrl  = `${proxyUrl}/stream/${encodeURIComponent(fileId)}?token=${encodeURIComponent(accessToken)}`;
 
-  // Store metadata (including quality) in Cache API for the SW to read on completion
   const cache = await caches.open('vc-bgfetch-meta');
   await cache.put(
     `/${bgFetchId}`,
@@ -245,20 +249,15 @@ async function tryStartBgFetch(opts: {
   const bgFetch = await bgFetchApi.fetch(
     bgFetchId,
     [new Request(streamUrl, { headers: { Range: 'bytes=0-' } })],
-    {
-      title: fileName,
-      ...(fileSizeBytes > 0 ? { downloadTotal: fileSizeBytes } : {}),
-    },
+    { title: fileName, ...(fileSizeBytes > 0 ? { downloadTotal: fileSizeBytes } : {}) },
   );
 
   bgFetchRegs.set(fileId, bgFetch);
 
   bgFetch.addEventListener('progress', () => {
     if (bgFetch.result === 'success') {
-      // SW will handle saving and send postMessage; just reflect fetching=done here
       bgFetchRegs.delete(fileId);
       if (quality !== 'original') {
-        // compression will be triggered via SW message
         patch(fileId, { phase: 'loading-ffmpeg', progress: 0 });
       } else {
         patch(fileId, { phase: 'done', progress: 1 });
@@ -266,8 +265,7 @@ async function tryStartBgFetch(opts: {
       }
     } else if (bgFetch.result === 'failure') {
       bgFetchRegs.delete(fileId);
-      patch(fileId, { phase: 'error', progress: 0, errorCode: VC_ERROR_CODES.OFFLINE_SAVE });
-      setTimeout(() => { tasks.delete(fileId); notify(); }, 6000);
+      if (tasks.has(fileId)) setError(fileId, VC_ERROR_CODES.OFFLINE_SAVE);
     } else if (bgFetch.downloadTotal > 0) {
       patch(fileId, { phase: 'fetching', progress: bgFetch.downloaded / bgFetch.downloadTotal });
     }
@@ -280,17 +278,23 @@ async function tryStartBgFetch(opts: {
 
 async function runCompressionFromRaw(opts: { fileId: string; fileName: string; quality: string }): Promise<void> {
   const { fileId, fileName, quality } = opts;
+  const logs: string[] = [];
   try {
     const raw = await loadRawVideo(fileId);
     if (!raw) throw new Error('raw blob not found');
 
     patch(fileId, { phase: 'loading-ffmpeg', progress: 0 });
-    const compressed = await compressVideo(raw.rawBlob, quality as Quality, (ratio) => {
-      patch(fileId, ratio < 0
-        ? { phase: 'loading-ffmpeg', progress: 0 }
-        : { phase: 'compressing', progress: Math.max(0, Math.min(1, ratio)) },
-      );
-    });
+    const compressed = await compressVideo(
+      raw.rawBlob,
+      quality as Quality,
+      (ratio) => {
+        patch(fileId, ratio < 0
+          ? { phase: 'loading-ffmpeg', progress: 0 }
+          : { phase: 'compressing', progress: Math.max(0, Math.min(1, ratio)) },
+        );
+      },
+      (line) => { logs.push(line); },
+    );
 
     patch(fileId, { phase: 'saving', progress: 1 });
     await saveOfflineVideo(fileId, fileName, compressed);
@@ -301,9 +305,7 @@ async function runCompressionFromRaw(opts: { fileId: string; fileName: string; q
     setTimeout(() => { tasks.delete(fileId); notify(); }, 4000);
   } catch (e) {
     console.error('[downloadQueue] compression from raw error', e);
-    abortControllers.delete(fileId);
-    patch(fileId, { phase: 'error', progress: 0, errorCode: VC_ERROR_CODES.COMPRESS });
-    setTimeout(() => { tasks.delete(fileId); notify(); }, 6000);
+    setError(fileId, VC_ERROR_CODES.COMPRESS, logs);
   }
 }
 
@@ -344,9 +346,8 @@ async function runOriginalInPage(opts: {
 
     if (signal.aborted) { cleanup(fileId); return; }
 
-    const blob = new Blob(chunks, { type: resp.headers.get('Content-Type') ?? 'video/mp4' });
     patch(fileId, { phase: 'saving', progress: 1 });
-    await saveOfflineVideo(fileId, fileName, blob);
+    await saveOfflineVideo(fileId, fileName, new Blob(chunks, { type: resp.headers.get('Content-Type') ?? 'video/mp4' }));
 
     abortControllers.delete(fileId);
     patch(fileId, { phase: 'done', progress: 1 });
@@ -354,9 +355,7 @@ async function runOriginalInPage(opts: {
   } catch (e) {
     if (signal.aborted) { cleanup(fileId); return; }
     console.error('[downloadQueue] original in-page error', e);
-    abortControllers.delete(fileId);
-    patch(fileId, { phase: 'error', progress: 0, errorCode: VC_ERROR_CODES.OFFLINE_SAVE });
-    setTimeout(() => { tasks.delete(fileId); notify(); }, 6000);
+    setError(fileId, VC_ERROR_CODES.OFFLINE_SAVE);
   }
 }
 
@@ -372,6 +371,7 @@ async function runInPageFetchAndCompress(opts: {
 }): Promise<void> {
   const { fileId, fileName, proxyUrl, accessToken, quality, signal } = opts;
   let errorCode: string = VC_ERROR_CODES.OFFLINE_SAVE;
+  const logs: string[] = [];
 
   try {
     const resp = await fetch(
@@ -403,13 +403,18 @@ async function runInPageFetchAndCompress(opts: {
 
     errorCode = VC_ERROR_CODES.COMPRESS;
     patch(fileId, { phase: 'loading-ffmpeg', progress: 0 });
-    const compressed = await compressVideo(rawBlob, quality, (ratio) => {
-      if (signal.aborted) return;
-      patch(fileId, ratio < 0
-        ? { phase: 'loading-ffmpeg', progress: 0 }
-        : { phase: 'compressing', progress: Math.max(0, Math.min(1, ratio)) },
-      );
-    });
+    const compressed = await compressVideo(
+      rawBlob,
+      quality,
+      (ratio) => {
+        if (signal.aborted) return;
+        patch(fileId, ratio < 0
+          ? { phase: 'loading-ffmpeg', progress: 0 }
+          : { phase: 'compressing', progress: Math.max(0, Math.min(1, ratio)) },
+        );
+      },
+      (line) => { logs.push(line); },
+    );
 
     if (signal.aborted) return cleanup(fileId);
 
@@ -423,8 +428,6 @@ async function runInPageFetchAndCompress(opts: {
   } catch (e) {
     if (signal.aborted) return cleanup(fileId);
     console.error('[downloadQueue] in-page fetch+compress error', e);
-    abortControllers.delete(fileId);
-    patch(fileId, { phase: 'error', progress: 0, errorCode });
-    setTimeout(() => { tasks.delete(fileId); notify(); }, 6000);
+    setError(fileId, errorCode, errorCode === VC_ERROR_CODES.COMPRESS ? logs : undefined);
   }
 }

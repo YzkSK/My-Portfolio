@@ -14,6 +14,8 @@ export const QUALITY_INFO = QUALITY_PRESETS;
 
 let ffmpegInstance: FFmpeg | null = null;
 let loadPromise: Promise<void> | null = null;
+// Updated per compression run; safe because only one compression runs at a time (singleton)
+let currentLogCallback: ((line: string) => void) | null = null;
 
 const CORE_URL = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.11.0/dist/ffmpeg-core.js';
 
@@ -21,7 +23,14 @@ async function getFFmpeg(): Promise<FFmpeg> {
   if (ffmpegInstance?.isLoaded()) return ffmpegInstance;
 
   if (!ffmpegInstance) {
-    ffmpegInstance = createFFmpeg({ corePath: CORE_URL, log: true });
+    ffmpegInstance = createFFmpeg({
+      corePath: CORE_URL,
+      logger: ({ type, message }) => {
+        const line = `[${type}] ${message}`;
+        console.log('[ffmpeg]', line);
+        currentLogCallback?.(line);
+      },
+    });
   }
 
   if (!loadPromise) {
@@ -40,36 +49,45 @@ export async function compressVideo(
   blob: Blob,
   quality: Quality,
   onProgress: (ratio: number) => void,
+  onLog?: (line: string) => void,
 ): Promise<Blob> {
   if (quality === 'original') {
     onProgress(1);
     return blob;
   }
 
+  currentLogCallback = onLog ?? null;
   // -1 = ffmpeg ロード中
   onProgress(-1);
-  const ff = await getFFmpeg();
 
-  ff.setProgress(({ ratio }) => {
-    onProgress(Math.max(0, Math.min(1, ratio)));
-  });
+  try {
+    const ff = await getFFmpeg();
 
-  const inputName  = 'input.mp4';
-  const outputName = 'output.mp4';
+    ff.setProgress(({ ratio }) => {
+      onProgress(Math.max(0, Math.min(1, ratio)));
+    });
 
-  ff.FS('writeFile', inputName, await fetchFile(blob));
+    const inputName  = 'input.mp4';
+    const outputName = 'output.mp4';
 
-  const args = QUALITY_PRESETS[quality].args;
-  await ff.run('-i', inputName, ...args, '-movflags', '+faststart', outputName);
+    ff.FS('writeFile', inputName, await fetchFile(blob));
 
-  const data = ff.FS('readFile', outputName);
+    const args = QUALITY_PRESETS[quality].args;
+    await ff.run('-i', inputName, ...args, '-movflags', '+faststart', outputName);
 
-  ff.FS('unlink', inputName);
-  ff.FS('unlink', outputName);
+    const data = ff.FS('readFile', outputName);
+    ff.FS('unlink', inputName);
+    ff.FS('unlink', outputName);
 
-  return new Blob([data.buffer], { type: 'video/mp4' });
+    currentLogCallback = null;
+    return new Blob([data.buffer], { type: 'video/mp4' });
+  } catch (e) {
+    currentLogCallback = null;
+    throw e;
+  }
 }
 
 export function estimatedSizeRatio(quality: Quality): number {
   return { original: 1.0, high: 0.7, medium: 0.4, low: 0.2 }[quality];
 }
+
