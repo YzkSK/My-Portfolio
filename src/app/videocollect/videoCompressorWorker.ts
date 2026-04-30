@@ -1,5 +1,6 @@
+/// <reference lib="webworker" />
 // src/app/videocollect/videoCompressorWorker.ts
-import mp4box from 'mp4box';
+import * as mp4box from 'mp4box';
 import { Muxer, ArrayBufferTarget } from 'mp4-muxer';
 import { scaleOutput } from './videoCompressorUtils';
 
