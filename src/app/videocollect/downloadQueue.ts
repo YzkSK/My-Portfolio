@@ -105,6 +105,13 @@ export function startDownload(opts: {
   fileSizeBytes?: number;
 }): void {
   if (tasks.has(opts.fileId)) return;
+  console.info('[downloadQueue] startDownload', {
+    fileId: opts.fileId,
+    fileName: opts.fileName,
+    quality: opts.quality,
+    fileSizeBytes: opts.fileSizeBytes ?? 0,
+    hasAccessToken: Boolean(opts.accessToken),
+  });
   tasks.set(opts.fileId, { fileId: opts.fileId, fileName: opts.fileName, phase: 'fetching', progress: 0 });
   notify();
 
@@ -167,6 +174,11 @@ function cleanup(fileId: string): void {
 
 function setError(fileId: string, errorCode: string, logs?: string[]): void {
   abortControllers.delete(fileId);
+  console.error('[downloadQueue] setError', {
+    fileId,
+    errorCode,
+    logLines: logs?.length ?? 0,
+  });
   // No auto-remove timeout: user must dismiss the card explicitly
   patch(fileId, { phase: 'error', progress: 0, errorCode, ...(logs ? { logs } : {}) });
 }
@@ -182,10 +194,18 @@ function launchWithBgFetch(opts: {
   fileSizeBytes?: number;
 }): void {
   (async () => {
+    console.info('[downloadQueue] launchWithBgFetch', {
+      fileId: opts.fileId,
+      quality: opts.quality,
+      fileSizeBytes: opts.fileSizeBytes ?? 0,
+    });
     if ('serviceWorker' in navigator) {
       const started = await tryStartBgFetch(opts).catch(() => false);
       if (started) return;
     }
+    console.warn('[downloadQueue] BG Fetch unavailable/failed, fallback to in-page original download', {
+      fileId: opts.fileId,
+    });
     const controller = new AbortController();
     abortControllers.set(opts.fileId, controller);
     await runOriginalInPage({ ...opts, signal: controller.signal });
@@ -206,10 +226,19 @@ function launchCompressed(opts: {
   fileSizeBytes?: number;
 }): void {
   (async () => {
+    console.info('[downloadQueue] launchCompressed', {
+      fileId: opts.fileId,
+      quality: opts.quality,
+      fileSizeBytes: opts.fileSizeBytes ?? 0,
+    });
     if ('serviceWorker' in navigator) {
       const started = await tryStartBgFetch(opts).catch(() => false);
       if (started) return;
     }
+    console.warn('[downloadQueue] BG Fetch unavailable/failed, fallback to in-page fetch+compress', {
+      fileId: opts.fileId,
+      quality: opts.quality,
+    });
     const controller = new AbortController();
     abortControllers.set(opts.fileId, controller);
     await runInPageFetchAndCompress({ ...opts, signal: controller.signal });
@@ -231,7 +260,10 @@ async function tryStartBgFetch(opts: {
 }): Promise<boolean> {
   const { fileId, fileName, proxyUrl, accessToken, quality, fileSizeBytes = 0 } = opts;
   const sw = await navigator.serviceWorker.ready;
-  if (!('backgroundFetch' in sw)) return false;
+  if (!('backgroundFetch' in sw)) {
+    console.warn('[downloadQueue] backgroundFetch API not supported', { fileId, quality });
+    return false;
+  }
 
   const bgFetchApi = (sw as unknown as { backgroundFetch: BgFetchManager }).backgroundFetch;
   const bgFetchId  = `vc-bg-${fileId}`;
@@ -251,9 +283,24 @@ async function tryStartBgFetch(opts: {
     { title: fileName, ...(fileSizeBytes > 0 ? { downloadTotal: fileSizeBytes } : {}) },
   );
 
+  console.info('[downloadQueue] BG Fetch started', {
+    bgFetchId,
+    fileId,
+    quality,
+    fileSizeBytes,
+    streamUrl,
+  });
+
   bgFetchRegs.set(fileId, bgFetch);
 
   bgFetch.addEventListener('progress', () => {
+    console.info('[downloadQueue] BG Fetch progress', {
+      fileId,
+      quality,
+      result: bgFetch.result,
+      downloaded: bgFetch.downloaded,
+      downloadTotal: bgFetch.downloadTotal,
+    });
     if (bgFetch.result === 'success') {
       bgFetchRegs.delete(fileId);
       if (quality !== 'original') {
@@ -267,6 +314,12 @@ async function tryStartBgFetch(opts: {
       if (tasks.has(fileId)) setError(fileId, VC_ERROR_CODES.OFFLINE_SAVE);
     } else if (bgFetch.downloadTotal > 0) {
       patch(fileId, { phase: 'fetching', progress: bgFetch.downloaded / bgFetch.downloadTotal });
+    } else {
+      // size不明ケースはUI上0%に見えるためログを出す
+      console.warn('[downloadQueue] BG Fetch total size unknown; progress UI may stay at 0%', {
+        fileId,
+        quality,
+      });
     }
   });
 
@@ -320,6 +373,14 @@ async function runOriginalInPage(opts: {
       `${proxyUrl}/stream/${encodeURIComponent(fileId)}?token=${encodeURIComponent(accessToken)}`,
       { headers: { Range: 'bytes=0-' }, signal },
     );
+    console.info('[downloadQueue] runOriginalInPage response', {
+      fileId,
+      status: resp.status,
+      contentType: resp.headers.get('Content-Type'),
+      contentLength: resp.headers.get('Content-Length'),
+      contentRange: resp.headers.get('Content-Range'),
+      acceptRanges: resp.headers.get('Accept-Ranges'),
+    });
     if (!resp.ok && resp.status !== 206) throw new Error(`fetch: ${resp.status}`);
 
     let total = parseInt(resp.headers.get('Content-Length') ?? '0', 10);
@@ -332,12 +393,21 @@ async function runOriginalInPage(opts: {
     if (!reader) throw new Error('no body');
     const chunks: Uint8Array[] = [];
     let received = 0;
+    let lastLoggedPct = -1;
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
       chunks.push(value);
       received += value.length;
-      if (total > 0) patch(fileId, { phase: 'fetching', progress: received / total });
+      if (total > 0) {
+        const ratio = received / total;
+        patch(fileId, { phase: 'fetching', progress: ratio });
+        const pct = Math.floor(ratio * 100);
+        if (pct >= lastLoggedPct + 10) {
+          lastLoggedPct = pct;
+          console.info('[downloadQueue] runOriginalInPage progress', { fileId, received, total, pct });
+        }
+      }
     }
 
     if (signal.aborted) { cleanup(fileId); return; }
@@ -374,6 +444,15 @@ async function runInPageFetchAndCompress(opts: {
       `${proxyUrl}/stream/${encodeURIComponent(fileId)}?token=${encodeURIComponent(accessToken)}`,
       { headers: { Range: 'bytes=0-' }, signal },
     );
+    console.info('[downloadQueue] runInPageFetchAndCompress response', {
+      fileId,
+      quality,
+      status: resp.status,
+      contentType: resp.headers.get('Content-Type'),
+      contentLength: resp.headers.get('Content-Length'),
+      contentRange: resp.headers.get('Content-Range'),
+      acceptRanges: resp.headers.get('Accept-Ranges'),
+    });
     if (!resp.ok && resp.status !== 206) throw new Error(`fetch: ${resp.status}`);
 
     let total = parseInt(resp.headers.get('Content-Length') ?? '0', 10);
@@ -386,12 +465,21 @@ async function runInPageFetchAndCompress(opts: {
     if (!reader) throw new Error('no body');
     const chunks: Uint8Array[] = [];
     let received = 0;
+    let lastLoggedPct = -1;
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
       chunks.push(value);
       received += value.length;
-      if (total > 0) patch(fileId, { phase: 'fetching', progress: received / total });
+      if (total > 0) {
+        const ratio = received / total;
+        patch(fileId, { phase: 'fetching', progress: ratio });
+        const pct = Math.floor(ratio * 100);
+        if (pct >= lastLoggedPct + 10) {
+          lastLoggedPct = pct;
+          console.info('[downloadQueue] runInPageFetchAndCompress progress', { fileId, received, total, pct });
+        }
+      }
     }
     const rawBlob = new Blob(chunks, { type: resp.headers.get('Content-Type') ?? 'video/mp4' });
 
