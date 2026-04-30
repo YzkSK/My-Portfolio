@@ -140,9 +140,13 @@ async function runCompress(blob: Blob, quality: WorkerQuality, logs: string[]): 
     (self as DedicatedWorkerGlobalScope).postMessage(msg);
 
   let firstCodecError: Error | null = null;
+  const setCodecError = (label: string, e: unknown) => {
+    const err = e instanceof Error ? e : new Error(String(e));
+    logs.push(`[${label}] ${err.message}`);
+    if (!firstCodecError) firstCodecError = err;
+  };
   const captureError = (label: string) => (e: DOMException) => {
-    logs.push(`[${label}] ${e.message}`);
-    if (!firstCodecError) firstCodecError = e;
+    setCodecError(label, e);
   };
 
   const { videoTrack, audioTrack, videoSamples, audioSamples, videoDescription, audioDescription } =
@@ -181,20 +185,29 @@ async function runCompress(blob: Blob, quality: WorkerQuality, logs: string[]): 
 
   const videoDecoder = new VideoDecoder({
     output: (frame) => {
-      const ts = frame.timestamp;
-      let encodeFrame: VideoFrame;
-      if (needsScale) {
-        const canvas = new OffscreenCanvas(outW, outH);
-        canvas.getContext('2d')!.drawImage(frame, 0, 0, outW, outH);
+      if (firstCodecError) {
         frame.close();
-        encodeFrame = new VideoFrame(canvas, { timestamp: ts });
-      } else {
-        encodeFrame = frame;
+        return;
       }
-      videoEncoder.encode(encodeFrame, { keyFrame: frameIndex % 60 === 0 });
-      encodeFrame.close();
-      frameIndex++;
-      post({ type: 'progress', ratio: frameIndex / totalFrames });
+      const ts = frame.timestamp;
+      let encodeFrame: VideoFrame | null = null;
+      try {
+        if (needsScale) {
+          const canvas = new OffscreenCanvas(outW, outH);
+          canvas.getContext('2d')!.drawImage(frame, 0, 0, outW, outH);
+          encodeFrame = new VideoFrame(canvas, { timestamp: ts });
+        } else {
+          encodeFrame = frame;
+        }
+        videoEncoder.encode(encodeFrame, { keyFrame: frameIndex % 60 === 0 });
+        frameIndex++;
+        post({ type: 'progress', ratio: frameIndex / totalFrames });
+      } catch (e) {
+        setCodecError('VideoPipeline', e);
+      } finally {
+        if (encodeFrame && encodeFrame !== frame) encodeFrame.close();
+        frame.close();
+      }
     },
     error: captureError('VideoDecoder'),
   });
@@ -218,8 +231,17 @@ async function runCompress(blob: Blob, quality: WorkerQuality, logs: string[]): 
 
   const audioDecoder = new AudioDecoder({
     output: (audioData) => {
-      audioEncoder.encode(audioData);
-      audioData.close();
+      if (firstCodecError) {
+        audioData.close();
+        return;
+      }
+      try {
+        audioEncoder.encode(audioData);
+      } catch (e) {
+        setCodecError('AudioPipeline', e);
+      } finally {
+        audioData.close();
+      }
     },
     error: captureError('AudioDecoder'),
   });
@@ -231,6 +253,7 @@ async function runCompress(blob: Blob, quality: WorkerQuality, logs: string[]): 
   });
 
   for (const sample of videoSamples) {
+    if (firstCodecError) break;
     videoDecoder.decode(new EncodedVideoChunk({
       type:      sample.is_sync ? 'key' : 'delta',
       timestamp: Math.round((sample.cts      / videoTrack.timescale) * 1_000_000),
@@ -240,6 +263,7 @@ async function runCompress(blob: Blob, quality: WorkerQuality, logs: string[]): 
   }
 
   for (const sample of audioSamples) {
+    if (firstCodecError) break;
     audioDecoder.decode(new EncodedAudioChunk({
       type:      sample.is_sync ? 'key' : 'delta',
       timestamp: Math.round((sample.cts      / audioTrack.timescale) * 1_000_000),
@@ -248,15 +272,19 @@ async function runCompress(blob: Blob, quality: WorkerQuality, logs: string[]): 
     }));
   }
 
-  await videoDecoder.flush();
-  await audioDecoder.flush();
-  await Promise.all([videoEncoder.flush(), audioEncoder.flush()]);
-  if (firstCodecError) throw firstCodecError;
-
-  videoDecoder.close();
-  audioDecoder.close();
-  videoEncoder.close();
-  audioEncoder.close();
+  try {
+    if (firstCodecError) throw firstCodecError;
+    await videoDecoder.flush();
+    await audioDecoder.flush();
+    if (firstCodecError) throw firstCodecError;
+    await Promise.all([videoEncoder.flush(), audioEncoder.flush()]);
+    if (firstCodecError) throw firstCodecError;
+  } finally {
+    try { videoDecoder.close(); } catch { /* noop */ }
+    try { audioDecoder.close(); } catch { /* noop */ }
+    try { videoEncoder.close(); } catch { /* noop */ }
+    try { audioEncoder.close(); } catch { /* noop */ }
+  }
 
   muxer.finalize();
   return new Blob([target.buffer], { type: 'video/mp4' });
