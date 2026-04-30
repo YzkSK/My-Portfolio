@@ -90,11 +90,11 @@ export const OfflineSaveModal = ({
           {QUALITIES.map(q => {
             const info = QUALITY_INFO[q];
             const est  = Math.round(originalBytes * estimatedSizeRatio(q));
-            const isDisabled = q !== 'original' && webCodecsSupported === false;
+            const isDisabled = q !== 'original' && webCodecsSupported !== true;
             return (
               <button
                 key={q}
-                onClick={() => !isDisabled && setQuality(q)}
+                onClick={() => setQuality(q)}
                 disabled={isDisabled}
                 style={{
                   display: 'flex', justifyContent: 'space-between', alignItems: 'center',
