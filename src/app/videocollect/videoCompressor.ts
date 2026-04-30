@@ -1,49 +1,48 @@
-import { createFFmpeg, fetchFile } from '@ffmpeg/ffmpeg';
-import type { FFmpeg } from '@ffmpeg/ffmpeg';
+// src/app/videocollect/videoCompressor.ts
 
 export type Quality = 'original' | 'high' | 'medium' | 'low';
 
-const QUALITY_PRESETS: Record<Quality, { label: string; args: string[]; description: string }> = {
-  original: { label: 'オリジナル', args: [], description: '圧縮なし・最大サイズ（バックグラウンド保存対応）' },
-  high:     { label: '高画質',    args: ['-c:v', 'libx264', '-crf', '23', '-preset', 'medium', '-c:a', 'aac', '-b:a', '128k'], description: '元の解像度を維持' },
-  medium:   { label: '中画質',    args: ['-c:v', 'libx264', '-crf', '28', '-preset', 'medium', '-vf', 'scale=-2:720', '-c:a', 'aac', '-b:a', '96k'], description: '720p に縮小' },
-  low:      { label: '低画質',    args: ['-c:v', 'libx264', '-crf', '33', '-preset', 'medium', '-vf', 'scale=-2:480', '-c:a', 'aac', '-b:a', '64k'], description: '480p に縮小' },
+const QUALITY_PRESETS: Record<Quality, { label: string; description: string }> = {
+  original: { label: 'オリジナル', description: '圧縮なし・最大サイズ（バックグラウンド保存対応）' },
+  high:     { label: '高画質',    description: '元の解像度を維持' },
+  medium:   { label: '中画質',    description: '720p に縮小' },
+  low:      { label: '低画質',    description: '480p に縮小' },
 };
 
 export const QUALITY_INFO = QUALITY_PRESETS;
 
-let ffmpegInstance: FFmpeg | null = null;
-let loadPromise: Promise<void> | null = null;
-// Updated per compression run; safe because only one compression runs at a time (singleton)
-let currentLogCallback: ((line: string) => void) | null = null;
-
-const CORE_URL = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.11.0/dist/ffmpeg-core.js';
-
-async function getFFmpeg(): Promise<FFmpeg> {
-  if (ffmpegInstance?.isLoaded()) return ffmpegInstance;
-
-  if (!ffmpegInstance) {
-    ffmpegInstance = createFFmpeg({
-      corePath: CORE_URL,
-      logger: ({ type, message }) => {
-        const line = `[${type}] ${message}`;
-        console.log('[ffmpeg]', line);
-        currentLogCallback?.(line);
-      },
-    });
-  }
-
-  if (!loadPromise) {
-    loadPromise = ffmpegInstance.load().catch(e => {
-      loadPromise = null;
-      ffmpegInstance = null;
-      throw e;
-    });
-  }
-
-  await loadPromise;
-  return ffmpegInstance!;
+export function estimatedSizeRatio(quality: Quality): number {
+  return { original: 1.0, high: 0.7, medium: 0.4, low: 0.2 }[quality];
 }
+
+// ─── Support check ────────────────────────────────────────────────────────────
+
+export async function isWebCodecsSupported(): Promise<boolean> {
+  if (
+    typeof VideoEncoder === 'undefined' ||
+    typeof VideoDecoder === 'undefined' ||
+    typeof AudioEncoder === 'undefined' ||
+    typeof AudioDecoder === 'undefined'
+  ) return false;
+
+  const result = await VideoEncoder.isConfigSupported({
+    codec: 'avc1.42001f',
+    width: 1280,
+    height: 720,
+    bitrate: 2_000_000,
+    framerate: 30,
+  });
+  return result.supported ?? false;
+}
+
+// ─── Worker message types (shared with Worker) ───────────────────────────────
+
+type WorkerOutMessage =
+  | { type: 'progress'; ratio: number }
+  | { type: 'done'; blob: Blob }
+  | { type: 'error'; message: string; logs: string[] };
+
+// ─── Compress ─────────────────────────────────────────────────────────────────
 
 export async function compressVideo(
   blob: Blob,
@@ -56,38 +55,33 @@ export async function compressVideo(
     return blob;
   }
 
-  currentLogCallback = onLog ?? null;
-  // -1 = ffmpeg ロード中
-  onProgress(-1);
+  onProgress(0);
 
-  try {
-    const ff = await getFFmpeg();
+  return new Promise<Blob>((resolve, reject) => {
+    const worker = new Worker(
+      new URL('./videoCompressorWorker.ts', import.meta.url),
+      { type: 'module' },
+    );
 
-    ff.setProgress(({ ratio }) => {
-      onProgress(Math.max(0, Math.min(1, ratio)));
-    });
+    worker.onmessage = (event: MessageEvent<WorkerOutMessage>) => {
+      const msg = event.data;
+      if (msg.type === 'progress') {
+        onProgress(Math.max(0, Math.min(1, msg.ratio)));
+      } else if (msg.type === 'done') {
+        worker.terminate();
+        resolve(msg.blob);
+      } else if (msg.type === 'error') {
+        worker.terminate();
+        msg.logs.forEach(line => onLog?.(line));
+        reject(new Error(msg.message));
+      }
+    };
 
-    const inputName  = 'input.mp4';
-    const outputName = 'output.mp4';
+    worker.onerror = (e) => {
+      worker.terminate();
+      reject(e);
+    };
 
-    ff.FS('writeFile', inputName, await fetchFile(blob));
-
-    const args = QUALITY_PRESETS[quality].args;
-    await ff.run('-i', inputName, ...args, '-movflags', '+faststart', outputName);
-
-    const data = ff.FS('readFile', outputName);
-    ff.FS('unlink', inputName);
-    ff.FS('unlink', outputName);
-
-    currentLogCallback = null;
-    return new Blob([data.buffer], { type: 'video/mp4' });
-  } catch (e) {
-    currentLogCallback = null;
-    throw e;
-  }
+    worker.postMessage({ blob, quality });
+  });
 }
-
-export function estimatedSizeRatio(quality: Quality): number {
-  return { original: 1.0, high: 0.7, medium: 0.4, low: 0.2 }[quality];
-}
-
