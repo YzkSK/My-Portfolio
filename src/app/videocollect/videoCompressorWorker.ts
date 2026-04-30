@@ -82,7 +82,7 @@ function demux(arrayBuffer: ArrayBuffer): Promise<DemuxResult> {
     let totalAudio = 0;
 
     const tryResolve = () => {
-      if (videoSamples.length >= totalVideo && audioSamples.length >= totalAudio && totalVideo > 0) {
+      if (videoSamples.length >= totalVideo && audioSamples.length >= totalAudio && totalVideo > 0 && totalAudio > 0) {
         resolve({
           videoTrack, audioTrack, videoSamples, audioSamples,
           videoDescription: getBoxDescription(file, videoTrack.id),
@@ -138,6 +138,12 @@ async function runCompress(blob: Blob, quality: WorkerQuality, logs: string[]): 
   const post = (msg: WorkerOutMessage) =>
     (self as DedicatedWorkerGlobalScope).postMessage(msg);
 
+  let firstCodecError: Error | null = null;
+  const captureError = (label: string) => (e: DOMException) => {
+    logs.push(`[${label}] ${e.message}`);
+    if (!firstCodecError) firstCodecError = e;
+  };
+
   const { videoTrack, audioTrack, videoSamples, audioSamples, videoDescription, audioDescription } =
     await demux(await blob.arrayBuffer());
 
@@ -165,7 +171,7 @@ async function runCompress(blob: Blob, quality: WorkerQuality, logs: string[]): 
 
   const videoEncoder = new VideoEncoder({
     output: (chunk, meta) => muxer.addVideoChunk(chunk, meta),
-    error: (e) => { logs.push(`[VideoEncoder] ${e.message}`); },
+    error: captureError('VideoEncoder'),
   });
   videoEncoder.configure({
     codec: videoCodec, width: outW, height: outH,
@@ -189,7 +195,7 @@ async function runCompress(blob: Blob, quality: WorkerQuality, logs: string[]): 
       frameIndex++;
       post({ type: 'progress', ratio: frameIndex / totalFrames });
     },
-    error: (e) => { logs.push(`[VideoDecoder] ${e.message}`); },
+    error: captureError('VideoDecoder'),
   });
   videoDecoder.configure({
     codec: videoTrack.codec,
@@ -200,7 +206,7 @@ async function runCompress(blob: Blob, quality: WorkerQuality, logs: string[]): 
 
   const audioEncoder = new AudioEncoder({
     output: (chunk, meta) => muxer.addAudioChunk(chunk, meta),
-    error: (e) => { logs.push(`[AudioEncoder] ${e.message}`); },
+    error: captureError('AudioEncoder'),
   });
   audioEncoder.configure({
     codec: 'mp4a.40.2',
@@ -214,7 +220,7 @@ async function runCompress(blob: Blob, quality: WorkerQuality, logs: string[]): 
       audioEncoder.encode(audioData);
       audioData.close();
     },
-    error: (e) => { logs.push(`[AudioDecoder] ${e.message}`); },
+    error: captureError('AudioDecoder'),
   });
   audioDecoder.configure({
     codec: audioTrack.codec,
@@ -244,6 +250,7 @@ async function runCompress(blob: Blob, quality: WorkerQuality, logs: string[]): 
   await videoDecoder.flush();
   await audioDecoder.flush();
   await Promise.all([videoEncoder.flush(), audioEncoder.flush()]);
+  if (firstCodecError) throw firstCodecError;
 
   videoDecoder.close();
   audioDecoder.close();
