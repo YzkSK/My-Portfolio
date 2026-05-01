@@ -1,6 +1,705 @@
-.transcribe-root { padding: 16px; }
-.upload-area { border: 1px dashed var(--app-border, #ccc); padding: 12px; border-radius: 6px; }
-.file-label { display: block; margin-bottom: 8px; }
-.controls { margin-top: 8px; }
-.message { margin-top: 8px; color: var(--app-text, #222); }
-.result { margin-top: 12px; background: var(--app-bg, #fff); padding: 8px; border-radius: 6px; }
+.transcribe-shell {
+	max-width: 1120px;
+	margin: 0 auto;
+	display: flex;
+	flex-direction: column;
+	gap: 16px;
+}
+
+.transcribe-hero {
+	display: grid;
+	grid-template-columns: minmax(0, 1.35fr) minmax(240px, 0.85fr);
+	gap: 16px;
+	padding: 16px;
+	border-radius: 16px;
+ 	border: 1px solid var(--app-border);
+ 	background:
+ 		radial-gradient(circle at top left, rgba(255,255,255,0.06), transparent 34%),
+ 		linear-gradient(180deg, var(--app-bg-card), color-mix(in srgb, var(--app-bg-card) 85%, #000));
+ 	box-shadow: 0 12px 32px rgba(0, 0, 0, 0.16);
+}
+
+.transcribe-hero-copy {
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+}
+
+.transcribe-eyebrow {
+	font-size: 11px;
+	font-weight: 800;
+	letter-spacing: 0.16em;
+	text-transform: uppercase;
+	color: var(--app-text-secondary);
+}
+
+.transcribe-hero-title,
+.transcribe-play-title {
+	margin: 0;
+	font-size: clamp(24px, 3vw, 38px);
+	line-height: 1.14;
+	font-weight: 900;
+	color: var(--app-text-primary);
+}
+
+.transcribe-hero-text,
+.transcribe-play-text {
+	margin: 0;
+	color: var(--app-text-secondary);
+	font-size: 14px;
+	line-height: 1.75;
+	max-width: 58ch;
+}
+
+.transcribe-hero-stats {
+	display: grid;
+	gap: 10px;
+}
+
+.transcribe-stat {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	padding: 14px 16px;
+	border-radius: 16px;
+	border: 1px solid var(--app-border);
+	background: color-mix(in srgb, var(--app-bg-card) 88%, #000);
+}
+
+.transcribe-stat-label {
+	font-size: 11px;
+	color: var(--app-text-secondary);
+	font-weight: 700;
+}
+
+.transcribe-stat strong {
+	font-size: 17px;
+	color: var(--app-text-primary);
+}
+
+.transcribe-grid,
+.transcribe-play-grid {
+	display: grid;
+	grid-template-columns: minmax(0, 1.08fr) minmax(320px, 0.92fr);
+	gap: 16px;
+}
+
+.transcribe-card,
+.transcribe-play-card,
+.transcribe-settings-card {
+	background: var(--app-bg-card);
+	border: 1px solid var(--app-border);
+	border-radius: 12px;
+	padding: 16px;
+}
+
+.transcribe-card-header,
+.transcribe-play-card-header,
+.transcribe-settings-head {
+	display: flex;
+	gap: 12px;
+	align-items: flex-start;
+	justify-content: space-between;
+	margin-bottom: 16px;
+}
+
+.transcribe-card-header--spread {
+	align-items: center;
+}
+
+.transcribe-card-title,
+.transcribe-settings-title {
+	margin: 0;
+	font-size: 15px;
+	line-height: 1.4;
+	font-weight: 800;
+	color: var(--app-text-primary);
+}
+
+.transcribe-card-desc,
+.transcribe-settings-lead {
+	margin: 4px 0 0;
+	font-size: 13px;
+	line-height: 1.6;
+	color: var(--app-text-secondary);
+}
+
+.transcribe-badge {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-height: 28px;
+	padding: 0 10px;
+	border-radius: 999px;
+	border: 1px solid var(--app-border);
+	background: var(--app-bg);
+	color: var(--app-text-secondary);
+	font-size: 11px;
+	font-weight: 800;
+	white-space: nowrap;
+}
+
+.transcribe-badge--warning {
+	border-color: #f59e0b;
+	color: #f59e0b;
+	background: rgba(245, 158, 11, 0.12);
+}
+
+.transcribe-dropzone {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 10px;
+	margin-bottom: 14px;
+	border: 1.5px dashed var(--app-border);
+	background: linear-gradient(180deg, color-mix(in srgb, var(--app-bg-card) 90%, #000), var(--app-bg));
+	cursor: pointer;
+	text-align: center;
+	transition: border-color 0.15s, transform 0.15s, background 0.15s;
+.transcribe-dropzone {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 10px;
+	padding: 24px 16px;
+	margin-bottom: 14px;
+	border-radius: 12px;
+	border: 1.5px dashed var(--app-border);
+	background: linear-gradient(180deg, color-mix(in srgb, var(--app-bg-card) 90%, #000), var(--app-bg));
+	cursor: pointer;
+	text-align: center;
+	transition: border-color 0.15s, transform 0.15s, background 0.15s;
+}
+}
+
+.transcribe-dropzone:hover {
+	border-color: var(--app-focus-border);
+	transform: translateY(-1px);
+}
+
+.transcribe-dropzone--filled {
+	border-style: solid;
+}
+
+.transcribe-dropzone--disabled {
+	cursor: not-allowed;
+	opacity: 0.7;
+	transform: none;
+}
+
+.transcribe-file-input {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	padding: 0;
+	margin: -1px;
+	overflow: hidden;
+	clip: rect(0, 0, 0, 0);
+	white-space: nowrap;
+	border: 0;
+}
+
+.transcribe-dropzone-icon {
+	display: grid;
+	place-items: center;
+	width: 42px;
+	height: 42px;
+	border-radius: 999px;
+	background: var(--app-bg-card);
+	border: 1px solid var(--app-border);
+	color: var(--app-text-primary);
+	font-size: 20px;
+	font-weight: 900;
+}
+
+.transcribe-dropzone-copy {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+}
+
+.transcribe-dropzone-copy strong {
+	font-size: 15px;
+	color: var(--app-text-primary);
+}
+
+.transcribe-dropzone-copy span {
+	font-size: 13px;
+	color: var(--app-text-secondary);
+}
+
+.transcribe-file-card {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	width: min(100%, 420px);
+	padding: 12px 14px;
+	background: var(--app-bg-card);
+	border: 1px solid var(--app-border);
+.transcribe-file-card {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	width: min(100%, 420px);
+	padding: 12px 14px;
+	border-radius: 12px;
+	background: var(--app-bg-card);
+	border: 1px solid var(--app-border);
+}
+}
+
+.transcribe-file-name {
+	font-size: 14px;
+	font-weight: 800;
+	color: var(--app-text-primary);
+	word-break: break-all;
+}
+
+.transcribe-file-meta {
+	font-size: 12px;
+	color: var(--app-text-secondary);
+}
+
+.transcribe-form-grid {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) auto;
+	gap: 12px;
+	align-items: end;
+}
+
+.transcribe-field {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+}
+
+.transcribe-field-label {
+	font-size: 12px;
+	font-weight: 800;
+	color: var(--app-text-secondary);
+}
+
+.transcribe-select {
+	width: 100%;
+	min-height: 44px;
+	padding: 0 14px;
+	border-radius: 12px;
+	border: 1px solid var(--app-border-input);
+	background: var(--app-input-bg);
+	color: var(--app-text);
+	font-size: 16px;
+	outline: none;
+}
+
+.transcribe-select--settings {
+	min-width: 180px;
+	max-width: 260px;
+}
+
+.transcribe-note {
+	padding: 11px 14px;
+	border-radius: 12px;
+	border: 1px solid var(--app-border);
+	background: var(--app-bg);
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	justify-content: center;
+}
+
+.transcribe-note-label {
+	font-size: 11px;
+	font-weight: 800;
+	color: var(--app-text-secondary);
+}
+
+.transcribe-note-value {
+	font-size: 13px;
+	font-weight: 700;
+	color: var(--app-text-primary);
+}
+
+.transcribe-actions {
+	margin-top: 14px;
+}
+
+.transcribe-start-btn {
+	width: 100%;
+}
+
+.transcribe-history-list {
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+}
+
+.transcribe-history-item {
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+	width: 100%;
+	padding: 14px 16px;
+	border-radius: 16px;
+	border: 1px solid var(--app-border);
+	background: var(--app-bg);
+	text-align: left;
+	cursor: pointer;
+	transition: transform 0.15s, border-color 0.15s, box-shadow 0.15s;
+}
+
+.transcribe-history-item:hover {
+	transform: translateY(-1px);
+	border-color: var(--app-focus-border);
+	box-shadow: 0 10px 24px rgba(0, 0, 0, 0.12);
+}
+
+.transcribe-history-main {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+}
+
+.transcribe-history-top {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	justify-content: space-between;
+	flex-wrap: wrap;
+}
+
+.transcribe-history-name {
+	font-size: 14px;
+	font-weight: 800;
+	color: var(--app-text-primary);
+	word-break: break-all;
+}
+
+.transcribe-history-language {
+	display: inline-flex;
+	align-items: center;
+	padding: 3px 8px;
+	border-radius: 999px;
+	background: var(--app-bg-card);
+	border: 1px solid var(--app-border);
+	color: var(--app-text-secondary);
+	font-size: 11px;
+	font-weight: 800;
+}
+
+.transcribe-history-summary {
+	margin: 0;
+	font-size: 13px;
+	line-height: 1.7;
+	color: var(--app-text-secondary);
+	display: -webkit-box;
+	-webkit-line-clamp: 2;
+	-webkit-box-orient: vertical;
+	overflow: hidden;
+}
+
+.transcribe-history-meta {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 10px;
+	font-size: 11px;
+	color: var(--app-text-muted);
+	font-weight: 700;
+}
+
+.transcribe-empty-state {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 10px;
+	padding: 48px 16px;
+	text-align: center;
+	color: var(--app-text-secondary);
+}
+
+.transcribe-empty-icon {
+	display: grid;
+	place-items: center;
+	width: 52px;
+	height: 52px;
+	border-radius: 999px;
+	background: var(--app-bg);
+	border: 1px solid var(--app-border);
+	font-size: 22px;
+}
+
+.transcribe-settings-card {
+	display: flex;
+	flex-direction: column;
+	gap: 14px;
+}
+
+.transcribe-settings-loading {
+	font-size: 13px;
+	color: var(--app-text-secondary);
+}
+
+.transcribe-settings-eyebrow {
+	font-size: 11px;
+	font-weight: 800;
+	letter-spacing: 0.14em;
+	text-transform: uppercase;
+	color: var(--app-text-secondary);
+	margin-bottom: 4px;
+}
+
+.transcribe-settings-row {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) minmax(180px, 260px);
+	gap: 14px;
+	align-items: center;
+	padding: 14px 0;
+	border-top: 1px solid var(--app-border);
+}
+
+.transcribe-settings-row:first-of-type {
+	border-top: 0;
+	padding-top: 0;
+}
+
+.transcribe-settings-row-copy {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+}
+
+.transcribe-settings-label {
+	margin-bottom: 0;
+	color: var(--app-text-primary);
+}
+
+.transcribe-settings-help {
+	margin: 0;
+	font-size: 12px;
+	line-height: 1.6;
+	color: var(--app-text-secondary);
+}
+
+.transcribe-settings-inline {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	justify-content: flex-end;
+}
+
+.transcribe-settings-number {
+	width: 120px;
+}
+
+.transcribe-settings-inline-suffix {
+	font-size: 12px;
+	color: var(--app-text-secondary);
+	white-space: nowrap;
+}
+
+.transcribe-settings-note {
+	margin: 0;
+	font-size: 12px;
+	line-height: 1.6;
+	color: var(--app-text-secondary);
+}
+
+.transcribe-settings-actions {
+	display: flex;
+	justify-content: flex-end;
+	margin-top: 4px;
+}
+
+.transcribe-settings-save-btn {
+	min-width: 160px;
+}
+
+.transcribe-play-shell {
+	max-width: 1120px;
+	margin: 0 auto;
+	display: flex;
+	flex-direction: column;
+	gap: 16px;
+}
+
+.transcribe-play-header-actions {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	flex-wrap: wrap;
+}
+
+.transcribe-play-hero {
+	display: grid;
+	grid-template-columns: minmax(0, 1.4fr) minmax(260px, 0.8fr);
+	gap: 16px;
+	padding: 22px;
+	border-radius: 20px;
+	border: 1px solid var(--app-border);
+	background: linear-gradient(180deg, var(--app-bg-card), color-mix(in srgb, var(--app-bg-card) 86%, #000));
+}
+
+.transcribe-play-metadata {
+	display: grid;
+	gap: 10px;
+}
+
+.transcribe-play-meta-item {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	padding: 14px 16px;
+	border-radius: 14px;
+	border: 1px solid var(--app-border);
+	background: var(--app-bg);
+}
+
+.transcribe-play-meta-item span {
+	font-size: 11px;
+	font-weight: 800;
+	color: var(--app-text-secondary);
+}
+
+.transcribe-play-meta-item strong {
+	font-size: 14px;
+	color: var(--app-text-primary);
+}
+
+.transcribe-play-card--tight {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+}
+
+.transcribe-textarea-field {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+}
+
+.transcribe-textarea {
+	width: 100%;
+	min-height: 420px;
+	padding: 14px 16px;
+	border-radius: 16px;
+	border: 1px solid var(--app-border-input);
+	background: var(--app-input-bg);
+	color: var(--app-text);
+	font-size: 16px;
+	line-height: 1.8;
+	outline: none;
+	resize: vertical;
+	font-family: inherit;
+}
+
+.transcribe-play-note {
+	margin: 10px 0 0;
+	font-size: 12px;
+	color: #f59e0b;
+}
+
+.transcribe-play-sidebar {
+	display: flex;
+	flex-direction: column;
+	gap: 16px;
+}
+
+.transcribe-play-summary,
+.transcribe-play-empty {
+	margin: 0;
+	font-size: 13px;
+	line-height: 1.8;
+	color: var(--app-text-secondary);
+}
+
+.transcribe-chip-list {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+}
+
+.transcribe-chip {
+	display: inline-flex;
+	align-items: center;
+	padding: 6px 10px;
+	border-radius: 999px;
+	background: var(--app-bg);
+	border: 1px solid var(--app-border);
+	color: var(--app-text-primary);
+	font-size: 12px;
+	font-weight: 700;
+}
+
+.transcribe-play-filebox {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	padding: 14px;
+	border-radius: 14px;
+	border: 1px solid var(--app-border);
+	background: var(--app-bg);
+}
+
+.transcribe-play-filebox strong {
+	font-size: 13px;
+	color: var(--app-text-primary);
+	word-break: break-all;
+}
+
+.transcribe-play-filebox span {
+	font-size: 12px;
+	color: var(--app-text-secondary);
+	word-break: break-all;
+}
+
+@media (max-width: 960px) {
+	.transcribe-hero,
+	.transcribe-grid,
+	.transcribe-play-grid,
+	.transcribe-play-hero,
+	.transcribe-settings-row {
+		grid-template-columns: 1fr;
+	}
+
+	.transcribe-settings-inline {
+		justify-content: flex-start;
+	}
+
+	.transcribe-settings-save-btn {
+		width: 100%;
+	}
+}
+
+@media (max-width: 640px) {
+	.transcribe-card,
+	.transcribe-play-card,
+	.transcribe-settings-card,
+	.transcribe-hero,
+	.transcribe-play-hero {
+		padding: 16px;
+		border-radius: 16px;
+	}
+
+	.transcribe-form-grid {
+		grid-template-columns: 1fr;
+	}
+
+	.transcribe-play-header-actions {
+		width: 100%;
+	}
+
+	.transcribe-play-header-actions > * {
+		flex: 1 1 calc(50% - 8px);
+	}
+
+	/* Reduce textarea height on small screens for better fit */
+	.transcribe-textarea {
+		min-height: 240px;
+	}
+
+	/* Make header actions stack more compactly on very small viewports */
+	.transcribe-play-header-actions {
+		gap: 6px;
+	}
+}

@@ -3,6 +3,8 @@ import { useAuth } from '../auth/AuthContext';
 import { useFirestoreData } from '../shared/useFirestoreData';
 import { useFirestoreSave } from '../shared/useFirestoreSave';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import type { SettingsSectionProps } from '../platform/registry';
 import { type TranscribeSettingsData, DEFAULT_TRANSCRIBE_SETTINGS, parseTranscribeSettings } from './constants';
 
@@ -52,25 +54,28 @@ export const TranscribeSettings = ({ addToast }: SettingsSectionProps) => {
   };
 
   if (loading) {
-    return <p style={{ fontSize: 13, color: 'var(--app-text-secondary)' }}>読み込み中...</p>;
+    return <p className="transcribe-settings-loading">読み込み中...</p>;
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      {/* デフォルト言語 */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <label style={{ fontSize: 14, fontWeight: 500 }}>デフォルト言語</label>
+    <div className="transcribe-settings-card">
+      <div className="transcribe-settings-head">
+        <div>
+          <div className="transcribe-settings-eyebrow">Transcribe</div>
+          <h4 className="transcribe-settings-title">アプリ設定</h4>
+        </div>
+        <p className="transcribe-settings-lead">文字起こしの初期値と保存ポリシーを調整できます。</p>
+      </div>
+
+      <div className="transcribe-settings-row">
+        <div className="transcribe-settings-row-copy">
+          <Label className="transcribe-settings-label">デフォルト言語</Label>
+          <p className="transcribe-settings-help">新規アップロード時に選択される初期値です。</p>
+        </div>
         <select
           value={defaultLanguage}
           onChange={(e) => setDefaultLanguage(e.target.value as 'auto' | 'ja' | 'en' | 'zh')}
-          style={{
-            padding: '6px 10px',
-            borderRadius: 4,
-            border: '1px solid var(--app-border)',
-            backgroundColor: 'var(--app-bg)',
-            color: 'var(--app-text)',
-            fontSize: 13,
-          }}
+          className="transcribe-select transcribe-select--settings"
         >
           <option value="auto">自動検出</option>
           <option value="ja">日本語</option>
@@ -79,43 +84,31 @@ export const TranscribeSettings = ({ addToast }: SettingsSectionProps) => {
         </select>
       </div>
 
-      {/* 自動削除設定 */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <label style={{ fontSize: 14, fontWeight: 500 }}>古いファイルの自動削除</label>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <input
+      <div className="transcribe-settings-row">
+        <div className="transcribe-settings-row-copy">
+          <Label className="transcribe-settings-label">古いファイルの自動削除</Label>
+          <p className="transcribe-settings-help">未使用の文字起こしを整理するための目安です。空欄で無効化します。</p>
+        </div>
+        <div className="transcribe-settings-inline">
+          <Input
             type="number"
             min="1"
             max="365"
             value={autoDeleteDays ?? ''}
             onChange={(e) => setAutoDeleteDays(e.target.value ? parseInt(e.target.value, 10) : null)}
             placeholder="無効"
-            style={{
-              width: 60,
-              padding: '6px 10px',
-              borderRadius: 4,
-              border: '1px solid var(--app-border)',
-              backgroundColor: 'var(--app-bg)',
-              color: 'var(--app-text)',
-              fontSize: 13,
-            }}
+            className="transcribe-settings-number"
           />
-          <span style={{ fontSize: 13, color: 'var(--app-text-secondary)' }}>日以上前</span>
+          <span className="transcribe-settings-inline-suffix">日以上前</span>
         </div>
       </div>
 
-      <p style={{ fontSize: 12, color: 'var(--app-text-secondary)', marginTop: 4 }}>
+      <p className="transcribe-settings-note">
         ※ 自動削除は手動では実行されません。定期的なクリーンアップに使用されます。
       </p>
 
-      {/* 保存ボタン */}
-      <div style={{ marginTop: 12 }}>
-        <Button
-          variant="default"
-          onClick={handleSave}
-          disabled={isSaving}
-          style={{ width: '100%' }}
-        >
+      <div className="transcribe-settings-actions">
+        <Button variant="default" onClick={handleSave} disabled={isSaving} className="transcribe-settings-save-btn">
           {isSaving ? '保存中...' : '保存'}
         </Button>
       </div>

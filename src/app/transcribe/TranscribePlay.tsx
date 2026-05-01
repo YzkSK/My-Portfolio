@@ -1,5 +1,5 @@
-import React, { useState, useCallback } from 'react';
-import { useSearchParams, useNavigate } from 'react-router-dom';
+import React, { useState, useCallback, useEffect } from 'react';
+import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import { useFirestoreData } from '@/app/shared/useFirestoreData';
 import { useToast } from '@/app/shared/useToast';
 import { usePageTitle } from '@/app/shared/usePageTitle';
@@ -8,6 +8,7 @@ import { parseTranscription, type Transcription } from './constants';
 import { buildTranscriptionExportData } from './exportUtils';
 import { doc, deleteDoc } from 'firebase/firestore';
 import { db } from '@/app/shared/firebase';
+import { AppLayout } from '@/app/platform/AppLayout';
 import {
   Dialog,
   DialogContent,
@@ -24,7 +25,6 @@ export const TranscribePlay: React.FC = () => {
   const { addToast } = useToast();
 
   const transcriptionId = searchParams.get('id');
-  usePageTitle(transcriptionId ? `文字起こし: ${transcriptionId}` : 'Text View');
 
   // Firestore から詳細を読み込み
   const path = currentUser?.uid && transcriptionId ? `users/${currentUser.uid}/transcribe/transcriptions/${transcriptionId}` : 'temp';
@@ -41,6 +41,13 @@ export const TranscribePlay: React.FC = () => {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showExportDialog, setShowExportDialog] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  usePageTitle(transcription?.fileName ?? '文字起こし');
+
+  useEffect(() => {
+    setEditText(transcription?.text ?? '');
+    setIsDirty(false);
+  }, [transcription?.transcriptionId, transcription?.text]);
 
   const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setEditText(e.target.value);
@@ -103,29 +110,121 @@ export const TranscribePlay: React.FC = () => {
   if (!transcription) return <div style={{ padding: 16 }}>データが見つかりません</div>;
 
   return (
-    <div className="transcribe-play-root" style={{ padding: 16 }}>
-      <div style={{ marginBottom: 16 }}>
-        <button onClick={() => navigate('/app/transcribe')} style={{ marginRight: 8 }}>
-          ← 戻る
-        </button>
-        <button onClick={onSave} disabled={!isDirty}>
-          保存
-        </button>
-        <button onClick={() => setShowExportDialog(true)} style={{ marginLeft: 8 }}>
-          エクスポート
-        </button>
-        <button onClick={() => setShowDeleteDialog(true)} style={{ marginLeft: 8, color: 'var(--app-error, red)' }}>
-          削除
-        </button>
+    <AppLayout
+      title={transcription.fileName}
+      className="px-[14px] pt-5 pb-[120px]"
+      headerActions={(
+        <div className="transcribe-play-header-actions">
+          <Button asChild variant="outline" size="sm">
+            <Link to="/app/transcribe">← 一覧</Link>
+          </Button>
+          <Button variant="outline" size="sm" onClick={onSave} disabled={!isDirty} aria-label="保存">
+            保存
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => setShowExportDialog(true)} aria-label="エクスポート">
+            エクスポート
+          </Button>
+          <Button variant="destructive" size="sm" onClick={() => setShowDeleteDialog(true)} aria-label="削除">
+            削除
+          </Button>
+        </div>
+      )}
+    >
+      <div className="transcribe-play-shell">
+        <section className="transcribe-play-hero" role="region" aria-labelledby="transcribe-play-title">
+          <div>
+            <div className="transcribe-eyebrow">Transcribe</div>
+            <h2 id="transcribe-play-title" className="transcribe-play-title">文字起こしを編集・整理する</h2>
+            <p className="transcribe-play-text">要約やキーワードを見ながら、本文をそのまま編集できます。</p>
+          </div>
+          <div className="transcribe-play-metadata">
+            <div className="transcribe-play-meta-item">
+              <span>言語</span>
+              <strong>{transcription.language ?? 'auto'}</strong>
+            </div>
+            <div className="transcribe-play-meta-item">
+              <span>信頼度</span>
+              <strong>{(transcription.confidence ?? 0).toFixed(2)}</strong>
+            </div>
+            <div className="transcribe-play-meta-item">
+              <span>更新</span>
+              <strong>{new Date(transcription.updatedAt ?? transcription.createdAt ?? 0).toLocaleString('ja-JP')}</strong>
+            </div>
+          </div>
+        </section>
+
+        <div className="transcribe-play-grid">
+          <section className="transcribe-play-card">
+            <div className="transcribe-play-card-header">
+              <div>
+                <h3 className="transcribe-card-title">本文</h3>
+                <p className="transcribe-card-desc">編集後は保存ボタンで Firestore に反映されます。</p>
+              </div>
+              {isDirty && <span className="transcribe-badge transcribe-badge--warning">未保存</span>}
+            </div>
+
+            <label htmlFor="transcribe-textarea" className="transcribe-textarea-field">
+              <span className="transcribe-field-label">テキスト</span>
+            </label>
+            <textarea
+              id="transcribe-textarea"
+              aria-label="文字起こしテキスト編集"
+              value={editText}
+              onChange={handleTextChange}
+              className="transcribe-textarea"
+              placeholder="文字起こしがここに表示されます"
+            />
+
+            {isDirty && <p className="transcribe-play-note">変更があります。保存してください。</p>}
+          </section>
+
+          <aside className="transcribe-play-sidebar">
+            <section className="transcribe-play-card transcribe-play-card--tight">
+              <div className="transcribe-play-card-header">
+                <h3 className="transcribe-card-title">要約</h3>
+              </div>
+              {transcription.summary ? (
+                  <p className="transcribe-play-summary">{transcription.summary}</p>
+                ) : (
+                  <p className="transcribe-play-empty">要約はありません。</p>
+                )}
+            </section>
+
+            <section className="transcribe-play-card transcribe-play-card--tight">
+              <div className="transcribe-play-card-header">
+                <h3 className="transcribe-card-title">キーワード</h3>
+              </div>
+              {transcription.keywords && transcription.keywords.length > 0 ? (
+                <div className="transcribe-chip-list" role="list" aria-label="キーワード">
+                  {transcription.keywords.map((kw) => (
+                    <span key={kw} className="transcribe-chip" role="listitem">{kw}</span>
+                  ))}
+                </div>
+              ) : (
+                <p className="transcribe-play-empty">キーワードはありません。</p>
+              )}
+            </section>
+
+            <section className="transcribe-play-card transcribe-play-card--tight">
+              <div className="transcribe-play-card-header">
+                <h3 className="transcribe-card-title">元ファイル</h3>
+              </div>
+              <div className="transcribe-play-filebox">
+                <strong>{transcription.fileName}</strong>
+                <span>{transcription.fileId ?? 'fileId なし'}</span>
+              </div>
+            </section>
+          </aside>
+        </div>
       </div>
 
       {/* エクスポート選択ダイアログ */}
       <Dialog open={showExportDialog} onOpenChange={setShowExportDialog}>
-        <DialogContent style={{ maxWidth: 420 }} aria-describedby={undefined}>
+        <DialogContent style={{ maxWidth: 420 }} aria-describedby={"export-desc"}>
           <DialogHeader>
             <DialogTitle>エクスポート形式を選択</DialogTitle>
           </DialogHeader>
-          <p style={{
+          <p id="export-desc" style={{
             fontSize: 13,
             color: 'var(--app-text-secondary)',
             marginBottom: 16,
@@ -145,11 +244,11 @@ export const TranscribePlay: React.FC = () => {
 
       {/* 削除確認ダイアログ */}
       <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-        <DialogContent style={{ maxWidth: 400 }} aria-describedby={undefined}>
+        <DialogContent style={{ maxWidth: 400 }} aria-describedby={"delete-desc"}>
           <DialogHeader>
             <DialogTitle>文字起こしを削除</DialogTitle>
           </DialogHeader>
-          <p style={{
+          <p id="delete-desc" style={{
             fontSize: 13,
             color: 'var(--app-text-secondary)',
             marginBottom: 16,
@@ -188,53 +287,7 @@ export const TranscribePlay: React.FC = () => {
           </div>
         </DialogContent>
       </Dialog>
-
-      <div style={{ marginBottom: 12 }}>
-        <h2>{transcription.fileName}</h2>
-        <div style={{ fontSize: '0.9em', color: 'var(--app-text-muted, #666)' }}>
-          言語: {transcription.language} | 信頼度: {(transcription.confidence ?? 0).toFixed(2)}
-        </div>
-      </div>
-
-      {transcription.summary && (
-        <div style={{ marginBottom: 12, padding: 8, background: 'var(--app-bg-muted, #f5f5f5)', borderRadius: 4 }}>
-          <strong>要約:</strong> {transcription.summary}
-        </div>
-      )}
-
-      {transcription.keywords && transcription.keywords.length > 0 && (
-        <div style={{ marginBottom: 12 }}>
-          <strong>キーワード:</strong>{' '}
-          {transcription.keywords.map((kw) => (
-            <span key={kw} style={{ display: 'inline-block', background: 'var(--app-bg-secondary, #eee)', padding: '2px 6px', margin: '0 4px', borderRadius: 3, fontSize: '0.9em' }}>
-              {kw}
-            </span>
-          ))}
-        </div>
-      )}
-
-      <div>
-        <label>
-          テキスト:
-          <textarea
-            value={editText}
-            onChange={handleTextChange}
-            style={{
-              width: '100%',
-              minHeight: '300px',
-              padding: 8,
-              fontFamily: 'monospace',
-              fontSize: '0.95em',
-              border: '1px solid var(--app-border)',
-              borderRadius: 4,
-              marginTop: 8,
-            }}
-          />
-        </label>
-      </div>
-
-      {isDirty && <div style={{ marginTop: 8, color: 'var(--app-warning, orange)' }}>※ 変更があります。保存してください。</div>}
-    </div>
+    </AppLayout>
   );
 };
 
