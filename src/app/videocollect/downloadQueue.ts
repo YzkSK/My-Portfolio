@@ -211,14 +211,25 @@ function launchWithBgFetch(opts: {
   fileSizeBytes?: number;
 }): void {
   (async () => {
+    const constrained = isConstrainedDevice();
     console.info('[downloadQueue] launchWithBgFetch', {
       fileId: opts.fileId,
       quality: opts.quality,
       fileSizeBytes: opts.fileSizeBytes ?? 0,
+      constrained,
     });
     if ('serviceWorker' in navigator) {
       const started = await tryStartBgFetch(opts).catch(() => false);
       if (started) return;
+    }
+    if (constrained) {
+      console.warn('[downloadQueue] constrained device has no BG Fetch support; stopping to avoid crash', {
+        fileId: opts.fileId,
+      });
+      if (tasks.has(opts.fileId)) {
+        setError(opts.fileId, VC_ERROR_CODES.OFFLINE_SAVE);
+      }
+      return;
     }
     console.warn('[downloadQueue] BG Fetch unavailable/failed, fallback to in-page original download', {
       fileId: opts.fileId,
@@ -243,14 +254,25 @@ function launchCompressed(opts: {
   fileSizeBytes?: number;
 }): void {
   (async () => {
+    const constrained = isConstrainedDevice();
     console.info('[downloadQueue] launchCompressed', {
       fileId: opts.fileId,
       quality: opts.quality,
       fileSizeBytes: opts.fileSizeBytes ?? 0,
+      constrained,
     });
     if ('serviceWorker' in navigator) {
       const started = await tryStartBgFetch(opts).catch(() => false);
       if (started) return;
+    }
+    if (constrained) {
+      console.warn('[downloadQueue] constrained device has no BG Fetch support; stopping to avoid crash', {
+        fileId: opts.fileId,
+      });
+      if (tasks.has(opts.fileId)) {
+        setError(opts.fileId, VC_ERROR_CODES.OFFLINE_SAVE);
+      }
+      return;
     }
     console.warn('[downloadQueue] BG Fetch unavailable/failed, fallback to in-page fetch+compress', {
       fileId: opts.fileId,

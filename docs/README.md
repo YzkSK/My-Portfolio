@@ -7,7 +7,7 @@
 | 単体テスト | 13 | - | ✅ 全件パス |
 | 結合テスト | 16 | - | ✅ 全件パス |
 | Worker 単体テスト | 1 | 26 | ✅ 全件パス |
-| **合計** | **29** | **286** | ✅ |
+| **合計** | **31** | **291** | ✅ |
 
 テストコマンド: ルート `npm test`、Worker `cd workers/notification-cron && npm test`
 
@@ -27,6 +27,7 @@
 | [timetable.md](timetable.md) | `/app/timetable` | 時間割 |
 | [quiz.md](quiz.md) | `/app/quiz` | 問題集管理 |
 | [quiz-play.md](quiz-play.md) | `/app/quiz/play` | 問題集プレイ |
+| [transcribe.md](transcribe.md) | `/app/transcribe` | 動画の文字起こし・要約 |
 | [videocollect.md](videocollect.md) | `/app/videocollect` | Google Drive 動画ビューワー |
 | [videocollect.md](videocollect.md) | `/app/videocollect/play` | 動画プレイヤー |
 | [error-pages.md](error-pages.md) | - | エラーページ (404/403/500/503) |
