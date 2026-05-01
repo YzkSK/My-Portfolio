@@ -1,5 +1,5 @@
 import { lazy, type ComponentType, type LazyExoticComponent } from 'react';
-import { deleteDoc, doc, getDoc, setDoc } from 'firebase/firestore';
+import { deleteDoc, doc, getDoc, setDoc, query, collection, getDocs } from 'firebase/firestore';
 import { db } from '../shared/firebase';
 import { clearImageCache } from '../quiz/imageCache';
 
@@ -162,6 +162,38 @@ export const APP_REGISTRY: readonly AppMeta[] = [
     },
     SettingsSection: lazy(() =>
       import('../videocollect/VideocollectSettings').then(m => ({ default: m.VideocollectSettings }))
+    ),
+  },
+  {
+    id: 'transcribe',
+    label: '文字起こし',
+    icon: '📝',
+    description: '動画の文字起こし・要約・キーワード抽出',
+    route: {
+      path: 'transcribe',
+      getComponent: () => import('../transcribe/Transcribe').then(m => ({ default: m.Transcribe })),
+      protected: true,
+    },
+    extraRoutes: [
+      {
+        path: 'transcribe/play',
+        getComponent: () => import('../transcribe/TranscribePlay').then(m => ({ default: m.TranscribePlay })),
+        protected: true,
+      },
+    ],
+    migrateCheckPath: uid => `users/${uid}/transcribe/transcriptions`,
+    onUninstall: async ({ deleteData, uid }) => {
+      if (deleteData) {
+        // transcriptions コレクション内の全ドキュメントを削除
+        const q = query(collection(db, `users/${uid}/transcribe/transcriptions`));
+        const snap = await getDocs(q);
+        await Promise.all(snap.docs.map(d => deleteDoc(d.ref)));
+        // transcribe/data ドキュメント自体も削除
+        await deleteDoc(doc(db, `users/${uid}/transcribe/data`));
+      }
+    },
+    SettingsSection: lazy(() =>
+      import('../transcribe/TranscribeSettings').then(m => ({ default: m.TranscribeSettings }))
     ),
   },
 ];

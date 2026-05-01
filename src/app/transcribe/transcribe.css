@@ -1,0 +1,6 @@
+.transcribe-root { padding: 16px; }
+.upload-area { border: 1px dashed var(--app-border, #ccc); padding: 12px; border-radius: 6px; }
+.file-label { display: block; margin-bottom: 8px; }
+.controls { margin-top: 8px; }
+.message { margin-top: 8px; color: var(--app-text, #222); }
+.result { margin-top: 12px; background: var(--app-bg, #fff); padding: 8px; border-radius: 6px; }
