@@ -24,6 +24,9 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
         const value = snap.data().darkMode as boolean;
         setDarkMode(value);
         localStorage.setItem('tt-dark-mode', String(value));
+        // Apply classes immediately to reduce timing flakiness in tests
+        document.documentElement.classList.toggle('app-theme-light', !value);
+        document.documentElement.classList.toggle('dark', value);
       }
     }).catch(() => {});
   }, [currentUser]);
