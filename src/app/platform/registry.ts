@@ -138,7 +138,7 @@ export const APP_REGISTRY: readonly AppMeta[] = [
     id: 'transcribe',
     label: '文字起こし',
     icon: '🎙️',
-    description: '動画の音声を Gemini で文字起こし・要約',
+    description: '音声ファイルを Gemini で文字起こし・要約',
     route: {
       path: 'transcribe',
       getComponent: () => import('../transcribe/Transcribe').then(m => ({ default: m.Transcribe })),

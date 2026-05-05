@@ -50,14 +50,19 @@ export const TRANSCRIBE_ERROR_CODES = {
   BAD_RESPONSE: 'E105',
 } as const;
 
-export const SUPPORTED_VIDEO_TYPES = [
-  'video/mp4',
-  'video/quicktime',
-  'video/webm',
-  'video/avi',
+export const SUPPORTED_AUDIO_TYPES = [
+  'audio/mpeg',       // mp3
+  'audio/mp4',        // m4a
+  'audio/wav',
+  'audio/x-wav',
+  'audio/aac',
+  'audio/ogg',
+  'audio/flac',
+  'audio/x-flac',
+  'audio/webm',
 ];
 
-export const MAX_UPLOAD_BYTES = 100 * 1024 * 1024; // 100MB
+export const MAX_UPLOAD_BYTES = 50 * 1024 * 1024; // 50MB
 
 export type TranscribeSettingsData = {
   defaultLanguage: 'auto' | 'ja' | 'en' | 'zh';

@@ -1,10 +1,10 @@
-import { SUPPORTED_VIDEO_TYPES, MAX_UPLOAD_BYTES, TRANSCRIBE_ERROR_CODES } from './constants';
+import { SUPPORTED_AUDIO_TYPES, MAX_UPLOAD_BYTES, TRANSCRIBE_ERROR_CODES } from './constants';
 
 const GEMINI_API_BASE = 'https://generativelanguage.googleapis.com';
 const TRANSCRIBE_MODEL = 'gemini-3.1-flash-lite-preview';
 
-export function validateVideoFile(file: File): { valid: boolean; error?: string } {
-  if (!SUPPORTED_VIDEO_TYPES.includes(file.type)) {
+export function validateAudioFile(file: File): { valid: boolean; error?: string } {
+  if (!SUPPORTED_AUDIO_TYPES.includes(file.type)) {
     return { valid: false, error: TRANSCRIBE_ERROR_CODES.INVALID_FILE_TYPE };
   }
   if (file.size > MAX_UPLOAD_BYTES) {

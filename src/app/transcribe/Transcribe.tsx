@@ -4,7 +4,7 @@ import { useFirestoreData } from '@/app/shared/useFirestoreData';
 import { useToast } from '@/app/shared/useToast';
 import { useSetLoading } from '@/app/shared/AppLoadingContext';
 import { usePageTitle } from '@/app/shared/usePageTitle';
-import { validateVideoFile, uploadVideoToGeminiFiles, generateTranscription } from './transcriptionService';
+import { validateAudioFile, uploadVideoToGeminiFiles, generateTranscription } from './transcriptionService';
 import { parseTranscription, firestorePaths, TRANSCRIBE_ERROR_CODES, type Transcription } from './constants';
 import { errorMsg } from '../platform/errors';
 import { db } from '@/app/shared/firebase';
@@ -45,12 +45,12 @@ export const Transcribe: React.FC = () => {
 
   const FILE_ERROR_MESSAGES: Record<string, string> = {
     [TRANSCRIBE_ERROR_CODES.INVALID_FILE_TYPE]: errorMsg('非対応のファイル形式です', TRANSCRIBE_ERROR_CODES.INVALID_FILE_TYPE),
-    [TRANSCRIBE_ERROR_CODES.TOO_LARGE]: errorMsg('ファイルサイズが上限（100MB）を超えています', TRANSCRIBE_ERROR_CODES.TOO_LARGE),
+    [TRANSCRIBE_ERROR_CODES.TOO_LARGE]: errorMsg('ファイルサイズが上限（50MB）を超えています', TRANSCRIBE_ERROR_CODES.TOO_LARGE),
   };
 
   const handleFile = (f: File | null) => {
     if (!f) return;
-    const v = validateVideoFile(f);
+    const v = validateAudioFile(f);
     if (!v.valid) {
       const msg = v.error ? (FILE_ERROR_MESSAGES[v.error] ?? errorMsg('ファイルが無効です', v.error)) : 'ファイルが無効です';
       addToast(msg, 'error');
@@ -159,8 +159,8 @@ export const Transcribe: React.FC = () => {
           {/* アップロード */}
           <section className="tr-card">
             <div className="tr-card-header">
-              <h3 className="tr-card-title">新しい動画をアップロード</h3>
-              <p className="tr-card-desc">動画ファイルを選ぶか、ここにドラッグして開始します。</p>
+              <h3 className="tr-card-title">音声ファイルをアップロード</h3>
+              <p className="tr-card-desc">音声ファイルを選ぶか、ここにドラッグして開始します。</p>
             </div>
 
             <div
@@ -176,11 +176,11 @@ export const Transcribe: React.FC = () => {
               <input
                 ref={inputRef}
                 type="file"
-                accept="video/*"
+                accept="audio/*,.m4a,.flac"
                 onChange={onFileChange}
                 disabled={processing}
                 className="tr-file-input"
-                aria-label="動画ファイルを選択"
+                aria-label="音声ファイルを選択"
               />
               <div className="tr-dropzone-icon">{file ? '✓' : '⤴'}</div>
               {file ? (
@@ -215,7 +215,7 @@ export const Transcribe: React.FC = () => {
 
               <div className="tr-note">
                 <span className="tr-note-label">対応形式</span>
-                <span className="tr-note-value">MP4 / MOV / WebM / AVI</span>
+                <span className="tr-note-value">MP3 / M4A / WAV / AAC / OGG / FLAC</span>
               </div>
             </div>
 
