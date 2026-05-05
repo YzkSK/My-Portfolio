@@ -150,6 +150,68 @@ export const MyAppSettings = ({ addToast }: SettingsSectionProps) => {
 }
 ```
 
+### UI デザイン・コンポーネント規約
+
+新しいアプリはプラットフォーム全体で一貫した見た目になるように、以下のコンポーネント規約に従ってください。特に `Transcribe` のようなユーザー向け機能は、既存の `Quiz` / `Videocollect` / `Timetable` と同じ言語で実装する必要があります。
+
+- **レイアウト**: ルートは必ず `AppLayout` を使用する。ページ内は「カードを積む」構造にして情報密度を合わせる。
+  - 見出しと説明はカードの上部に置く。
+  - 操作ボタンはカード右上またはカード下部に整列。
+
+- **共通 UI コンポーネント**: 可能な限り既存の共有コンポーネントを使う。
+  - `Button`（`variant='default' | 'outline' | 'destructive'`）
+  - `Input`, `Label`, `Textarea`（プロジェクト内の UI ライブラリを使用）
+  - `Dialog`, `DialogContent`, `DialogHeader`, `DialogTitle`（Radix ベースのモーダル）
+  - `AppMenu`, `AppHeader`, `AppFooter` を必要に応じて活用
+
+- **カード・スペーシング**:
+  - カードは `padding: 16px` 前後、角丸 `8px` を目安にする。
+  - セクション間は `gap: 12-20px` を保つ。
+  - テキストは左揃え、補助説明は `font-size: 13px`、`color: var(--app-text-secondary)` を使う。
+
+- **フォームとテキスト**:
+  - `input` / `textarea` のフォントサイズは 16px 以上（iOS 自動ズーム回避）。
+  - `autoFocus` は使わない。
+  - 重要な説明は `Label` と補助テキストで明示する。
+
+- **ダイアログ / 確認フロー**:
+  - 単純な確認は `Dialog` を使う（`window.confirm` を直接使わない）。
+  - 危険操作は明示的なラベル（例: 削除は `destructive` / 赤系ボタン）
+
+- **トースト・ロード**:
+  - ユーザーへのフィードバックは `useToast` を使って簡潔に表示する。
+  - 長時間処理は `useSetLoading('appId', true)` を使ってオーバーレイを出す。
+
+- **エクスポート / シェア**:
+  - エクスポートは選択ダイアログを使う（TXT / JSON / 将来 PDF）。
+  - JSON はメタデータを持つフォーマットにしてバージョンを振る（例: `exportVersion`）。
+
+- **スタイル変数命名**:
+  - アプリ固有変数は `--{2-4文字ID}-{role}`（例: `--tr-bg`, `--tr-text`）に従う。
+
+例: `Transcribe` のページ骨格
+
+```tsx
+return (
+  <AppLayout title="文字起こし" dbError={dbError} toasts={toasts}>
+    <div className="transcribe-root">
+      <section className="card">
+        <h2>動画をアップロード</h2>
+        {/* ファイル入力・言語選択・開始ボタン（Button を使用） */}
+      </section>
+
+      <section className="card">
+        <h3>過去の文字起こし</h3>
+        {/* 一覧をカードで表示。クリックで詳細へ */}
+      </section>
+    </div>
+  </AppLayout>
+);
+```
+
+これらの規約は、Visual 一貫性とアクセシビリティ、モバイル UX（特に iOS）に重点を置いています。
+
+
 - `SettingsSection` は `lazy()` でラップして遅延読み込みにすること（設定ページの初回ロードを軽くするため）
 - `addToast` はトースト表示専用の prop。データ保存は `useFirestoreData` / `useFirestoreSave` を内部で呼ぶ
 - 設定ページには `id="settings-{appId}"` のアンカーで自動スクロール対応のサイドバーリンクが追加される
