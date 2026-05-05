@@ -135,6 +135,23 @@ export const APP_REGISTRY: readonly AppMeta[] = [
     },
   },
   {
+    id: 'transcribe',
+    label: '文字起こし',
+    icon: '🎙️',
+    description: '動画の音声を Gemini で文字起こし・要約',
+    route: {
+      path: 'transcribe',
+      getComponent: () => import('../transcribe/Transcribe').then(m => ({ default: m.Transcribe })),
+      protected: true,
+    },
+    migrateCheckPath: uid => `users/${uid}/transcribe/data`,
+    onUninstall: async ({ deleteData, uid }) => {
+      if (deleteData) {
+        await deleteDoc(doc(db, `users/${uid}/transcribe/data`));
+      }
+    },
+  },
+  {
     id: 'videocollect',
     label: '動画',
     icon: '🎬',
