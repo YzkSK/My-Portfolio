@@ -62,7 +62,7 @@ export const SUPPORTED_AUDIO_TYPES = [
   'audio/webm',
 ];
 
-export const MAX_UPLOAD_BYTES = 50 * 1024 * 1024; // 50MB
+export const MAX_UPLOAD_BYTES = 100 * 1024 * 1024; // 100MB
 
 export type TranscribeSettingsData = {
   defaultLanguage: 'auto' | 'ja' | 'en' | 'zh';

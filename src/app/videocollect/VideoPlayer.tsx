@@ -18,6 +18,30 @@ import { useToast } from '../shared/useToast';
 const SPEEDS = [0.5, 0.75, 1, 1.25, 1.5, 2];
 const AUTOPLAY_SECONDS = 5;
 
+const normalizeFileName = (name: string) =>
+  name.replace(/\.[^.]+$/, '').toLowerCase();
+
+function lcsLength(a: string, b: string): number {
+  const m = a.length, n = b.length;
+  let max = 0;
+  const dp = new Array(n + 1).fill(0);
+  for (let i = 0; i < m; i++) {
+    let prev = 0;
+    for (let j = 0; j < n; j++) {
+      const tmp = dp[j + 1];
+      dp[j + 1] = a[i] === b[j] ? prev + 1 : 0;
+      if (dp[j + 1] > max) max = dp[j + 1];
+      prev = tmp;
+    }
+  }
+  return max;
+}
+
+function lcsScore(a: string, b: string): number {
+  if (a.length === 0 || b.length === 0) return 0;
+  return lcsLength(a, b) / Math.min(a.length, b.length);
+}
+
 export const VideoPlayer = () => {
   const { currentUser } = useAuth();
   const navigate = useNavigate();
@@ -36,8 +60,9 @@ export const VideoPlayer = () => {
   const [recLoadFailed, setRecLoadFailed] = useState(false);
   const [recLoading, setRecLoading] = useState(false);
   const [randomSeed, setRandomSeed] = useState(0);
+  const [forceRandom, setForceRandom] = useState(false);
   const [expandedSameTag, setExpandedSameTag] = useState(false);
-  const [expandedRandom, setExpandedRandom] = useState(false);
+  const [expandedSimilar, setExpandedSimilar] = useState(false);
   const REC_INITIAL = 12;
 
   const [offlineSaved, setOfflineSaved] = useState(false);
@@ -56,19 +81,29 @@ export const VideoPlayer = () => {
     [vcData.tags],
   );
 
-  const { sameTagFiles, randomFiles } = useMemo(() => {
-    if (!allFiles) return { sameTagFiles: [], randomFiles: [] };
+  const { sameTagFiles, similarFiles, isSimilarFallback } = useMemo(() => {
+    if (!allFiles) return { sameTagFiles: [], similarFiles: [], isSimilarFallback: true };
     const same = fileTags.length > 0
-      ? allFiles.filter(f => (vcData.tags[f.id] ?? []).some(t => fileTags.includes(t)))
+      ? allFiles.filter(f => f.id !== fileId && (vcData.tags[f.id] ?? []).some(t => fileTags.includes(t)))
       : [];
     const sameIds = new Set(same.map(f => f.id));
-    const random = allFiles
-      .filter(f => !sameIds.has(f.id))
-      .sort(() => Math.random() - 0.5)
-      .slice(0, 12);
-    return { sameTagFiles: same, randomFiles: random };
+    const others = allFiles.filter(f => !sameIds.has(f.id) && f.id !== fileId);
+
+    if (!forceRandom) {
+      const currentName = normalizeFileName(fileName);
+      const scored = others
+        .map(f => ({ file: f, score: lcsScore(currentName, normalizeFileName(f.name)) }))
+        .filter(x => x.score >= 0.3)
+        .sort((a, b) => b.score - a.score);
+      if (scored.length > 0) {
+        return { sameTagFiles: same, similarFiles: scored.map(x => x.file), isSimilarFallback: false };
+      }
+    }
+
+    const random = others.sort(() => Math.random() - 0.5).slice(0, 12);
+    return { sameTagFiles: same, similarFiles: random, isSimilarFallback: true };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [allFiles, randomSeed]);
+  }, [allFiles, randomSeed, forceRandom, fileName, fileId]);
 
   const saveVcData = useFirestoreSave<VcData>({
     currentUser,
@@ -114,6 +149,11 @@ export const VideoPlayer = () => {
   const [isSeeking, setIsSeeking] = useState(false);
   const [seekPreview, setSeekPreview] = useState(0);
   const [seekTarget, setSeekTarget] = useState<number | null>(null);
+
+  useEffect(() => {
+    setForceRandom(false);
+    setExpandedSimilar(false);
+  }, [fileId]);
 
   // オフライン保存状態をマウント時に確認
   useEffect(() => {
@@ -225,7 +265,7 @@ export const VideoPlayer = () => {
     setIsSeeking(false);
     setSeekTarget(null);
     setExpandedSameTag(false);
-    setExpandedRandom(false);
+    setExpandedSimilar(false);
     cancelAutoplay();
     window.scrollTo({ top: 0, behavior: 'smooth' });
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -554,7 +594,7 @@ export const VideoPlayer = () => {
             setPlaying(false);
             setShowControls(true);
             if (autoplayNext) {
-              const next = sameTagFiles[0] ?? randomFiles[0] ?? null;
+              const next = sameTagFiles[0] ?? similarFiles[0] ?? null;
               if (next) startAutoplay(next);
             }
           }}
@@ -1031,7 +1071,7 @@ export const VideoPlayer = () => {
           </div>
         </div>
       )}
-      {!recLoading && !recLoadFailed && (sameTagFiles.length > 0 || randomFiles.length > 0) && (
+      {!recLoading && !recLoadFailed && (sameTagFiles.length > 0 || similarFiles.length > 0) && (
         <div className="vc-recommendations">
           {sameTagFiles.length > 0 && (
             <div className="vc-rec-section">
@@ -1078,15 +1118,25 @@ export const VideoPlayer = () => {
               )}
             </div>
           )}
-          {randomFiles.length > 0 && (
+          {similarFiles.length > 0 && (
             <div className="vc-rec-section">
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <p className="vc-recommendations-label">おすすめ</p>
+                <p className="vc-recommendations-label">
+                  {!isSimilarFallback && !forceRandom ? '名前が似ている動画' : 'おすすめ'}
+                </p>
                 <button
-                  onClick={() => { setRandomSeed(s => s + 1); setExpandedRandom(false); }}
+                  onClick={() => {
+                    if (!isSimilarFallback && !forceRandom) {
+                      setForceRandom(true);
+                      setRandomSeed(s => s + 1);
+                    } else {
+                      setRandomSeed(s => s + 1);
+                    }
+                    setExpandedSimilar(false);
+                  }}
                   style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--vc-text-secondary)', padding: 2, display: 'flex', alignItems: 'center' }}
-                  aria-label="おすすめをシャッフル"
-                  title="シャッフル"
+                  aria-label={!isSimilarFallback && !forceRandom ? 'おすすめに切り替え' : 'おすすめをシャッフル'}
+                  title={!isSimilarFallback && !forceRandom ? 'おすすめに切り替え' : 'シャッフル'}
                 >
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M17.65 6.35A7.958 7.958 0 0 0 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0 1 12 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
@@ -1094,7 +1144,7 @@ export const VideoPlayer = () => {
                 </button>
               </div>
               <div className="vc-rec-grid">
-                {(expandedRandom ? randomFiles : randomFiles.slice(0, REC_INITIAL)).map(f => (
+                {(expandedSimilar ? similarFiles : similarFiles.slice(0, REC_INITIAL)).map(f => (
                   <Link
                     key={f.id}
                     to={`/app/videocollect/play?id=${encodeURIComponent(f.id)}&name=${encodeURIComponent(f.name)}`}
@@ -1116,9 +1166,9 @@ export const VideoPlayer = () => {
                   </Link>
                 ))}
               </div>
-              {randomFiles.length > REC_INITIAL && (
-                <button className="vc-rec-expand-btn" onClick={() => setExpandedRandom(v => !v)}>
-                  {expandedRandom ? '閉じる' : `さらに ${randomFiles.length - REC_INITIAL} 件表示`}
+              {similarFiles.length > REC_INITIAL && (
+                <button className="vc-rec-expand-btn" onClick={() => setExpandedSimilar(v => !v)}>
+                  {expandedSimilar ? '閉じる' : `さらに ${similarFiles.length - REC_INITIAL} 件表示`}
                 </button>
               )}
             </div>
