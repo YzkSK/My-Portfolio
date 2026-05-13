@@ -45,7 +45,7 @@ export const Transcribe: React.FC = () => {
 
   const FILE_ERROR_MESSAGES: Record<string, string> = {
     [TRANSCRIBE_ERROR_CODES.INVALID_FILE_TYPE]: errorMsg('非対応のファイル形式です', TRANSCRIBE_ERROR_CODES.INVALID_FILE_TYPE),
-    [TRANSCRIBE_ERROR_CODES.TOO_LARGE]: errorMsg('ファイルサイズが上限（50MB）を超えています', TRANSCRIBE_ERROR_CODES.TOO_LARGE),
+    [TRANSCRIBE_ERROR_CODES.TOO_LARGE]: errorMsg('ファイルサイズが上限（100MB）を超えています', TRANSCRIBE_ERROR_CODES.TOO_LARGE),
   };
 
   const handleFile = (f: File | null) => {
